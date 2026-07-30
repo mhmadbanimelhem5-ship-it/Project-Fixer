@@ -177,11 +177,10 @@ export default function EmergencyTabScreen() {
   // countdown
   const [requestedAt, setRequestedAt] = useState<number | null>(null);
   const [countdown, setCountdown] = useState('');
-  const didInit = useRef(false);
 
   const isBeneficiary = legacy.userRole === 'beneficiary';
   const ownerName = legacy.beneficiaryOwnerName || '';
-  const ownerEmail = legacy.ownerEmail || '';
+  const ownerEmail = (legacy.ownerEmail || '').trim().toLowerCase();
 
   useEffect(() => () => { if (toastRef.current) clearTimeout(toastRef.current); }, []);
 
@@ -191,33 +190,64 @@ export default function EmergencyTabScreen() {
     toastRef.current = setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // ── On mount: restore phase from server (handles app-reopen) ───────────
   const [ownerNotifCount, setOwnerNotifCount] = useState(0);
+
+  // All beneficiary state belongs to the current ownerEmail. Reset it before
+  // starting any request for a new owner so the previous owner's data cannot
+  // remain visible while the new request is in flight.
+  const resetBeneficiaryState = useCallback(() => {
+    setPhase('idle');
+    setVoteStatus(null);
+    setOwnerNotifCount(0);
+    setRequestedAt(null);
+    setCountdown('');
+    setOtpSent(false);
+    setOtpCode('');
+    setVaultUnlocked(false);
+    setToast(null);
+  }, []);
+
+  // ── Restore phase from server whenever ownerEmail changes ───────────────
   useEffect(() => {
-    if (!isBeneficiary || !ownerEmail || didInit.current) return;
-    didInit.current = true;
+    let mounted = true;
+    resetBeneficiaryState();
+
+    if (!isBeneficiary || !ownerEmail) {
+      return () => { mounted = false; };
+    }
+
     const init = async () => {
-      const s = await fetchServerAbsenceStatus(ownerEmail);
-      if (!s || s.status === 'none') return;
-      if (s.ownerNotifCount !== undefined) setOwnerNotifCount(s.ownerNotifCount);
-      if (s.requestedAt) setRequestedAt(s.requestedAt);
-      if (s.status === 'pending_owner') {
-        setPhase('awaiting_owner');
-      } else if (s.status === 'pending_beneficiary_confirmation') {
-        setPhase('awaiting_confirm');
-      } else if (s.status === 'pending_guardian_vote') {
-        setPhase('voting');
-        const vs = await fetchGuardianVoteStatus(ownerEmail).catch(() => null);
-        if (vs) setVoteStatus(vs);
-      } else if (s.status === 'cancelled_by_owner') {
-        setPhase('cancelled');
-      } else if (s.status === 'guardian_approved' || s.status === 'guardian_rejected') {
-        setPhase('complete');
-        setOtpSent(true);
+      try {
+        const status = await fetchServerAbsenceStatus(ownerEmail);
+        if (!mounted) return;
+
+        if (!status || status.status === 'none') return;
+        if (status.ownerNotifCount !== undefined) setOwnerNotifCount(status.ownerNotifCount);
+        if (status.requestedAt) setRequestedAt(status.requestedAt);
+
+        if (status.status === 'pending_owner') {
+          setPhase('awaiting_owner');
+        } else if (status.status === 'pending_beneficiary_confirmation') {
+          setPhase('awaiting_confirm');
+        } else if (status.status === 'pending_guardian_vote') {
+          setPhase('voting');
+          const vote = await fetchGuardianVoteStatus(ownerEmail);
+          if (mounted && vote) setVoteStatus(vote);
+        } else if (status.status === 'cancelled_by_owner') {
+          setPhase('cancelled');
+        } else if (status.status === 'guardian_approved' || status.status === 'guardian_rejected') {
+          setPhase('complete');
+          setOtpSent(true);
+        }
+      } catch {
+        // Keep the reset/idle state if the new owner's data cannot be loaded.
+        if (mounted) resetBeneficiaryState();
       }
     };
-    void init().catch(() => {});
-  }, [isBeneficiary, ownerEmail]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    void init();
+    return () => { mounted = false; };
+  }, [isBeneficiary, ownerEmail, resetBeneficiaryState]);
 
   // ── Countdown ticker (awaiting_owner phase) ──────────────────────────────
   useEffect(() => {
@@ -231,9 +261,10 @@ export default function EmergencyTabScreen() {
   // ── Poll owner response every 30s (awaiting_owner phase) ───────────────
   useEffect(() => {
     if (phase !== 'awaiting_owner' || !ownerEmail) return;
+    let mounted = true;
     const poll = async () => {
       const s = await fetchServerAbsenceStatus(ownerEmail);
-      if (!s) return;
+      if (!mounted || !s) return;
       if (s.ownerNotifCount !== undefined) setOwnerNotifCount(s.ownerNotifCount);
       if (s.requestedAt) setRequestedAt(s.requestedAt);
       if (s.status === 'cancelled_by_owner') {
@@ -250,15 +281,19 @@ export default function EmergencyTabScreen() {
     };
     void poll().catch(() => {});
     const id = setInterval(() => void poll().catch(() => {}), 30_000);
-    return () => clearInterval(id);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
   }, [phase, ownerEmail, showToast, t, c.green, c.orange, addAuditEntry]);
 
   // ── Poll guardian vote status every 20s ─────────────────────────────────
   useEffect(() => {
     if (phase !== 'voting' || !ownerEmail) return;
+    let mounted = true;
     const poll = async () => {
       const status = await fetchGuardianVoteStatus(ownerEmail);
-      if (!status) return;
+      if (!mounted || !status) return;
       setVoteStatus(status);
       if (status.quorumReached) {
         setPhase('complete');
@@ -269,38 +304,24 @@ export default function EmergencyTabScreen() {
     };
     void poll().catch(() => {});
     const id = setInterval(() => void poll().catch(() => {}), 20_000);
-    return () => clearInterval(id);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
   }, [phase, ownerEmail, showToast, t, c.green, addAuditEntry]);
 
   // ── Handle setup modal confirm ────────────────────────────────────────────
-  // Reset ALL phase state when ownerEmail changes so the init effect re-runs
-  // for the new owner. Without this, changing the owner email leaves stale phase/
-  // vote/countdown state from the previous owner visible.
   const handleBeneficiaryConfirm = (email: string, name: string) => {
+    resetBeneficiaryState();
     updateLegacy({ userRole: 'beneficiary', ownerEmail: email, beneficiaryOwnerName: name });
     setShowSetupModal(false);
-    setPhase('idle');
-    setVoteStatus(null);
-    setOtpSent(false);
-    setVaultUnlocked(false);
-    setOwnerNotifCount(0);
-    setRequestedAt(null);
-    setCountdown('');
-    didInit.current = false; // allow init effect to re-run for the new ownerEmail
   };
 
   // ── Toggle role: beneficiary ↔ owner ─────────────────────────────────────
   const handleToggleRole = () => {
     if (isBeneficiary) {
+      resetBeneficiaryState();
       updateLegacy({ userRole: 'owner', ownerEmail: undefined, beneficiaryOwnerName: undefined });
-      setPhase('idle');
-      setVoteStatus(null);
-      setOtpSent(false);
-      setVaultUnlocked(false);
-      setOwnerNotifCount(0);
-      setRequestedAt(null);
-      setCountdown('');
-      didInit.current = false; // allow init effect to re-run if role switches back
     } else {
       setShowSetupModal(true);
     }

@@ -137,7 +137,7 @@ export default function EmergencyScreen() {
   const ownerName = isBeneficiaryRole
     ? (legacy.beneficiaryOwnerName || t('legacy.ownerDefault'))
     : (legacy.ownerName || t('legacy.ownerDefault'));
-  const ownerEmail = legacy.ownerEmail || '';
+  const ownerEmail = (legacy.ownerEmail || '').trim().toLowerCase();
   const beneficiaryName = isBeneficiaryRole
     ? (legacy.ownerName || t('legacy.beneficiary'))
     : (legacy.beneficiary?.name || t('legacy.beneficiary'));
@@ -153,26 +153,57 @@ export default function EmergencyScreen() {
     toastTimerRef.current = setTimeout(() => setToast(null), 3500);
   }, [tc.green]);
 
+  // All emergency state is scoped to the current ownerEmail. Clear every
+  // owner-specific value before any effect starts loading the new owner.
+  const resetOwnerState = useCallback(() => {
+    setPhase('idle');
+    setActivatedAt(null);
+    setOwnerNotifCount(0);
+    setVoteRequestSent(false);
+    setVoteLoading(false);
+    setServerProtocolActive(false);
+    setVoteStatus(null);
+    setOtpCode('');
+    setOtpLoading(false);
+    setOtpSent(false);
+    setVaultUnlocked(false);
+    setToast(null);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+  }, []);
+
+  // Changing ownerEmail starts a new state lifetime. The cleanup from each
+  // owner-dependent effect also marks its in-flight request as stale.
+  useEffect(() => {
+    resetOwnerState();
+  }, [ownerEmail, resetOwnerState]);
+
   // ── Owner: start server absence protocol ───────────────────────────────────
   useEffect(() => {
     if (phase !== 'waiting' || !ownerEmail || serverProtocolActive) return;
+    let mounted = true;
     setServerProtocolActive(true);
     const start = async () => {
       const result = await initiateServerAbsenceProtocol(ownerEmail, beneficiaryName, ownerName);
+      if (!mounted) return;
       if (result.success && result.requestId) {
         addAuditEntry('absence_protocol_server_started', 'app');
         showToast(t('emergency.ownerNotifSent', { count: 1 }), tc.blue);
       }
     };
     void start().catch(() => {});
+    return () => { mounted = false; };
   }, [phase, ownerEmail, serverProtocolActive, beneficiaryName, ownerName, addAuditEntry, showToast, t, tc.blue]);
 
   // ── Owner: poll server status every 30s ────────────────────────────────────
   useEffect(() => {
     if (phase !== 'waiting' || !ownerEmail) return;
+    let mounted = true;
     const poll = async () => {
       const status = await fetchServerAbsenceStatus(ownerEmail);
-      if (!status) return;
+      if (!mounted || !status) return;
       setOwnerNotifCount(status.ownerNotifCount);
       if (status.status === 'cancelled_by_owner') {
         addAuditEntry('absence_protocol_cancelled_by_owner', 'app');
@@ -185,16 +216,21 @@ export default function EmergencyScreen() {
         addAuditEntry('guardian_quorum_reached', 'app');
       }
     };
+    void poll().catch(() => {});
     const id = setInterval(() => { void poll().catch(() => {}); }, 30_000);
-    return () => clearInterval(id);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
   }, [phase, ownerEmail, addAuditEntry, showToast, t, tc.green]);
 
   // ── Poll guardian vote status every 20s while voting ──────────────────────
   useEffect(() => {
     if (phase !== 'voting' || !ownerEmail) return;
+    let mounted = true;
     const poll = async () => {
       const status = await fetchGuardianVoteStatus(ownerEmail);
-      if (!status) return;
+      if (!mounted || !status) return;
       setVoteStatus(status);
       if (status.quorumReached && phase === 'voting') {
         setPhase('complete');
@@ -205,7 +241,10 @@ export default function EmergencyScreen() {
     };
     void poll().catch(() => {});
     const id = setInterval(() => { void poll().catch(() => {}); }, 20_000);
-    return () => clearInterval(id);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
   }, [phase, ownerEmail, addAuditEntry, showToast, t, tc.green]);
 
   // ── Owner: auto-advance to voting after 48h ────────────────────────────────
