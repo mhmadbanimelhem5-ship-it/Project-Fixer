@@ -21,6 +21,7 @@ import {
 } from '../lib/keyStore';
 import { generateOtp, verifyOtp } from '../lib/otpStore';
 import { sendWithRetry } from '../lib/emailService';
+import { authLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -70,9 +71,9 @@ router.post('/seal', async (req, res, next) => {
 });
 
 // ── POST /api/vault/request-otp/:ownerEmail ───────────────────────────────────
-router.post('/request-otp/:ownerEmail', async (req, res, next) => {
+router.post('/request-otp/:ownerEmail', authLimiter, async (req, res, next) => {
   try {
-    const ownerEmail = req.params.ownerEmail;
+    const ownerEmail = String(req.params.ownerEmail);
     const { beneficiaryEmail, ownerName } = req.body as {
       beneficiaryEmail: string;
       ownerName?: string;
@@ -125,9 +126,9 @@ router.post('/request-otp/:ownerEmail', async (req, res, next) => {
 });
 
 // ── POST /api/vault/verify-otp/:ownerEmail ────────────────────────────────────
-router.post('/verify-otp/:ownerEmail', async (req, res, next) => {
+router.post('/verify-otp/:ownerEmail', authLimiter, async (req, res, next) => {
   try {
-    const ownerEmail = req.params.ownerEmail;
+    const ownerEmail = String(req.params.ownerEmail);
     const { beneficiaryEmail, otp } = req.body as {
       beneficiaryEmail: string;
       otp: string;
@@ -165,7 +166,7 @@ router.post('/verify-otp/:ownerEmail', async (req, res, next) => {
 // Must be declared BEFORE /:ownerEmail to avoid route collision.
 router.get('/shares/:ownerEmail', async (req, res, next) => {
   try {
-    const result = await getCollectedShares(req.params.ownerEmail);
+    const result = await getCollectedShares(String(req.params.ownerEmail));
     if (!result) {
       res.status(404).json({ message: 'No sealed vault found for this owner' });
       return;
@@ -177,7 +178,7 @@ router.get('/shares/:ownerEmail', async (req, res, next) => {
 // ── GET /api/vault/:ownerEmail ────────────────────────────────────────────────
 router.get('/:ownerEmail', async (req, res, next) => {
   try {
-    const vault = await lookupSealedVault(req.params.ownerEmail);
+    const vault = await lookupSealedVault(String(req.params.ownerEmail));
     if (!vault) {
       res.status(404).json({ message: 'No sealed vault found for this owner' });
       return;
@@ -198,12 +199,13 @@ router.post('/share/:ownerEmail', async (req, res, next) => {
       res.status(400).json({ message: 'guardianEmail and rawShareHex are required' });
       return;
     }
-    if (!await lookupSealedVault(req.params.ownerEmail)) {
+    const ownerEmail = String(req.params.ownerEmail);
+    if (!await lookupSealedVault(ownerEmail)) {
       res.status(404).json({ message: 'No sealed vault found for this owner' });
       return;
     }
 
-    await submitGuardianShare(req.params.ownerEmail, guardianEmail, rawShareHex);
+    await submitGuardianShare(ownerEmail, guardianEmail, rawShareHex);
     res.json({ success: true });
   } catch (err) { next(err); }
 });

@@ -16,6 +16,7 @@
  */
 
 import { Router } from 'express';
+import { E_ALREADY_LOCKED, Mutex, tryAcquire } from 'async-mutex';
 import {
   createOrReuseAbsenceRequest,
   getLatestAbsenceRequest,
@@ -43,7 +44,7 @@ import { lookupSealedVault } from '../lib/keyStore';
 import { generateOtp } from '../lib/otpStore';
 import { logger } from '../lib/logger';
 import { db, absenceGuardianDecisionsTable } from '@workspace/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 const router = Router();
 
@@ -117,7 +118,7 @@ async function triggerGuardianVoteEmails(absReqId: number, ownerEmail: string): 
 }
 
 // ── Background scheduler ───────────────────────────────────────────────────────
-async function runAbsenceScheduler(): Promise<{ active: number; processed: number }> {
+async function processAbsenceScheduler(): Promise<{ active: number; processed: number }> {
   const start = Date.now();
   logger.info({ startTime: start }, 'Absence scheduler: run started');
 
@@ -184,23 +185,66 @@ async function runAbsenceScheduler(): Promise<{ active: number; processed: numbe
   return { active: activeCount, processed };
 }
 
-// Concurrency guard — prevents a slow run from overlapping with the next tick,
-// which would send duplicate owner notifications.
-let schedulerRunning = false;
+// The mutex prevents overlapping ticks in one process. tryAcquire is used so a
+// second tick skips immediately rather than waiting behind a slow run.
+const absenceSchedulerMutex = new Mutex();
+const ABSENCE_SCHEDULER_LOCK_ID = 42;
 
-// Run every 3 minutes — fine-grained enough to catch the 3h window without hammering DB
-setInterval(() => {
-  if (schedulerRunning) {
-    logger.info(
-      { locked: true },
-      'Absence scheduler: skipping tick because previous run is still in progress',
-    );
-    return;
+/**
+ * Run one scheduler tick with a process-local mutex and a PostgreSQL advisory
+ * lock. The advisory lock is acquired and released from the same transaction
+ * connection, so separate server instances coordinate through PostgreSQL.
+ */
+async function runAbsenceScheduler(): Promise<{ active: number; processed: number } | undefined> {
+  let release: (() => void) | undefined;
+
+  try {
+    release = await tryAcquire(absenceSchedulerMutex).acquire();
+  } catch (err) {
+    if (err === E_ALREADY_LOCKED) {
+      logger.info(
+        { locked: true },
+        'Absence scheduler: skipping tick because previous run is still in progress',
+      );
+      return undefined;
+    }
+    throw err;
   }
-  schedulerRunning = true;
-  runAbsenceScheduler()
-    .catch((err) => logger.error({ err }, 'Absence scheduler: uncaught error'))
-    .finally(() => { schedulerRunning = false; });
+
+  try {
+    return await db.transaction(async (tx) => {
+      const lockResult = await tx.execute(
+        sql`SELECT pg_try_advisory_lock(${ABSENCE_SCHEDULER_LOCK_ID}) AS acquired`,
+      );
+      const acquired = Boolean(lockResult.rows[0]?.acquired);
+
+      if (!acquired) {
+        logger.info(
+          { lockId: ABSENCE_SCHEDULER_LOCK_ID },
+          'Absence scheduler: another instance is running, skipping',
+        );
+        return undefined;
+      }
+
+      try {
+        return await processAbsenceScheduler();
+      } finally {
+        await tx.execute(
+          sql`SELECT pg_advisory_unlock(${ABSENCE_SCHEDULER_LOCK_ID})`,
+        );
+      }
+    });
+  } catch (err) {
+    logger.error({ err }, 'Absence scheduler: uncaught error');
+    return undefined;
+  } finally {
+    release?.();
+  }
+}
+
+// Run every 3 minutes — fine-grained enough to catch the 3h window without hammering DB.
+setInterval(() => {
+  void runAbsenceScheduler();
 }, 3 * 60 * 1000);
 
 logger.info('Absence scheduler started (interval: 3 min)');

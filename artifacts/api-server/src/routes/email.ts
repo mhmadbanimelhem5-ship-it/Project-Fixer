@@ -13,6 +13,7 @@ import {
   sendVoteRequest,
   sendOwnerNotification,
 } from '../lib/emailService';
+import { authLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router.get('/healthz', async (req, res, next) => {
 });
 
 // ── 1. Invite guardian ────────────────────────────────────────────────────────
-router.post('/invite-guardian', async (req, res, next) => {
+router.post('/invite-guardian', authLimiter, async (req, res, next) => {
   try {
     const ownerName    = str(req.body.ownerName, 'ownerName');
     const guardianName = str(req.body.guardianName, 'guardianName');
@@ -76,7 +77,7 @@ router.post('/remove-guardian', async (req, res, next) => {
 });
 
 // ── 3. Invite beneficiary ─────────────────────────────────────────────────────
-router.post('/invite-beneficiary', async (req, res, next) => {
+router.post('/invite-beneficiary', authLimiter, async (req, res, next) => {
   try {
     const ownerName       = str(req.body.ownerName, 'ownerName');
     const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
@@ -174,9 +175,9 @@ setInterval(() => {
   cleanupExpiredInviteTokens().catch(err =>
     logger.error({ err }, 'Invite token cleanup failed'),
   );
-}, 60 * 60 * 1000);
+}, 24 * 60 * 60 * 1000);
 
-logger.info('Invite token cleanup scheduler started (interval: 1 hour)');
+logger.info('Invite token cleanup scheduler started (interval: 24 hours)');
 
 // Run once at startup to clean leftovers from previous deployments.
 cleanupExpiredInviteTokens().catch(err =>

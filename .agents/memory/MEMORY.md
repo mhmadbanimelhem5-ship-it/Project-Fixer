@@ -1,3 +1,4 @@
 - [absence-protocol-scheduler](absence-protocol-scheduler.md) — single scheduler with a concurrency lock; state lives in PostgreSQL so it survives restarts.
 - [invite-tokens-persistence](invite-tokens-persistence.md) — invite tokens must be stored in the DB, not an in-memory Map, so they survive server restarts.
 - [email-retry-queue](email-retry-queue.md) — OTP and other critical emails must use exponential backoff + a persistent retry_queue table.
+- [api-security-guards](api-security-guards.md) — API limits must trust only the Replit proxy hop; absence ticks need local mutex plus PostgreSQL advisory lock 42.

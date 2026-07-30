@@ -3,8 +3,14 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { generalLimiter } from "./middleware/rateLimit";
 
 const app: Express = express();
+
+// The API runs behind Replit's single reverse-proxy hop. Trust it so
+// express-rate-limit can safely identify the original client IP from
+// X-Forwarded-For instead of treating the proxy as the client.
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -29,6 +35,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Apply the general API limit before any route handler runs.
+app.use("/api/", generalLimiter);
 app.use("/api", router);
 
 export default app;
