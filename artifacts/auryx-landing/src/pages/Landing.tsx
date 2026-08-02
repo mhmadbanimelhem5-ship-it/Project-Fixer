@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Link } from "wouter"
 import { WaitlistForm } from "@/components/waitlist/WaitlistForm"
 import { Shield, Lock, Share2, HeartPulse, KeyRound, ServerOff, CheckCircle2, ChevronDown, Mail, Phone } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -220,6 +221,11 @@ export function Landing() {
           </div>
 
           <div className="flex flex-col md:flex-row items-center gap-6 text-sm text-white/50">
+            <div className="flex items-center gap-5">
+              <Link href="/privacy" className="hover:text-primary transition-colors">سياسة الخصوصية</Link>
+              <Link href="/terms" className="hover:text-primary transition-colors">شروط الاستخدام</Link>
+            </div>
+            <span className="hidden md:block w-1 h-1 rounded-full bg-white/20"></span>
             <a href="mailto:myauryx@gmail.com" className="flex items-center gap-2 hover:text-primary transition-colors">
               <Mail className="w-4 h-4" />
               myauryx@gmail.com

@@ -1,4 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap');
+
+.legal-content {
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.9;
+}
+
+.legal-content .lead {
+  color: rgba(212, 175, 55, 0.95);
+  font-weight: 700;
+}
+
+.legal-content h2 {
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 2rem 0 0.65rem;
+}
+
+.legal-content p {
+  margin: 0 0 1rem;
+}
+
+.legal-content ul {
+  list-style: disc;
+  padding-right: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+.legal-content a {
+  color: #d4af37;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";

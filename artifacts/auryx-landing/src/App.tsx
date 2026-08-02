@@ -6,6 +6,8 @@ import { Route, Switch, Router as WouterRouter } from 'wouter';
 
 import { Landing } from '@/pages/Landing';
 import { Confirm } from '@/pages/Confirm';
+import { Privacy } from '@/pages/Privacy';
+import { Terms } from '@/pages/Terms';
 
 const queryClient = new QueryClient();
 
@@ -14,6 +16,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/confirm/:token" component={Confirm} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       <Route component={NotFound} />
     </Switch>
   );

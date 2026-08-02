@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Loader2 } from "lucide-react"
+import { Link } from "wouter"
 
 const formSchema = z.object({
   email: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح" }),
@@ -118,7 +119,8 @@ export function WaitlistForm() {
               </FormControl>
               <div className="space-y-1 leading-relaxed">
                 <FormLabel className="text-sm font-medium text-white/70 cursor-pointer">
-                  أوافق على سياسة الخصوصية وأرغب في الانضمام لقائمة الانتظار.
+                  أوافق على <Link href="/privacy" className="text-primary underline underline-offset-4 hover:text-primary/80">سياسة الخصوصية</Link>
+                  {" "}و<Link href="/terms" className="text-primary underline underline-offset-4 hover:text-primary/80">شروط الاستخدام</Link> وأرغب في الانضمام لقائمة الانتظار.
                 </FormLabel>
               </div>
             </FormItem>
