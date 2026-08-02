@@ -4,6 +4,7 @@
  * through SMTP (smtp.gmail.com:587) via nodemailer.
  */
 import { getApiBase } from './apiBase';
+import { authenticatedFetch } from './authenticatedFetch';
 
 type ApiResult = { success: boolean; token?: string; error?: string };
 
@@ -14,7 +15,7 @@ async function postOnce(path: string, body: object): Promise<ApiResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), EMAIL_TIMEOUT_MS);
   try {
-    const res = await fetch(`${getApiBase()}/api/email${path}`, {
+    const res = await authenticatedFetch(`${getApiBase()}/api/email${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -59,59 +60,65 @@ async function post(path: string, body: object): Promise<ApiResult> {
 
 /** Send an invitation email to a new guardian. Returns the invite token. */
 export async function inviteGuardian(
+  ownerEmail: string,
   ownerName: string,
   guardianName: string,
   guardianEmail: string,
 ): Promise<ApiResult> {
-  return post('/invite-guardian', { ownerName, guardianName, guardianEmail });
+  return post('/invite-guardian', { ownerEmail, ownerName, guardianName, guardianEmail });
 }
 
 /** Notify a guardian that their role has been removed. */
 export async function notifyGuardianRemoved(
+  ownerEmail: string,
   ownerName: string,
   guardianEmail: string,
 ): Promise<ApiResult> {
-  return post('/remove-guardian', { ownerName, guardianEmail });
+  return post('/remove-guardian', { ownerEmail, ownerName, guardianEmail });
 }
 
 // ── Beneficiary ───────────────────────────────────────────────────────────────
 
 /** Send an invitation email to the final beneficiary. Returns the invite token. */
 export async function inviteBeneficiary(
+  ownerEmail: string,
   ownerName: string,
   beneficiaryName: string,
   beneficiaryEmail: string,
   relationship: string,
 ): Promise<ApiResult> {
-  return post('/invite-beneficiary', { ownerName, beneficiaryName, beneficiaryEmail, relationship });
+  return post('/invite-beneficiary', { ownerEmail, ownerName, beneficiaryName, beneficiaryEmail, relationship });
 }
 
 /** Notify the previous beneficiary that their role has been removed. */
 export async function notifyBeneficiaryRemoved(
+  ownerEmail: string,
   ownerName: string,
   beneficiaryEmail: string,
 ): Promise<ApiResult> {
-  return post('/remove-beneficiary', { ownerName, beneficiaryEmail });
+  return post('/remove-beneficiary', { ownerEmail, ownerName, beneficiaryEmail });
 }
 
 // ── Emergency Protocol ────────────────────────────────────────────────────────
 
 /** Notify all guardians that the emergency protocol has been triggered. */
 export async function triggerEmergencyEmail(
+  ownerEmail: string,
   ownerName: string,
   beneficiaryName: string,
   beneficiaryRelation: string,
   guardianEmails: string[],
 ): Promise<ApiResult> {
-  return post('/emergency', { ownerName, beneficiaryName, beneficiaryRelation, guardianEmails });
+  return post('/emergency', { ownerEmail, ownerName, beneficiaryName, beneficiaryRelation, guardianEmails });
 }
 
 /** Send the 48-hour vote request to all guardians. */
 export async function triggerVoteRequest(
+  ownerEmail: string,
   ownerName: string,
   guardianEmails: string[],
 ): Promise<ApiResult> {
-  return post('/vote-request', { ownerName, guardianEmails });
+  return post('/vote-request', { ownerEmail, ownerName, guardianEmails });
 }
 
 // ── Owner notification (every 3h during 48h wait) ─────────────────────────────
@@ -148,7 +155,7 @@ export async function initiateServerAbsenceProtocol(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
   try {
-    const res = await fetch(`${getApiBase()}/api/absence/initiate`, {
+    const res = await authenticatedFetch(`${getApiBase()}/api/absence/initiate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ownerEmail, beneficiaryName, ownerName }),
@@ -177,7 +184,7 @@ export async function fetchServerAbsenceStatus(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 10_000);
   try {
-    const res = await fetch(`${getApiBase()}/api/absence/status/${encodeURIComponent(ownerEmail)}`, {
+    const res = await authenticatedFetch(`${getApiBase()}/api/absence/status/${encodeURIComponent(ownerEmail)}`, {
       signal: ctrl.signal,
     });
     if (res.status === 404) return null;
@@ -208,7 +215,7 @@ export async function confirmAndStartGuardianVote(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
   try {
-    const res = await fetch(`${getApiBase()}/api/absence/beneficiary-confirm`, {
+    const res = await authenticatedFetch(`${getApiBase()}/api/absence/beneficiary-confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ownerEmail }),
@@ -237,7 +244,7 @@ export async function triggerStartVote(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
   try {
-    const res = await fetch(`${getApiBase()}/api/absence/start-vote`, {
+    const res = await authenticatedFetch(`${getApiBase()}/api/absence/start-vote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ownerEmail, beneficiaryName, beneficiaryEmail }),
@@ -277,7 +284,7 @@ export async function fetchGuardianVoteStatus(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 10_000);
   try {
-    const res = await fetch(`${getApiBase()}/api/absence/vote-status/${encodeURIComponent(ownerEmail)}`, {
+    const res = await authenticatedFetch(`${getApiBase()}/api/absence/vote-status/${encodeURIComponent(ownerEmail)}`, {
       signal: ctrl.signal,
     });
     if (!res.ok) return null;
@@ -298,7 +305,7 @@ export async function checkInviteStatus(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const res = await fetch(`${getApiBase()}/api/invite/status/${token}`, { signal: ctrl.signal });
+    const res = await authenticatedFetch(`${getApiBase()}/api/invite/status/${token}`, { signal: ctrl.signal });
     if (!res.ok) return { status: 'expired' };
     return (await res.json()) as { status: 'pending' | 'accepted' | 'rejected' | 'expired' };
   } catch {

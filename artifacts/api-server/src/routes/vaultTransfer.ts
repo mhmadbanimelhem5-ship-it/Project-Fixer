@@ -22,11 +22,20 @@ import {
 import { generateOtp, verifyOtp } from '../lib/otpStore';
 import { sendWithRetry } from '../lib/emailService';
 import { authLimiter } from '../middleware/rateLimit';
+import { requireAuth, requireOwner, requireParticipant, requireVaultParticipant } from '../middleware/auth';
+import { validateBody, validateParams } from '../middleware/validation';
+import {
+  ownerEmailParams,
+  sealVaultBody,
+  otpRequestBody,
+  otpVerifyBody,
+  guardianShareBody,
+} from '../middleware/schemas';
 
 const router = Router();
 
 // ── POST /api/vault/seal ──────────────────────────────────────────────────────
-router.post('/seal', async (req, res, next) => {
+router.post('/seal', requireAuth, validateBody(sealVaultBody), requireOwner(), async (req, res, next) => {
   try {
     const {
       ownerEmail,
@@ -44,19 +53,6 @@ router.post('/seal', async (req, res, next) => {
       threshold: number;
     };
 
-    if (!ownerEmail || !beneficiaryEmail || !encryptedBlob) {
-      res.status(400).json({ message: 'ownerEmail, beneficiaryEmail, encryptedBlob are required' });
-      return;
-    }
-    if (!Array.isArray(guardianPackages)) {
-      res.status(400).json({ message: 'guardianPackages must be an array' });
-      return;
-    }
-    if (typeof threshold !== 'number' || threshold < 1) {
-      res.status(400).json({ message: 'threshold must be a positive integer' });
-      return;
-    }
-
     await storeSealedVault(ownerEmail, {
       encryptedBlob,
       beneficiaryEmail,
@@ -71,7 +67,7 @@ router.post('/seal', async (req, res, next) => {
 });
 
 // ── POST /api/vault/request-otp/:ownerEmail ───────────────────────────────────
-router.post('/request-otp/:ownerEmail', authLimiter, async (req, res, next) => {
+router.post('/request-otp/:ownerEmail', requireAuth, authLimiter, validateParams(ownerEmailParams), validateBody(otpRequestBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const ownerEmail = String(req.params.ownerEmail);
     const { beneficiaryEmail, ownerName } = req.body as {
@@ -79,10 +75,6 @@ router.post('/request-otp/:ownerEmail', authLimiter, async (req, res, next) => {
       ownerName?: string;
     };
 
-    if (!beneficiaryEmail) {
-      res.status(400).json({ message: 'beneficiaryEmail is required' });
-      return;
-    }
     const vault = await lookupSealedVault(ownerEmail);
     if (!vault) {
       res.status(404).json({ message: 'No sealed vault found for this owner' });
@@ -126,18 +118,13 @@ router.post('/request-otp/:ownerEmail', authLimiter, async (req, res, next) => {
 });
 
 // ── POST /api/vault/verify-otp/:ownerEmail ────────────────────────────────────
-router.post('/verify-otp/:ownerEmail', authLimiter, async (req, res, next) => {
+router.post('/verify-otp/:ownerEmail', requireAuth, authLimiter, validateParams(ownerEmailParams), validateBody(otpVerifyBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const ownerEmail = String(req.params.ownerEmail);
     const { beneficiaryEmail, otp } = req.body as {
       beneficiaryEmail: string;
       otp: string;
     };
-
-    if (!beneficiaryEmail || !otp) {
-      res.status(400).json({ message: 'beneficiaryEmail and otp are required' });
-      return;
-    }
 
     const result = await verifyOtp(ownerEmail, beneficiaryEmail, otp);
     if (!result.ok) {
@@ -164,7 +151,7 @@ router.post('/verify-otp/:ownerEmail', authLimiter, async (req, res, next) => {
 
 // ── GET /api/vault/shares/:ownerEmail ─────────────────────────────────────────
 // Must be declared BEFORE /:ownerEmail to avoid route collision.
-router.get('/shares/:ownerEmail', async (req, res, next) => {
+router.get('/shares/:ownerEmail', requireAuth, validateParams(ownerEmailParams), requireVaultParticipant(), async (req, res, next) => {
   try {
     const result = await getCollectedShares(String(req.params.ownerEmail));
     if (!result) {
@@ -176,7 +163,7 @@ router.get('/shares/:ownerEmail', async (req, res, next) => {
 });
 
 // ── GET /api/vault/:ownerEmail ────────────────────────────────────────────────
-router.get('/:ownerEmail', async (req, res, next) => {
+router.get('/:ownerEmail', requireAuth, validateParams(ownerEmailParams), requireVaultParticipant(), async (req, res, next) => {
   try {
     const vault = await lookupSealedVault(String(req.params.ownerEmail));
     if (!vault) {
@@ -188,17 +175,13 @@ router.get('/:ownerEmail', async (req, res, next) => {
 });
 
 // ── POST /api/vault/share/:ownerEmail ─────────────────────────────────────────
-router.post('/share/:ownerEmail', async (req, res, next) => {
+router.post('/share/:ownerEmail', requireAuth, validateParams(ownerEmailParams), validateBody(guardianShareBody), requireVaultParticipant(), requireParticipant(['guardianEmail']), async (req, res, next) => {
   try {
     const { guardianEmail, rawShareHex } = req.body as {
       guardianEmail: string;
       rawShareHex: string;
     };
 
-    if (!guardianEmail || !rawShareHex) {
-      res.status(400).json({ message: 'guardianEmail and rawShareHex are required' });
-      return;
-    }
     const ownerEmail = String(req.params.ownerEmail);
     if (!await lookupSealedVault(ownerEmail)) {
       res.status(404).json({ message: 'No sealed vault found for this owner' });

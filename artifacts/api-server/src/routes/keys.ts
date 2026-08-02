@@ -8,11 +8,14 @@
 
 import { Router } from 'express';
 import { storePublicKey, lookupPublicKey } from '../lib/keyStore';
+import { requireAuth, requireOwner, requirePublicKeyAccess } from '../middleware/auth';
+import { validateBody, validateParams } from '../middleware/validation';
+import { publicKeyEmailParams, registerKeyBody } from '../middleware/schemas';
 
 const router = Router();
 
 // POST /api/keys/register
-router.post('/register', async (req, res, next) => {
+router.post('/register', requireAuth, validateBody(registerKeyBody), requireOwner('email'), async (req, res, next) => {
   try {
     const email = req.body.email;
     const jwk   = req.body.publicKeyJwk;
@@ -33,9 +36,9 @@ router.post('/register', async (req, res, next) => {
 });
 
 // GET /api/keys/:email
-router.get('/:email', async (req, res, next) => {
+router.get('/:email', requireAuth, validateParams(publicKeyEmailParams), requirePublicKeyAccess('email'), async (req, res, next) => {
   try {
-    const jwk = await lookupPublicKey(req.params.email);
+    const jwk = await lookupPublicKey(String(req.params.email));
     if (!jwk) {
       req.log.warn({ email: req.params.email }, 'RSA public key lookup: not found');
       res.status(404).json({ message: 'Public key not found for this email' });

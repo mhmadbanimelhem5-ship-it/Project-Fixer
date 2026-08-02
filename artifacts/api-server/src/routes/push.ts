@@ -11,6 +11,10 @@
  */
 
 import { Router } from 'express';
+import { requireAuth } from '../middleware/auth';
+import { validateBody } from '../middleware/validation';
+import { pushBody } from '../middleware/schemas';
+import { authLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -39,7 +43,7 @@ function isValidExpoPushToken(token: string): boolean {
   );
 }
 
-router.post('/notify', async (req, res, next) => {
+router.post('/notify', requireAuth, authLimiter, validateBody(pushBody), async (req, res, next) => {
   try {
     const { token, title, body } = req.body as {
       token?: unknown;

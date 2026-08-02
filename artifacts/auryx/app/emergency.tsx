@@ -28,6 +28,7 @@ import {
   type GuardianVoteStatus,
 } from '@/utils/emailApi';
 import { getApiBase } from '@/utils/apiBase';
+import { authenticatedFetch } from '@/utils/authenticatedFetch';
 import { fetchVaultPackage } from '@/utils/vaultTransferApi';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 
@@ -288,7 +289,7 @@ export default function EmergencyScreen() {
     const guardianEmails = await resolveGuardianEmails();
     if (guardianEmails.length > 0) {
       const relation = (legacy.beneficiary as any)?.relationship ?? '';
-      await triggerEmergencyEmail(ownerName, beneficiaryName, relation, guardianEmails);
+      await triggerEmergencyEmail(legacy.ownerEmail || '', ownerName, beneficiaryName, relation, guardianEmails);
     }
   };
 
@@ -376,7 +377,7 @@ export default function EmergencyScreen() {
     if (!ownerEmail || otpLoading) return;
     setOtpLoading(true);
     try {
-      const res = await fetch(`${getApiBase()}/api/vault/request-otp/${encodeURIComponent(ownerEmail)}`, {
+      const res = await authenticatedFetch(`${getApiBase()}/api/vault/request-otp/${encodeURIComponent(ownerEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ beneficiaryEmail: legacy.ownerEmail ?? '', ownerName }),
@@ -401,7 +402,7 @@ export default function EmergencyScreen() {
     if (code.length < 6 || !ownerEmail || otpLoading) return;
     setOtpLoading(true);
     try {
-      const res = await fetch(`${getApiBase()}/api/vault/verify-otp/${encodeURIComponent(ownerEmail)}`, {
+      const res = await authenticatedFetch(`${getApiBase()}/api/vault/verify-otp/${encodeURIComponent(ownerEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ beneficiaryEmail: legacy.ownerEmail ?? '', otp: code }),

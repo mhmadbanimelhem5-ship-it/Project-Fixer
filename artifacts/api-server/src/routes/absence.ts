@@ -45,6 +45,9 @@ import { generateOtp } from '../lib/otpStore';
 import { logger } from '../lib/logger';
 import { db, absenceGuardianDecisionsTable } from '@workspace/db';
 import { eq, sql } from 'drizzle-orm';
+import { requireAuth, requireOwner, requireVaultParticipant } from '../middleware/auth';
+import { validateBody } from '../middleware/validation';
+import { absenceBody, ownerOnlyBody } from '../middleware/schemas';
 
 const router = Router();
 
@@ -250,7 +253,7 @@ setInterval(() => {
 logger.info('Absence scheduler started (interval: 3 min)');
 
 // ── POST /api/absence/initiate ────────────────────────────────────────────────
-router.post('/initiate', async (req, res, next) => {
+router.post('/initiate', requireAuth, validateBody(absenceBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const {
       ownerEmail,
@@ -310,9 +313,9 @@ router.post('/initiate', async (req, res, next) => {
 });
 
 // ── GET /api/absence/status/:ownerEmail ───────────────────────────────────────
-router.get('/status/:ownerEmail', async (req, res, next) => {
+router.get('/status/:ownerEmail', requireAuth, requireVaultParticipant(), async (req, res, next) => {
   try {
-    const absReq = await getLatestAbsenceRequest(req.params.ownerEmail);
+    const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
     if (!absReq) {
       res.status(404).json({ message: 'No absence request found', status: 'none' });
       return;
@@ -382,7 +385,7 @@ router.get('/owner-alive/:token', async (req, res, next) => {
  * Validates the request is in pending_beneficiary_confirmation status,
  * then triggers guardian vote emails.
  */
-router.post('/beneficiary-confirm', async (req, res, next) => {
+router.post('/beneficiary-confirm', requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
     if (!ownerEmail) {
@@ -508,7 +511,7 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
  * Re-triggers guardian vote emails for an existing absence request.
  * Accepts requests in pending_guardian_vote or pending_beneficiary_confirmation status.
  */
-router.post('/start-vote', async (req, res, next) => {
+router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
 
@@ -543,9 +546,9 @@ router.post('/start-vote', async (req, res, next) => {
 });
 
 // ── GET /api/absence/vote-status/:ownerEmail ───────────────────────────────────
-router.get('/vote-status/:ownerEmail', async (req, res, next) => {
+router.get('/vote-status/:ownerEmail', requireAuth, requireVaultParticipant(), async (req, res, next) => {
   try {
-    const absReq = await getLatestAbsenceRequest(req.params.ownerEmail);
+    const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
     if (!absReq) {
       res.status(404).json({ message: 'No absence request found' });
       return;
@@ -556,7 +559,7 @@ router.get('/vote-status/:ownerEmail', async (req, res, next) => {
       .from(absenceGuardianDecisionsTable)
       .where(eq(absenceGuardianDecisionsTable.requestId, absReq.id));
 
-    const vault = await lookupSealedVault(req.params.ownerEmail);
+    const vault = await lookupSealedVault(String(req.params.ownerEmail));
     const threshold  = vault?.threshold ?? 1;
     const approvals  = slots.filter((s) => s.decision === 'approve').length;
     const rejections = slots.filter((s) => s.decision === 'reject').length;
@@ -579,7 +582,7 @@ router.get('/vote-status/:ownerEmail', async (req, res, next) => {
 });
 
 // ── POST /api/absence/cancel ──────────────────────────────────────────────────
-router.post('/cancel', async (req, res, next) => {
+router.post('/cancel', requireAuth, validateBody(ownerOnlyBody), requireOwner(), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
     if (!ownerEmail) {

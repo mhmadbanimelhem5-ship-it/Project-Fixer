@@ -237,7 +237,7 @@ function AddGuardianModal({ visible, onClose }: { visible: boolean; onClose: () 
       });
 
       const ownerName = legacy.ownerName || 'Vault Owner';
-      const result = await inviteGuardian(ownerName, name.trim(), email.trim());
+      const result = await inviteGuardian(legacy.ownerEmail || '', ownerName, name.trim(), email.trim());
 
       if (result.success && result.token) {
         updateGuardian(newG.id, { inviteToken: result.token });
@@ -445,7 +445,7 @@ export default function GuardiansScreen() {
 
       const ownerName = legacy.ownerName || 'Vault Owner';
       const [emailResult, fcmResult] = await Promise.all([
-        notifyGuardianRemoved(ownerName, g.email),
+        notifyGuardianRemoved(legacy.ownerEmail || '', ownerName, g.email),
         sendGuardianNotification('removed', g.name),
       ]);
 

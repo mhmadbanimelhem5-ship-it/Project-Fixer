@@ -15,10 +15,10 @@ const DECOY_VAULT_KEY_KEY  = 'auryx_decoy_vault_key';
 const BIOMETRICS_KEY      = 'auryx_biometrics_enabled';
 const DATA_VERSION_KEY    = 'auryx_data_v';
 
-// Bump to force a one-time wipe of ALL auth data on next app load.
-// v6: switched to async PBKDF2-HMAC-SHA256 (8000 iterations) — hash output
-//     is incompatible with the previous PBKDF2-HMAC-SHA1 (10000 iterations).
-const DATA_VERSION = '6';
+// v7: migrate authentication metadata without deleting either vault key.
+// Older PIN hashes may be incompatible, but the random vault keys must remain
+// available so the encrypted vault is not orphaned during the migration.
+const DATA_VERSION = '7';
 
 export type LockType = 'pin' | 'password' | 'pattern';
 
@@ -171,18 +171,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      // One-time forced wipe when DATA_VERSION changes
+      // One-time migration. Never delete either vault key: they protect the
+      // user's encrypted content and are independent from PIN metadata.
       const storedVersion = await secureGet(DATA_VERSION_KEY);
       if (storedVersion !== DATA_VERSION) {
-        for (const k of ALL_AUTH_KEYS) await secureDelete(k);
-        await secureSet(DATA_VERSION_KEY, DATA_VERSION);
-        // Check biometrics availability even after wipe
-        if (Platform.OS !== 'web') {
-          const ok = await LocalAuthentication.hasHardwareAsync();
-          const enrolled = await LocalAuthentication.isEnrolledAsync();
-          setBioAvail(ok && enrolled);
+        if (storedVersion !== '6') {
+          await secureDelete(PIN_HASH_KEY);
+          await secureDelete(PIN_SALT_KEY);
+          await secureDelete(DECOY_PIN_HASH_KEY);
+          await secureDelete(ATTEMPTS_KEY);
+          await secureDelete(LOCKOUT_KEY);
+          await secureDelete(BIOMETRICS_KEY);
         }
-        return; // show setup screen
+        await secureSet(DATA_VERSION_KEY, DATA_VERSION);
       }
 
       // Normal load
@@ -245,7 +246,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       throw new Error('Encryption error — please try again.');
     }
-    const vk = await secureRandomHex(32); // 256-bit vault key
+    // Preserve a migrated key. Only generate one for a genuinely new vault.
+    const vk = (await secureGet(VAULT_KEY_KEY)) ?? await secureRandomHex(32);
     try {
       await secureSetOrThrow(PIN_HASH_KEY, hash);
       await secureSetOrThrow(PIN_SALT_KEY, salt);

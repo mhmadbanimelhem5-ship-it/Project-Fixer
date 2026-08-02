@@ -12,7 +12,7 @@
 type JWK = Record<string, any>;
 
 import { db, publicKeysTable, sealedVaultsTable, guardianPackagesTable, guardianVotesTable } from '@workspace/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 
 // ── Public keys ───────────────────────────────────────────────────────────────
 
@@ -34,6 +34,57 @@ export async function lookupPublicKey(email: string): Promise<JWK | undefined> {
     .where(eq(publicKeysTable.email, email.toLowerCase()))
     .limit(1);
   return rows[0]?.jwk as JWK | undefined;
+}
+
+/**
+ * A public key is not globally enumerable. A signed-in user may retrieve
+ * their own key, or a key belonging to another participant in one of their
+ * vault relationships (owner, beneficiary, or guardian).
+ */
+export async function canAccessPublicKey(
+  requesterEmail: string,
+  targetEmail: string,
+): Promise<boolean> {
+  const requester = requesterEmail.trim().toLowerCase();
+  const target = targetEmail.trim().toLowerCase();
+  if (requester === target) return true;
+
+  const relatedVaults = await db
+    .select({
+      ownerEmail: sealedVaultsTable.ownerEmail,
+      beneficiaryEmail: sealedVaultsTable.beneficiaryEmail,
+    })
+    .from(sealedVaultsTable)
+    .where(
+      or(
+        eq(sealedVaultsTable.ownerEmail, requester),
+        eq(sealedVaultsTable.beneficiaryEmail, requester),
+      ),
+    );
+
+  if (relatedVaults.some((vault) =>
+    [vault.ownerEmail, vault.beneficiaryEmail].includes(target),
+  )) {
+    return true;
+  }
+
+  const guardianVaults = await db
+    .select({ ownerEmail: guardianPackagesTable.ownerEmail })
+    .from(guardianPackagesTable)
+    .where(eq(guardianPackagesTable.guardianEmail, requester));
+
+  for (const guardianVault of guardianVaults) {
+    const vault = await lookupSealedVault(guardianVault.ownerEmail);
+    if (
+      vault &&
+      [guardianVault.ownerEmail, vault.beneficiaryEmail, ...vault.guardianPackages.map((item) => item.email)]
+        .some((email) => email.toLowerCase() === target)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // ── Sealed vault packages ─────────────────────────────────────────────────────

@@ -682,7 +682,7 @@ export default function LegacyScreen() {
     const beneficiaryChanged = previous && previous.email && previous.email !== email;
     if (beneficiaryChanged) {
       const ownerName = legacy.ownerName || t('legacy.ownerDefault');
-      notifyBeneficiaryRemoved(ownerName, previous!.email).catch(() => {});
+      notifyBeneficiaryRemoved(legacy.ownerEmail || '', ownerName, previous!.email).catch(() => {});
     }
 
     // Save locally first (no status yet — will update to 'pending' once API responds).
@@ -697,7 +697,7 @@ export default function LegacyScreen() {
     // After API responds, persist the invite token + status so the badge can update.
     const ownerName = legacy.ownerName || t('legacy.ownerDefault');
     showToast(t('legacy.inviteSending', { email }));
-    inviteBeneficiary(ownerName, name, email, '').then(result => {
+    inviteBeneficiary(legacy.ownerEmail || '', ownerName, name, email, '').then(result => {
       if (result.success) {
         updateLegacy({
           beneficiary: { name, email, inviteStatus: 'pending', inviteToken: result.token },
@@ -728,7 +728,7 @@ export default function LegacyScreen() {
     const b = legacy.beneficiary;
     if (!b) return;
     const ownerName = legacy.ownerName || t('legacy.ownerDefault');
-    notifyBeneficiaryRemoved(ownerName, b.email).catch(() => {});
+    notifyBeneficiaryRemoved(legacy.ownerEmail || '', ownerName, b.email).catch(() => {});
     updateLegacy({ beneficiary: undefined, enabled: false });
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     showToast(t('legacy.beneficiaryRemoved'), tc.orange);

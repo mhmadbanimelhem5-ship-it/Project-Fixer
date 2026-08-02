@@ -35,8 +35,7 @@ function page(titleText: string, icon: string, bodyHtml: string): string {
 }
 
 function errorPage(err: unknown): string {
-  const message = err instanceof Error ? err.message : 'Database error';
-  return page('خطأ', '❌', `<p>حدث خطأ أثناء معالجة الطلب: ${message}</p>`);
+  return page('خطأ', '❌', '<p>حدث خطأ أثناء معالجة الطلب. يرجى المحاولة مرة أخرى لاحقاً.</p>');
 }
 
 // GET /api/invite/accept/:token

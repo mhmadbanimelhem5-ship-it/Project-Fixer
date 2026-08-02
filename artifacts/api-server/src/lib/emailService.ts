@@ -40,7 +40,7 @@ export async function createToken(
     createdAt: now,
     expiresAt: now + TOKEN_TTL_MS,
   });
-  logger.info({ token, type, email: recipientEmail }, 'Invite token stored in DB');
+  logger.info({ type, recipientEmailDomain: recipientEmail.split('@')[1] ?? 'unknown' }, 'Invite token stored in DB');
   return token;
 }
 
@@ -55,7 +55,7 @@ export async function getToken(token: string): Promise<InviteToken | undefined> 
 
   if (Date.now() > row.expiresAt) {
     await db.delete(inviteTokensTable).where(eq(inviteTokensTable.token, token));
-    logger.info({ token }, 'Invite token expired and removed');
+    logger.info('Invite token expired and removed');
     return undefined;
   }
 
@@ -86,7 +86,7 @@ export async function updateTokenStatus(token: string, status: TokenStatus): Pro
     .returning();
 
   const success = updated.length > 0;
-  logger.info({ token, status, success }, 'Invite token status updated');
+  logger.info({ status, success }, 'Invite token status updated');
   return success;
 }
 

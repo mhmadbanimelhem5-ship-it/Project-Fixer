@@ -32,6 +32,9 @@ import { ActivityIndicator, Animated, Text, TouchableOpacity, View } from 'react
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ClerkLoaded, ClerkProvider, useAuth as useClerkAuth } from '@clerk/expo';
+import { tokenCache } from '@clerk/expo/token-cache';
+import { setAuthTokenGetter, setBaseUrl } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { OfflineScreen } from '@/components/OfflineScreen';
@@ -44,6 +47,8 @@ import { NetworkProvider, useNetwork } from '@/contexts/NetworkContext';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { useFirstLaunchPermissions } from '@/hooks/useFirstLaunchPermissions';
 import { isSubtleAvailable } from '@/utils/cryptoFallback';
+import { setAuthenticatedTokenGetter } from '@/utils/authenticatedFetch';
+import { getApiBase } from '@/utils/apiBase';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -307,10 +312,20 @@ function KeyGeneratingOverlay() {
 
 function RootLayoutNav() {
   const { isLocked, isSetup, vaultKey, isDecoyMode } = useAuth();
+  const { isLoaded: clerkLoaded, isSignedIn, getToken } = useClerkAuth();
   const { loadVault, loadDecoyVault, lockVaultSession, isVaultReady, legacy } = useVault();
   const { colors: c } = useTheme();
   const router = useRouter();
   const segments = useSegments();
+
+  useEffect(() => {
+    setAuthenticatedTokenGetter(() => getToken());
+    setAuthTokenGetter(() => getToken());
+    return () => {
+      setAuthenticatedTokenGetter(null);
+      setAuthTokenGetter(null);
+    };
+  }, [getToken]);
 
   // Unified effect: sync auth state → vault content
   useEffect(() => {
@@ -327,6 +342,16 @@ function RootLayoutNav() {
 
   // Navigation guard
   useEffect(() => {
+    if (!clerkLoaded) return;
+    const inAuth = segments[0] === '(auth)';
+    if (!isSignedIn) {
+      if (!inAuth) router.replace('/sign-in');
+      return;
+    }
+    if (inAuth) {
+      router.replace('/lock');
+      return;
+    }
     const inLock       = segments[0] === 'lock';
     const inOnboarding = segments[0] === 'onboarding';
 
@@ -347,12 +372,13 @@ function RootLayoutNav() {
     // router.replace calls in the same React commit cause undefined behavior
     // in Expo Router on Android/Hermes.
     if (inLock) router.replace('/(tabs)');
-  }, [isLocked, isSetup, isVaultReady, isDecoyMode, legacy.ownerName, segments]);
+  }, [clerkLoaded, isSignedIn, isLocked, isSetup, isVaultReady, isDecoyMode, legacy.ownerName, segments]);
 
   useFirstLaunchPermissions();
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.background } }}>
+      <Stack.Screen name="(auth)"        options={{ headerShown: false }} />
       <Stack.Screen name="lock"          options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="onboarding"    options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="(tabs)"        options={{ headerShown: false }} />
@@ -455,29 +481,43 @@ export default function RootLayout() {
 
   if (!fontsReady) return null;
 
+  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  if (!publishableKey) {
+    throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
+  }
+  setBaseUrl(getApiBase());
+
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <NetworkProvider>
-            <ThemeProvider>
-              <LanguageProvider>
-                <AuthProvider>
-                  <VaultProvider>
-                    <NotificationProvider>
-                      <ThemedContainer
-                        showSplash={showSplash}
-                        onSplashComplete={() => setShowSplash(false)}
-                      >
-                        <RootLayoutNav />
-                      </ThemedContainer>
-                    </NotificationProvider>
-                  </VaultProvider>
-                </AuthProvider>
-              </LanguageProvider>
-            </ThemeProvider>
-          </NetworkProvider>
-        </QueryClientProvider>
+        <ClerkProvider
+          publishableKey={publishableKey}
+          tokenCache={tokenCache}
+          proxyUrl={process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined}
+        >
+          <ClerkLoaded>
+            <QueryClientProvider client={queryClient}>
+              <NetworkProvider>
+                <ThemeProvider>
+                  <LanguageProvider>
+                    <AuthProvider>
+                      <VaultProvider>
+                        <NotificationProvider>
+                          <ThemedContainer
+                            showSplash={showSplash}
+                            onSplashComplete={() => setShowSplash(false)}
+                          >
+                            <RootLayoutNav />
+                          </ThemedContainer>
+                        </NotificationProvider>
+                      </VaultProvider>
+                    </AuthProvider>
+                  </LanguageProvider>
+                </ThemeProvider>
+              </NetworkProvider>
+            </QueryClientProvider>
+          </ClerkLoaded>
+        </ClerkProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

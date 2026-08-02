@@ -21,6 +21,7 @@ import { unlockWithOtp } from '@/utils/legacyTransfer';
 import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVault } from '@/contexts/VaultContext';
+import { authenticatedFetch } from '@/utils/authenticatedFetch';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import {
   initiateServerAbsenceProtocol,
@@ -417,7 +418,7 @@ export default function EmergencyTabScreen() {
     if (!ownerEmail || !bEmail || otpLoading) return;
     setOtpLoading(true);
     try {
-      const res = await fetch(`${getApiBase()}/api/vault/request-otp/${encodeURIComponent(ownerEmail)}`, {
+      const res = await authenticatedFetch(`${getApiBase()}/api/vault/request-otp/${encodeURIComponent(ownerEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ beneficiaryEmail: bEmail, ownerName }),

@@ -6,6 +6,7 @@
  */
 
 import { getSecureApiBase } from './apiBase';
+import { authenticatedFetch } from './authenticatedFetch';
 
 type AnyJson = Record<string, unknown>;
 
@@ -19,7 +20,7 @@ async function safeJson(res: Response): Promise<AnyJson> {
 }
 
 async function apiPost(path: string, body: object): Promise<AnyJson> {
-  const res = await fetch(`${getSecureApiBase()}${path}`, {
+  const res = await authenticatedFetch(`${getSecureApiBase()}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -30,7 +31,7 @@ async function apiPost(path: string, body: object): Promise<AnyJson> {
 }
 
 async function apiGet(path: string): Promise<AnyJson | null> {
-  const res = await fetch(`${getSecureApiBase()}${path}`);
+  const res = await authenticatedFetch(`${getSecureApiBase()}${path}`);
   if (res.status === 404) return null;
   if (!res.ok) {
     const ct = res.headers.get('content-type') ?? '';

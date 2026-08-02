@@ -17,6 +17,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
+import { authenticatedFetch } from './authenticatedFetch';
 
 const PUSH_TOKEN_KEY = 'auryx_push_token_v1';
 
@@ -137,7 +138,7 @@ export async function sendGuardianNotification(
   const pushController = new AbortController();
   const pushTimer = setTimeout(() => pushController.abort(), 10_000);
   try {
-    const response = await fetch(`${getApiBase()}/push/notify`, {
+    const response = await authenticatedFetch(`${getApiBase()}/push/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: resolvedToken, title, body }),
