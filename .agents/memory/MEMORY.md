@@ -3,3 +3,4 @@
 - [email-retry-queue](email-retry-queue.md) — OTP and other critical emails must use exponential backoff + a persistent retry_queue table.
 - [api-security-guards](api-security-guards.md) — API limits must trust only the Replit proxy hop; absence ticks need local mutex plus PostgreSQL advisory lock 42.
 - [metro-pnpm-watchers](metro-pnpm-watchers.md) — after pnpm dependency relinks, restart Expo to clear Metro watchers holding deleted temporary package paths.
+- [clerk-custom-domain-dns](clerk-custom-domain-dns.md) — external Clerk publishable keys can bind the SDK to a custom frontend domain; missing DNS causes Failed to load Clerk JS.
