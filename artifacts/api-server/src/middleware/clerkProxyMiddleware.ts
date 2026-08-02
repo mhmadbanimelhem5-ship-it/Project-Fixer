@@ -6,8 +6,6 @@ const CLERK_FAPI = "https://frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
 
 function proxyHost(req: { headers: IncomingHttpHeaders }): string | undefined {
-  const configuredHost = process.env.CLERK_PROXY_HOST?.trim();
-  if (configuredHost) return configuredHost;
   const forwarded = req.headers["x-forwarded-host"];
   const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   return raw?.split(",")[0]?.trim() || req.headers.host?.trim();
