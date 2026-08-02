@@ -315,6 +315,20 @@ export async function sendBeneficiaryRemoved(
   await sendMail(beneficiaryEmail, `إلغاء دور المستفيد النهائي — Auryx`, html);
 }
 
+export async function sendWaitlistVerification(
+  email: string,
+  verificationUrl: string,
+): Promise<void> {
+  const html = wrap(`
+    <p>شكرًا لانضمامك إلى قائمة انتظار إطلاق <strong>Auryx</strong></p>
+    <p>أكد بريدك الإلكتروني لتحصل على فرصة الدخول ضمن أول 500 مشترك مؤهلين لخصم <strong>50% مدى الحياة</strong>.</p>
+    <a href="${verificationUrl}" class="btn">تأكيد البريد الإلكتروني</a>
+    <hr class="divider">
+    <p class="hint">رابط التأكيد صالح لمدة 24 ساعة. إذا لم تطلب الانضمام، يمكنك تجاهل هذا البريد.</p>
+  `);
+  await sendMail(email, `أكد بريدك الإلكتروني — قائمة انتظار Auryx`, html);
+}
+
 export async function sendEmergencyActivation(
   ownerName: string,
   beneficiaryName: string,
@@ -473,7 +487,7 @@ export async function sendGuardianVoteRequest(
 
 // ─── Retry Queue ───────────────────────────────────────────────────────────────
 
-export type RetryType = 'otp-email' | 'guardian-invite' | 'beneficiary-invite' | 'vote-request' | 'owner-notification' | 'beneficiary-absent';
+export type RetryType = 'otp-email' | 'guardian-invite' | 'beneficiary-invite' | 'vote-request' | 'owner-notification' | 'beneficiary-absent' | 'waitlist-verification';
 
 async function sendEmailByType(type: RetryType, email: string, data: Record<string, unknown>): Promise<void> {
   switch (type) {
@@ -512,6 +526,11 @@ async function sendEmailByType(type: RetryType, email: string, data: Record<stri
     case 'beneficiary-absent': {
       const ownerName = String(data.ownerName ?? email);
       await sendBeneficiaryOwnerAbsent(email, ownerName);
+      return;
+    }
+    case 'waitlist-verification': {
+      const verificationUrl = String(data.verificationUrl ?? '');
+      await sendWaitlistVerification(email, verificationUrl);
       return;
     }
     default:

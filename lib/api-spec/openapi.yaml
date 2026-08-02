@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: waitlist
+    description: Auryx launch waitlist and early-adopter eligibility
 paths:
   /healthz:
     get:
@@ -24,6 +26,69 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /waitlist/register:
+    post:
+      operationId: registerWaitlist
+      tags: [waitlist]
+      summary: Register an email for the Auryx launch waitlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WaitlistRegistrationInput"
+      responses:
+        "200":
+          description: Registration accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistRegistrationResponse"
+        "400":
+          description: Invalid registration
+        "429":
+          description: Too many requests
+        "502":
+          description: Verification email could not be delivered
+  /waitlist/confirm/{token}:
+    get:
+      operationId: confirmWaitlistEmail
+      tags: [waitlist]
+      summary: Confirm a waitlist email address
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 64
+            maxLength: 64
+            pattern: "^[a-fA-F0-9]{64}$"
+      responses:
+        "200":
+          description: Confirmation result page
+          content:
+            text/html:
+              schema:
+                type: string
+        "410":
+          description: Expired or already used confirmation link
+  /waitlist/me:
+    get:
+      operationId: getMyWaitlistEligibility
+      tags: [waitlist]
+      summary: Get the signed-in user's launch discount eligibility
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Waitlist eligibility
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistEligibility"
+        "401":
+          description: Authentication required
 components:
   schemas:
     HealthStatus:
@@ -33,4 +98,65 @@ components:
           type: string
       required:
         - status
+    WaitlistRegistrationInput:
+      type: object
+      required: [email, privacyAccepted]
+      properties:
+        email:
+          type: string
+          maxLength: 320
+          pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        privacyAccepted:
+          type: boolean
+          const: true
+        source:
+          type: string
+          maxLength: 80
+          default: landing-page
+    WaitlistRegistrationResponse:
+      type: object
+      required: [accepted, message]
+      properties:
+        accepted:
+          type: boolean
+        message:
+          type: string
+        alreadyConfirmed:
+          type: boolean
+        eligible:
+          type: boolean
+          description: True only when the email has confirmed a place in the first 500.
+        discountPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+    WaitlistEligibility:
+      type: object
+      required: [confirmed, eligible, discountPercent]
+      properties:
+        confirmed:
+          type: boolean
+        eligible:
+          type: boolean
+        confirmationRank:
+          type: ["integer", "null"]
+        discountPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        planPrices:
+          type: object
+          required: [monthly, annual]
+          properties:
+            monthly:
+              type: number
+              example: 5.99
+            annual:
+              type: number
+              example: 45.99
+    securitySchemes:
+      bearerAuth:
+        type: http
+        scheme: bearer
+        bearerFormat: JWT
 

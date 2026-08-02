@@ -22,3 +22,14 @@ export const authLimiter = rateLimit({
     error: 'Too many authentication attempts, please try again after 15 minutes.',
   },
 });
+
+export const waitlistLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    accepted: false,
+    error: 'Too many waitlist requests. Please try again later.',
+  },
+});

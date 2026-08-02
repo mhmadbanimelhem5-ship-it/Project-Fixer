@@ -105,3 +105,11 @@ export const pushBody = z.object({
 });
 
 export const inviteTokenParams = z.object({ token });
+
+export const waitlistRegistrationBody = z.object({
+  email,
+  privacyAccepted: z.literal(true),
+  source: z.string().trim().min(1).max(80).optional().default("landing-page"),
+});
+
+export const waitlistVerificationParams = z.object({ token });

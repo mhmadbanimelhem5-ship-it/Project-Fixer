@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/auryx-landing/"
+title = "Auryx Landing Page"
+description = "Auryx launch landing page with a verified email waitlist and early-adopter eligibility for the first 500 confirmed subscribers."
+version = "1.0.0"
+id = "artifacts/auryx-landing"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/auryx-landing/" ]
+localPort = 21019
+
+[services.development]
+run = "pnpm --filter @workspace/auryx-landing run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/auryx-landing", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/auryx-landing/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21019"
+BASE_PATH = "/auryx-landing/"

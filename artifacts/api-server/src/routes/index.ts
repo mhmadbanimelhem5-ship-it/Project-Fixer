@@ -6,6 +6,7 @@ import pushRouter from "./push";
 import keysRouter from "./keys";
 import vaultTransferRouter from "./vaultTransfer";
 import absenceRouter from "./absence";
+import waitlistRouter from "./waitlist";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use('/push', pushRouter);
 router.use('/keys', keysRouter);
 router.use('/vault', vaultTransferRouter);
 router.use('/absence', absenceRouter);
+router.use('/waitlist', waitlistRouter);
 
 export default router;

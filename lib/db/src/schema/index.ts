@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, integer, bigint, primaryKey, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, jsonb, integer, bigint, primaryKey, serial, boolean } from "drizzle-orm/pg-core";
 
 // ── RSA public keys ───────────────────────────────────────────────────────────
 export const publicKeysTable = pgTable("public_keys", {
@@ -105,4 +105,26 @@ export const otpsTable = pgTable("otps", {
   createdAt:        bigint("created_at", { mode: "number" }).notNull(),
   expiresAt:        bigint("expires_at", { mode: "number" }).notNull(),
   usedAt:           bigint("used_at",    { mode: "number" }),
+});
+
+// ── Auryx launch waitlist ─────────────────────────────────────────────────────
+// Confirmation rank is assigned under a PostgreSQL advisory lock so exactly
+// the first 500 confirmed addresses receive the lifetime launch discount.
+export const waitlistEntriesTable = pgTable("waitlist_entries", {
+  email:             text("email").primaryKey(),
+  source:            text("source").notNull().default("landing-page"),
+  privacyAccepted:   boolean("privacy_accepted").notNull().default(false),
+  createdAt:         bigint("created_at", { mode: "number" }).notNull(),
+  confirmedAt:       bigint("confirmed_at", { mode: "number" }),
+  confirmationRank:  integer("confirmation_rank"),
+  discountPercent:   integer("discount_percent").notNull().default(0),
+  updatedAt:         bigint("updated_at", { mode: "number" }).notNull(),
+});
+
+export const waitlistVerificationsTable = pgTable("waitlist_verifications", {
+  token:      text("token").primaryKey(),
+  email:      text("email").notNull(),
+  createdAt:  bigint("created_at", { mode: "number" }).notNull(),
+  expiresAt:  bigint("expires_at", { mode: "number" }).notNull(),
+  usedAt:     bigint("used_at", { mode: "number" }),
 });
