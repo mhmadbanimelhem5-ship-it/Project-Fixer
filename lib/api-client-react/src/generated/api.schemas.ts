@@ -33,6 +33,22 @@ export interface WaitlistRegistrationResponse {
   discountPercent?: number;
 }
 
+export interface WaitlistStats {
+  /**
+     * Number of waitlist emails confirmed so far.
+     * @minimum 0
+     */
+  confirmedCount: number;
+  /**
+     * Remaining confirmed places eligible for the launch discount.
+     * @minimum 0
+     * @maximum 500
+     */
+  discountSpotsRemaining: number;
+  /** Total number of launch-discount places. */
+  discountLimit: 500;
+}
+
 export type WaitlistEligibilityPlanPrices = {
   monthly: number;
   annual: number;

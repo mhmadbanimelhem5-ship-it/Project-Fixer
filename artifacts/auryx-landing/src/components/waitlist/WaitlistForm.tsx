@@ -2,7 +2,11 @@ import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { useRegisterWaitlist } from "@workspace/api-client-react"
+import {
+  getGetWaitlistStatsQueryKey,
+  useGetWaitlistStats,
+  useRegisterWaitlist,
+} from "@workspace/api-client-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -37,6 +41,14 @@ export function WaitlistForm() {
   })
 
   const { mutate: register, isPending } = useRegisterWaitlist()
+  const { data: stats } = useGetWaitlistStats({
+    query: {
+      queryKey: getGetWaitlistStatsQueryKey(),
+      refetchInterval: 15000,
+      staleTime: 10000,
+      retry: 2,
+    },
+  })
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     register(
@@ -133,7 +145,39 @@ export function WaitlistForm() {
           </p>
         )}
 
-        <Button 
+        {stats ? (
+          <div
+            className="rounded-2xl border border-primary/20 bg-primary/[0.07] px-4 py-3 text-center"
+            aria-live="polite"
+          >
+            {stats.discountSpotsRemaining > 0 ? (
+              <>
+                <p className="text-sm font-bold text-primary">
+                  انضم إلى قائمة الانتظار قبل اكتمال العرض
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-white/65">
+                  أكّد بريدك لتكون من أوائل {stats.discountLimit} شخصًا المؤهلين
+                  لخصم 50% مدى الحياة.
+                </p>
+                <div className="mt-3 flex items-center justify-center gap-3 text-xs font-bold">
+                  <span className="text-white">
+                    {stats.confirmedCount.toLocaleString("en-US")} مؤكدون
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-primary/60" />
+                  <span className="text-primary">
+                    {stats.discountSpotsRemaining.toLocaleString("en-US")} مقعد متبقٍ
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm font-bold text-primary">
+                اكتمل عرض خصم أول {stats.discountLimit} شخص
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        <Button
           type="submit" 
           disabled={isPending}
           className="w-full h-14 rounded-xl text-base font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_rgba(212,175,55,0.3)] transition-all hover:shadow-[0_0_30px_rgba(212,175,55,0.5)]"

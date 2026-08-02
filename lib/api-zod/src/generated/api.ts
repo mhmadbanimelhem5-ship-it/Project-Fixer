@@ -50,6 +50,24 @@ export const RegisterWaitlistResponse = zod.object({
 
 
 /**
+ * Returns aggregate waitlist counts only; no email addresses or personal data are exposed.
+ * @summary Get public waitlist confirmation statistics
+ */
+export const getWaitlistStatsResponseConfirmedCountMin = 0;
+
+export const getWaitlistStatsResponseDiscountSpotsRemainingMin = 0;
+export const getWaitlistStatsResponseDiscountSpotsRemainingMax = 500;
+
+
+
+export const GetWaitlistStatsResponse = zod.object({
+  "confirmedCount": zod.number().min(getWaitlistStatsResponseConfirmedCountMin).describe('Number of waitlist emails confirmed so far.'),
+  "discountSpotsRemaining": zod.number().min(getWaitlistStatsResponseDiscountSpotsRemainingMin).max(getWaitlistStatsResponseDiscountSpotsRemainingMax).describe('Remaining confirmed places eligible for the launch discount.'),
+  "discountLimit": zod.number().describe('Total number of launch-discount places.')
+})
+
+
+/**
  * @summary Confirm a waitlist email address
  */
 export const confirmWaitlistEmailPathTokenMin = 64;

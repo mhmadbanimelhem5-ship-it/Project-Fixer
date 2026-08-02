@@ -23,7 +23,8 @@ import type {
   HealthStatus,
   WaitlistEligibility,
   WaitlistRegistrationInput,
-  WaitlistRegistrationResponse
+  WaitlistRegistrationResponse,
+  WaitlistStats
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -201,6 +202,84 @@ export const useRegisterWaitlist = <TError = ErrorType<void>,
       > => {
       return useMutation(getRegisterWaitlistMutationOptions(options));
     }
+
+export const getGetWaitlistStatsUrl = () => {
+
+
+
+
+  return `/api/waitlist/stats`
+}
+
+/**
+ * Returns aggregate waitlist counts only; no email addresses or personal data are exposed.
+ * @summary Get public waitlist confirmation statistics
+ */
+export const getWaitlistStats = async ( options?: RequestInit): Promise<WaitlistStats> => {
+
+  return customFetch<WaitlistStats>(getGetWaitlistStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWaitlistStatsQueryKey = () => {
+    return [
+    `/api/waitlist/stats`
+    ] as const;
+    }
+
+
+export const getGetWaitlistStatsQueryOptions = <TData = Awaited<ReturnType<typeof getWaitlistStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaitlistStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWaitlistStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWaitlistStats>>> = ({ signal }) => getWaitlistStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWaitlistStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWaitlistStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getWaitlistStats>>>
+export type GetWaitlistStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get public waitlist confirmation statistics
+ */
+
+export function useGetWaitlistStats<TData = Awaited<ReturnType<typeof getWaitlistStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWaitlistStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWaitlistStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getConfirmWaitlistEmailUrl = (token: string,) => {
 

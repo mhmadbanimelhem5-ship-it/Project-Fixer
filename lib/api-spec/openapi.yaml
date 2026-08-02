@@ -50,6 +50,19 @@ paths:
           description: Too many requests
         "502":
           description: Verification email could not be delivered
+  /waitlist/stats:
+    get:
+      operationId: getWaitlistStats
+      tags: [waitlist]
+      summary: Get public waitlist confirmation statistics
+      description: Returns aggregate waitlist counts only; no email addresses or personal data are exposed.
+      responses:
+        "200":
+          description: Public waitlist statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistStats"
   /waitlist/confirm/{token}:
     get:
       operationId: confirmWaitlistEmail
@@ -130,6 +143,23 @@ components:
           type: integer
           minimum: 0
           maximum: 100
+    WaitlistStats:
+      type: object
+      required: [confirmedCount, discountSpotsRemaining, discountLimit]
+      properties:
+        confirmedCount:
+          type: integer
+          minimum: 0
+          description: Number of waitlist emails confirmed so far.
+        discountSpotsRemaining:
+          type: integer
+          minimum: 0
+          maximum: 500
+          description: Remaining confirmed places eligible for the launch discount.
+        discountLimit:
+          type: integer
+          const: 500
+          description: Total number of launch-discount places.
     WaitlistEligibility:
       type: object
       required: [confirmed, eligible, discountPercent]

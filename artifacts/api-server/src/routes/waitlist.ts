@@ -194,6 +194,30 @@ router.post(
 );
 
 router.get(
+  "/stats",
+  async (_req, res, next): Promise<void> => {
+    try {
+      const countRows = await db.execute<{ count: number }>(
+        sql`SELECT count(*)::int AS count FROM waitlist_entries WHERE confirmed_at IS NOT NULL`,
+      );
+      const confirmedCount = Number(countRows.rows[0]?.count ?? 0);
+
+      res.set(
+        "Cache-Control",
+        "public, max-age=15, stale-while-revalidate=30",
+      );
+      res.json({
+        confirmedCount,
+        discountSpotsRemaining: Math.max(LAUNCH_LIMIT - confirmedCount, 0),
+        discountLimit: LAUNCH_LIMIT,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
   "/confirm/:token",
   validateParams(ConfirmWaitlistEmailParams),
   async (req, res, next): Promise<void> => {

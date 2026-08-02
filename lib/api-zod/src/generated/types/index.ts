@@ -12,3 +12,4 @@ export * from './waitlistEligibility';
 export * from './waitlistEligibilityPlanPrices';
 export * from './waitlistRegistrationInput';
 export * from './waitlistRegistrationResponse';
+export * from './waitlistStats';
