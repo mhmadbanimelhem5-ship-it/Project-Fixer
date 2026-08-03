@@ -1,3 +1,4 @@
+- [Clerk after repo import](clerk-imported-repo-setup.md) — imported Expo apps may need managed Clerk provisioning before the mobile bundle can start.
 - [absence-protocol-scheduler](absence-protocol-scheduler.md) — single scheduler with a concurrency lock; state lives in PostgreSQL so it survives restarts.
 - [invite-tokens-persistence](invite-tokens-persistence.md) — invite tokens must be stored in the DB, not an in-memory Map, so they survive server restarts.
 - [email-retry-queue](email-retry-queue.md) — OTP and other critical emails must use exponential backoff + a persistent retry_queue table.
