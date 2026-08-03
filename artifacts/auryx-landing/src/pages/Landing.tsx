@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Link } from "wouter"
 import { WaitlistForm } from "@/components/waitlist/WaitlistForm"
-import { Shield, Lock, KeyRound, ServerOff, Check, HardDrive, Smartphone, ShieldCheck, FileKey2, EyeOff } from "lucide-react"
+import { Shield, Lock, KeyRound, ServerOff, Check, HardDrive, Smartphone, ShieldCheck, FileKey2, EyeOff, Mail, Phone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { landingLocales, type Language } from "@/lib/i18n"
 
@@ -324,12 +324,25 @@ export function Landing() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-white/5 text-sm text-white/40">
-            <div className="flex flex-col gap-1">
-              <p>&copy; {new Date().getFullYear()} Auryx. {t.footer.rights}</p>
+          <div className="grid gap-8 border-t border-white/5 pt-8 text-sm text-white/50 md:grid-cols-[1fr_auto_auto] md:items-end">
+            <div className={cn("flex flex-col gap-2", lang === 'ar' ? "text-right" : "text-left")}>
+              <p className="text-base font-bold text-white">&copy; 2026 Auryx. {t.footer.rights}</p>
               <p>{t.footer.team}</p>
             </div>
-            <div className="flex items-center gap-6">
+
+            <div className="flex flex-col items-center gap-3 md:items-start">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">{t.footer.contactTitle}</p>
+              <a href="mailto:myauryx@gmail.com" className="flex items-center gap-2 hover:text-primary transition-colors">
+                <Mail className="h-4 w-4 text-primary" />
+                <span dir="ltr">myauryx@gmail.com</span>
+              </a>
+              <a href="tel:+962793310321" className="flex items-center gap-2 hover:text-primary transition-colors">
+                <Phone className="h-4 w-4 text-primary" />
+                <span dir="ltr">+962 79 331 0321</span>
+              </a>
+            </div>
+
+            <div className="flex items-center justify-center gap-6 md:justify-end">
               <Link href="/privacy" className="hover:text-primary transition-colors">{t.footer.links.privacy}</Link>
               <Link href="/terms" className="hover:text-primary transition-colors">{t.footer.links.terms}</Link>
             </div>

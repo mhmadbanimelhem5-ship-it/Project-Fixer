@@ -182,6 +182,7 @@ export const landingLocales = {
     footer: {
       rights: "جميع الحقوق محفوظة.",
       team: "مُطور بعناية واهتمام بالغ بالخصوصية من قبل فريق Auryx.",
+      contactTitle: "تواصل معنا",
       links: {
         privacy: "سياسة الخصوصية",
         terms: "شروط الاستخدام"
@@ -316,6 +317,7 @@ export const landingLocales = {
     footer: {
       rights: "All rights reserved.",
       team: "Built with care and a commitment to privacy by the Auryx team.",
+      contactTitle: "Contact us",
       links: {
         privacy: "Privacy Policy",
         terms: "Terms of Use"
