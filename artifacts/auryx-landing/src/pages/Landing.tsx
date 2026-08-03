@@ -308,7 +308,7 @@ export function Landing() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 bg-black pt-16 pb-8">
+      <footer id="footer" className="relative z-20 isolate border-t border-white/5 bg-black pt-16 pb-8 scroll-mt-20">
         <div className="mx-auto max-w-7xl px-4 md:px-8 space-y-12">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
