@@ -1,0 +1,23 @@
+kind = "mobile"
+previewPath = "/"
+title = "Auryx"
+version = "1.0.0"
+id = "artifacts/auryx"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 24421
+
+[services.development]
+run = "pnpm --filter @workspace/auryx run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/auryx", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/auryx", "run", "serve" ]
+
+[services.env]
+PORT = "24421"
+BASE_PATH = "/"

@@ -1,45 +1,60 @@
-# [Project name]
+# Auryx
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Auryx is a secure digital vault mobile app. It lets owners seal encrypted vaults, appoint guardians and beneficiaries, and trigger an absence protocol that transfers access through guardian voting and OTP verification.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/auryx run dev` — run the Expo mobile app
+- `pnpm --filter @workspace/api-server run dev` — run the API server
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm run typecheck:libs` — rebuild composite lib declarations
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- Optional email env: `RESEND_API_KEY` or `SMTP_USER` + `SMTP_PASS`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Mobile: Expo (React Native) with Expo Router
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
+- Validation: Zod, `drizzle-zod`
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- DB schema: `lib/db/src/schema/index.ts`
+- API routes: `artifacts/api-server/src/routes/`
+- Email logic: `artifacts/api-server/src/lib/emailService.ts`
+- Absence protocol: `artifacts/api-server/src/routes/absence.ts` + `artifacts/api-server/src/lib/absenceStore.ts`
+- Vault transfer: `artifacts/api-server/src/routes/vaultTransfer.ts`
+- Mobile app: `artifacts/auryx/`
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- All scheduler state lives in PostgreSQL so it survives restarts.
+- Invite tokens and email retry queue are stored in the DB, not in-memory.
+- A single absence scheduler runs with a module-level concurrency lock to prevent duplicate notifications.
+- Email sends (especially OTP) use in-request exponential backoff plus a persistent retry queue.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Owners seal encrypted vaults and choose guardians + beneficiaries.
+- Emergency absence protocol notifies the owner every 3 hours for 48 hours, then lets the beneficiary start a guardian vote.
+- Once enough guardians approve, an OTP is sent to the beneficiary to unlock the vault.
+- Guardians and beneficiaries accept their roles via email invite links.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+_(none yet)_
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run `pnpm run typecheck:libs` before `pnpm --filter @workspace/api-server run typecheck` when changing `lib/db` schema.
+- The API server needs `RESEND_API_KEY` or `SMTP_USER`/`SMTP_PASS` to send real emails.
+- Do not run `npx expo start` directly; use the managed `artifacts/auryx: expo` workflow.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See the `pnpm-workspace` skill for workspace structure and TypeScript setup.
+- See the `expo` skill for mobile app guidelines.

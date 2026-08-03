@@ -1,0 +1,92 @@
+{
+  "expo": {
+    "name": "Auryx",
+    "slug": "auryx-1",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "auryx",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0F1E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.auryx.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Auryx uses Face ID to securely unlock your vault.",
+        "NSLocalAuthenticationUsageDescription": "Auryx uses biometrics to securely unlock your vault.",
+        "NSCameraUsageDescription": "Auryx uses your camera to photograph anyone who repeatedly fails to unlock your vault (intruder detection feature)."
+      }
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "package": "com.auryx.app",
+      "versionCode": 1,
+      "minSdkVersion": 24,
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0A0F1E"
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router"
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-secure-store",
+      "expo-image-picker",
+      "expo-local-authentication",
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#0A0F1E",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "Auryx"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.21"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "18afbd16-05ce-4e7d-af5f-61ccd539bdeb"
+      }
+    },
+    "owner": "auryx33s"
+  }
+}
