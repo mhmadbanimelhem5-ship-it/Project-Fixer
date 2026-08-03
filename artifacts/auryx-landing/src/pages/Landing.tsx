@@ -1,240 +1,338 @@
 import * as React from "react"
 import { Link } from "wouter"
 import { WaitlistForm } from "@/components/waitlist/WaitlistForm"
-import { Shield, Lock, Share2, HeartPulse, KeyRound, ServerOff, CheckCircle2, ChevronDown, Mail, Phone } from "lucide-react"
+import { Shield, Lock, KeyRound, ServerOff, Check, HardDrive, Smartphone, ShieldCheck, FileKey2, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
+import { landingLocales, type Language } from "@/lib/i18n"
+
+const asset = (name: string) => `${import.meta.env.BASE_URL}assets/${name}`
+const auryxLogo = asset("auryx-logo.png")
+const appLock = asset("app-lock.jpg")
+const appHome = asset("app-home.jpg")
+const appSettings = asset("app-settings.jpg")
+const appGuardians = asset("app-guardians.jpg")
 
 export function Landing() {
+  const [lang, setLang] = React.useState<Language>('ar')
+  const t = landingLocales[lang]
+
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans" dir="rtl">
+    <div className={cn(
+      "min-h-[100dvh] bg-background text-foreground selection:bg-primary/30",
+      lang === 'ar' ? "font-sans-ar" : "font-sans-en"
+    )} dir={t.dir}>
       {/* Background Ambience */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
-        <div className="absolute -top-[40%] -right-[20%] w-[90%] h-[80%] rounded-full opacity-[0.18] blur-[120px] bg-[radial-gradient(circle_at_center,_#D4AF37_0%,_#8B6D1A_25%,_transparent_70%)] animate-pulse-gold"></div>
-        <div className="absolute top-[30%] -left-[20%] w-[70%] h-[60%] rounded-full opacity-[0.08] blur-[130px] bg-[radial-gradient(circle_at_center,_#8B5CF6_0%,_transparent_60%)] animate-pulse-purple"></div>
-        <div className="absolute bottom-0 right-0 w-full h-[60%] opacity-[0.04] bg-[radial-gradient(ellipse_at_bottom,_#D4AF37_0%,_transparent_60%)]"></div>
+      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0 bg-[#0a0a0c]">
+        <div className="absolute top-[-20%] right-[-10%] w-[80%] h-[70%] rounded-full opacity-[0.15] blur-[150px] bg-[radial-gradient(circle_at_center,_#D4AF37_0%,_transparent_70%)] animate-pulse-gold"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.15] blur-[130px] bg-[radial-gradient(circle_at_center,_#8B5CF6_0%,_transparent_70%)] animate-pulse-purple"></div>
       </div>
 
       {/* Header */}
-      <header className="relative z-20 border-b border-white/[0.06] backdrop-blur-xl bg-black/20">
+      <header className="relative z-20 border-b border-white/5 backdrop-blur-2xl bg-black/40 sticky top-0">
         <div className="mx-auto max-w-7xl px-4 md:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Logo placeholder */}
-            <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center border border-primary/20 shadow-[0_0_15px_rgba(212,175,55,0.2)]">
-              <Shield className="w-6 h-6 text-primary" />
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 flex items-center justify-center">
+              <img src={auryxLogo} alt="Auryx Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-xl font-bold tracking-widest uppercase font-display text-white">AURYX</span>
+            <span className={cn("text-xl font-bold tracking-widest uppercase text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>AURYX</span>
           </div>
+
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
-            <a href="#features" className="hover:text-primary transition-colors">المميزات</a>
-            <a href="#pricing" className="hover:text-primary transition-colors">الأسعار</a>
-            <a href="#faq" className="hover:text-primary transition-colors">الأسئلة الشائعة</a>
+            <a href="#features" className="hover:text-primary transition-colors">{t.nav.features}</a>
+            <a href="#screens" className="hover:text-primary transition-colors">{t.nav.screens}</a>
+            <a href="#inheritance" className="hover:text-primary transition-colors">{t.nav.inheritance}</a>
+            <a href="#security" className="hover:text-primary transition-colors">{t.nav.security}</a>
+            <a href="#compare" className="hover:text-primary transition-colors">{t.nav.compare}</a>
           </nav>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+              className="text-xs font-bold text-white/70 hover:text-white px-3 py-1.5 rounded-full border border-white/10 bg-white/5 transition-colors"
+            >
+              {lang === 'ar' ? 'English' : 'العربية'}
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="relative z-10">
         {/* Hero Section */}
         <section className="mx-auto max-w-7xl px-4 md:px-8 pt-20 md:pt-32 pb-24 overflow-hidden flex flex-col lg:flex-row items-center gap-16 lg:gap-12">
-          <div className="flex-1 text-center lg:text-right space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className={cn("flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700", lang === 'ar' ? "text-right" : "text-left")}>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold tracking-wide text-primary">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-              إطلاق حصري قريبًا
+              {t.hero.badge}
             </div>
             
-            <h1 className="text-5xl lg:text-7xl font-extrabold font-display leading-[1.1] tracking-tight">
-              خزنتك الرقمية <br/>
-              <span className="text-gradient">المشفرة. للأبد.</span>
+            <h1 className={cn("text-5xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>
+              {t.hero.title}
             </h1>
             
-            <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-              احفظ كلمات مرورك، ملفاتك، وأسرارك. شاركها بأمان تام، وانقلها لمن تثق بهم في حالات الطوارئ عبر بروتوكول الإرث الرقمي الخاص بنا.
+            <p className="text-lg md:text-xl text-white/60 max-w-2xl leading-relaxed">
+              {t.hero.subtitle}
             </p>
 
-            <div className="glass-panel p-8 rounded-3xl max-w-md mx-auto lg:mx-0 relative overflow-hidden">
+            <div className="glass-panel p-8 rounded-3xl max-w-md relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0"></div>
               <div className="mb-6 space-y-2">
-                <h3 className="text-xl font-bold text-white">احصل على 50% خصم مدى الحياة!</h3>
+                <h3 className="text-xl font-bold text-white">{t.hero.discountTitle}</h3>
                 <p className="text-sm text-white/70 leading-relaxed">
-                  أول 500 شخص يسجلون ويؤكدون بريدهم الإلكتروني سيحصلون على هذا الخصم الحصري عند الإطلاق.
+                  {t.hero.discountDesc}
                 </p>
               </div>
-              <WaitlistForm />
+              <WaitlistForm lang={lang} />
             </div>
           </div>
 
-          <div className="flex-1 relative animate-in fade-in slide-in-from-left-8 duration-700 delay-200">
-            <div className="relative w-full max-w-md mx-auto aspect-square flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border border-primary/20 animate-[spin_20s_linear_infinite]"></div>
-              <div className="absolute inset-4 rounded-full border border-primary/10 animate-[spin_15s_linear_infinite_reverse]"></div>
-              <div className="absolute inset-8 rounded-full border border-dashed border-primary/20 animate-[spin_30s_linear_infinite]"></div>
-              <div className="w-40 h-40 rounded-full bg-background border border-primary/30 flex items-center justify-center shadow-[0_0_50px_rgba(212,175,55,0.2)] animate-float relative z-10">
-                <Shield className="w-20 h-20 text-primary drop-shadow-[0_0_15px_rgba(212,175,55,0.8)]" />
+          <div className="flex-1 relative w-full flex justify-center animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-200 lg:h-[600px] h-[400px]">
+            <div className="relative w-full max-w-md">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/20 blur-[100px] rounded-full mix-blend-screen animate-pulse-gold" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-purple-500/20 blur-[80px] rounded-full mix-blend-screen animate-pulse-purple" />
+
+              <div className="hero-logo-orb absolute top-[13%] left-1/2 -translate-x-1/2 w-44 h-44 rounded-full border border-primary/30 bg-[#0e0e13]/85 shadow-[0_0_70px_rgba(212,175,55,0.26)] animate-float z-30">
+                <div className="absolute inset-3 rounded-full border border-primary/15 bg-primary/[0.04]" />
+                <img
+                  src={auryxLogo}
+                  alt="Auryx Logo"
+                  className="absolute inset-7 w-[calc(100%-3.5rem)] h-[calc(100%-3.5rem)] object-contain drop-shadow-[0_0_30px_rgba(212,175,55,0.45)]"
+                />
               </div>
+
+              <div className="absolute top-[10%] left-[5%] w-[160px] md:w-[200px] -rotate-12 opacity-40 blur-[2px] transition-transform hover:opacity-100 hover:blur-none hover:z-40 duration-500">
+                 <PhoneMockup src={appLock} alt="Auryx Lock Screen" />
+              </div>
+
+              <div className="absolute top-[20%] right-[0%] w-[180px] md:w-[240px] rotate-6 shadow-2xl z-20 transition-transform hover:-translate-y-4 duration-500">
+                 <PhoneMockup src={appHome} alt="Auryx Home Screen" />
+              </div>
+
+              <div className="absolute top-[35%] left-[0%] w-[140px] md:w-[180px] -rotate-6 opacity-60 blur-[1px] transition-transform hover:opacity-100 hover:blur-none hover:z-40 duration-500 z-10">
+                 <PhoneMockup src={appSettings} alt="Auryx Settings Screen" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* App Screenshots */}
+        <section id="screens" className="py-24 border-y border-white/5 bg-black/30 relative overflow-hidden">
+          <div className="mx-auto max-w-7xl px-4 md:px-8">
+            <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
+              <p className="text-sm font-bold tracking-[0.18em] uppercase text-primary">{t.screens.eyebrow}</p>
+              <h2 className={cn("text-3xl md:text-5xl font-bold text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>{t.screens.title}</h2>
+              <p className="text-lg text-white/60">{t.screens.subtitle}</p>
+            </div>
+
+            <div className="screenshots-row">
+              <PhoneMockup src={appLock} alt={t.screens.alts.lock} className="screenshot-phone screenshot-phone-1" />
+              <PhoneMockup src={appHome} alt={t.screens.alts.home} className="screenshot-phone screenshot-phone-2" />
+              <PhoneMockup src={appGuardians} alt={t.screens.alts.guardians} className="screenshot-phone screenshot-phone-3" />
+              <PhoneMockup src={appSettings} alt={t.screens.alts.settings} className="screenshot-phone screenshot-phone-4" />
             </div>
           </div>
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-24 border-y border-white/5 bg-black/40 relative">
+        <section id="features" className="py-24 border-y border-white/5 bg-black/20 relative">
           <div className="mx-auto max-w-7xl px-4 md:px-8">
             <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-              <h2 className="text-3xl md:text-4xl font-bold font-display text-white">أمان لا يقبل المساومة</h2>
-              <p className="text-white/60">تم تصميم Auryx منذ اليوم الأول ليكون الحارس الأمين لأكثر بياناتك حساسية، معتمدًا على أحدث بروتوكولات التشفير العسكري.</p>
+              <h2 className={cn("text-3xl md:text-5xl font-bold text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>{t.features.title}</h2>
+              <p className="text-lg text-white/60">{t.features.subtitle}</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
               <FeatureCard 
                 icon={<Lock />}
-                title="تشفير عسكري من طرف إلى طرف"
-                description="بياناتك تشفر على جهازك قبل أن تصل إلينا. نحن لا نملك مفتاحك، ولا يمكن لأي جهة أخرى الاطلاع على محتويات خزنتك."
+                title={t.features.e2ee.title}
+                description={t.features.e2ee.desc}
               />
               <FeatureCard 
-                icon={<HeartPulse />}
-                title="بروتوكول الطوارئ والغياب"
-                description="في حال الطوارئ أو غيابك لفترة طويلة، يقوم النظام تلقائياً بنقل خزنتك إلى المستفيدين الذين حددتهم مسبقاً بشكل مشفر وآمن."
+                icon={<EyeOff />}
+                title={t.features.zeroKnowledge.title}
+                description={t.features.zeroKnowledge.desc}
               />
               <FeatureCard 
-                icon={<Share2 />}
-                title="مشاركة آمنة ومحدودة"
-                description="شارك كلمات المرور والملاحظات السرية مع من تريد بضغطة زر، مع إمكانية تحديد صلاحيات ومدة زمنية للوصول."
+                icon={<HardDrive />}
+                title={t.features.storage.title}
+                description={t.features.storage.desc}
               />
               <FeatureCard 
-                icon={<KeyRound />}
-                title="أنت المالك الوحيد"
-                description="نظام التشفير يعتمد على بنية المعرفة الصفرية (Zero-Knowledge). إذا فقدت مفتاحك، لا يمكننا استرجاع بياناتك."
-              />
-              <FeatureCard 
-                icon={<ServerOff />}
-                title="لا حاجة للاتصال الدائم"
-                description="تصفح بياناتك وخزنتك بدون إنترنت. يتم المزامنة بشكل آمن ومجزء فور اتصالك بالشبكة."
-              />
-              <FeatureCard 
-                icon={<Shield />}
-                title="الإرث الرقمي المحمي"
-                description="احمِ عائلتك وأحباءك من فقدان الوصول للأصول الرقمية الهامة، وورثهم بياناتك بطريقة تضمن الخصوصية التامة."
+                icon={<ShieldCheck />}
+                title={t.features.twoFactor.title}
+                description={t.features.twoFactor.desc}
               />
             </div>
           </div>
         </section>
 
-        {/* Pricing Teaser */}
+        {/* Inheritance Deep Dive */}
+        <section id="inheritance" className="py-24 relative overflow-hidden">
+          <div className="mx-auto max-w-7xl px-4 md:px-8 flex flex-col lg:flex-row items-center gap-16">
+            <div className="flex-1 relative w-full max-w-md mx-auto">
+              <div className="absolute inset-0 bg-purple-500/10 blur-[100px] rounded-full"></div>
+              <PhoneMockup src={appGuardians} alt="Digital Inheritance" className="z-10 relative" />
+            </div>
+
+            <div className={cn("flex-1 space-y-12", lang === 'ar' ? 'text-right' : 'text-left')}>
+              <div className="space-y-4">
+                <h2 className={cn("text-3xl md:text-5xl font-bold text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>{t.inheritance.title}</h2>
+                <p className="text-lg text-white/60">{t.inheritance.subtitle}</p>
+              </div>
+
+              <div className="space-y-8 relative before:absolute before:inset-y-2 before:w-px before:bg-white/10 before:right-6 rtl:before:right-6 ltr:before:left-6 ltr:before:right-auto">
+                <Step
+                  number="1"
+                  title={t.inheritance.step1.title}
+                  desc={t.inheritance.step1.desc}
+                  lang={lang}
+                />
+                <Step
+                  number="2"
+                  title={t.inheritance.step2.title}
+                  desc={t.inheritance.step2.desc}
+                  lang={lang}
+                />
+                <Step
+                  number="3"
+                  title={t.inheritance.step3.title}
+                  desc={t.inheritance.step3.desc}
+                  lang={lang}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Security & Trust */}
+        <section id="security" className="py-24 border-y border-white/5 bg-black/40 relative">
+          <div className="mx-auto max-w-7xl px-4 md:px-8">
+            <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+              <h2 className={cn("text-3xl md:text-5xl font-bold text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>{t.security.title}</h2>
+              <p className="text-lg text-white/60">{t.security.subtitle}</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <TrustCard icon={<FileKey2 />} title={t.security.sourceCode.title} desc={t.security.sourceCode.desc} />
+              <TrustCard icon={<Shield />} title={t.security.audit.title} desc={t.security.audit.desc} />
+              <TrustCard icon={<KeyRound />} title={t.security.recovery.title} desc={t.security.recovery.desc} />
+              <TrustCard icon={<ServerOff />} title={t.security.privacy.title} desc={t.security.privacy.desc} />
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
         <section id="pricing" className="py-24 relative overflow-hidden">
-          <div className="mx-auto max-w-5xl px-4 md:px-8 text-center space-y-12 relative z-10">
-            <div className="space-y-4">
-              <h2 className="text-3xl md:text-5xl font-bold font-display">استثمر في أمانك</h2>
-              <p className="text-lg text-white/60 max-w-2xl mx-auto">
-                تسعير شفاف وبسيط. انضم لقائمة الانتظار الآن لتفعيل خصم 50% مدى الحياة فور الإطلاق.
-              </p>
+          <div className="mx-auto max-w-5xl px-4 md:px-8">
+            <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
+              <p className="text-sm font-bold tracking-[0.18em] uppercase text-primary">{t.pricing.eyebrow}</p>
+              <h2 className={cn("text-3xl md:text-5xl font-bold text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>{t.pricing.title}</h2>
+              <p className="text-lg text-white/60">{t.pricing.subtitle}</p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-              <div className="glass-panel p-8 rounded-3xl border border-white/5 flex flex-col">
-                <h3 className="text-xl font-bold text-white mb-2">الخطة الشهرية</h3>
-                <div className="flex items-end justify-center gap-2 mb-6">
-                  <span className="text-4xl font-bold text-white">$5.99</span>
-                  <span className="text-white/50 mb-1">/ شهر</span>
-                </div>
-                <div className="bg-primary/10 text-primary py-2 px-4 rounded-xl text-sm font-bold mb-8">
-                  سيكون $2.99 فقط إذا كنت من أول 500!
-                </div>
-                <ul className="space-y-3 text-sm text-white/70 text-right mb-8 flex-1">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary shrink-0"/> تشفير عسكري كامل</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary shrink-0"/> إضافة مستفيدين لطوارئ</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary shrink-0"/> مشاركة غير محدودة</li>
-                </ul>
-              </div>
-
-              <div className="glass-panel p-8 rounded-3xl border border-primary/30 relative flex flex-col shadow-[0_0_30px_rgba(212,175,55,0.1)]">
-                <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-xs font-bold">
-                  الأكثر توفيراً
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">الخطة السنوية</h3>
-                <div className="flex items-end justify-center gap-2 mb-6">
-                  <span className="text-4xl font-bold text-primary">$45.99</span>
-                  <span className="text-white/50 mb-1">/ سنة</span>
-                </div>
-                <div className="bg-primary/10 text-primary py-2 px-4 rounded-xl text-sm font-bold mb-8">
-                  سيكون $22.99 فقط إذا كنت من أول 500!
-                </div>
-                <ul className="space-y-3 text-sm text-white/70 text-right mb-8 flex-1">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary shrink-0"/> جميع ميزات الخطة الشهرية</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary shrink-0"/> توفير شهرين مجاناً</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary shrink-0"/> دعم فني على مدار الساعة</li>
-                </ul>
-              </div>
+            <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+              <PricingCard
+                title={t.pricing.monthly.title}
+                price={t.pricing.monthly.price}
+                period={t.pricing.monthly.period}
+                discount={t.pricing.monthly.discount}
+                features={t.pricing.monthly.features}
+              />
+              <PricingCard
+                title={t.pricing.annual.title}
+                price={t.pricing.annual.price}
+                period={t.pricing.annual.period}
+                discount={t.pricing.annual.discount}
+                features={t.pricing.annual.features}
+                featured
+              />
             </div>
+            <p className="text-xs text-white/40 text-center mt-6">{t.pricing.note}</p>
           </div>
         </section>
 
-        {/* FAQ Section */}
-        <section id="faq" className="py-24 border-t border-white/5 bg-black/40">
-          <div className="mx-auto max-w-3xl px-4 md:px-8">
-            <div className="text-center mb-12 space-y-4">
-              <h2 className="text-3xl md:text-4xl font-bold font-display text-white">الأسئلة الشائعة</h2>
-              <p className="text-white/60">كل ما تحتاج معرفته عن Auryx وأمان بياناتك.</p>
+        {/* Compare Table */}
+        <section id="compare" className="py-24 relative overflow-hidden">
+          <div className="mx-auto max-w-5xl px-4 md:px-8">
+            <div className="text-center mb-16 space-y-4">
+              <h2 className={cn("text-3xl md:text-5xl font-bold text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>{t.compare.title}</h2>
+              <p className="text-lg text-white/60">{t.compare.subtitle}</p>
             </div>
 
-            <Accordion type="single" collapsible className="w-full text-right" dir="rtl">
-              <AccordionItem value="item-1" className="border-white/10">
-                <AccordionTrigger className="text-right text-lg hover:text-primary hover:no-underline">هل يمكن لفريق Auryx رؤية ملفاتي؟</AccordionTrigger>
-                <AccordionContent className="text-white/60 leading-relaxed text-base">
-                  مستحيل نهائياً. نحن نستخدم نظام التشفير من طرف إلى طرف (E2EE). ملفاتك تتشفر على جهازك والمفتاح يبقى معك وحدك، ولا نملك أي طريقة لفك تشفيرها.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="item-2" className="border-white/10">
-                <AccordionTrigger className="text-right text-lg hover:text-primary hover:no-underline">هل التطبيق مجاني؟</AccordionTrigger>
-                <AccordionContent className="text-white/60 leading-relaxed text-base">
-                  Auryx يأتي بخطط مدفوعة لضمان استمرارية الجودة العالية والأمان، ولكن المسجلين في قائمة الانتظار الآن سيحصلون على خصم 50% مدى الحياة (للـ 500 مستخدم الأوائل). السعر الأساسي 5.99$ شهرياً و 45.99$ سنوياً.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="item-3" className="border-white/10">
-                <AccordionTrigger className="text-right text-lg hover:text-primary hover:no-underline">ماذا لو فقدت هاتفي أو تعرضت لظرف طارئ؟</AccordionTrigger>
-                <AccordionContent className="text-white/60 leading-relaxed text-base">
-                  لا داعي للقلق. إذا فعّلت بروتوكولات الطوارئ والغياب، سيتم تفعيل البروتوكول ونقل خزنتك بشكل مشفر بالكامل لهاتف المستفيد الذي حددته مسبقاً، بعد تطبيق جميع الشروط الأمنية التي وضعتها.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="item-4" className="border-white/10">
-                <AccordionTrigger className="text-right text-lg hover:text-primary hover:no-underline">هل يحتاج التطبيق للانترنت؟</AccordionTrigger>
-                <AccordionContent className="text-white/60 leading-relaxed text-base">
-                  نعم، يحتاج للانترنت لنقل الخزنة والمزامنة، وتفعيل ميزات الإرث الرقمي. لكن التصفح داخل خزنتك يعمل بشكل عادي بدون إنترنت بفضل التخزين المحلي المشفر.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            <div className="glass-panel rounded-3xl overflow-hidden border border-white/5">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm lg:text-base" dir={t.dir}>
+                  <thead>
+                    <tr className="border-b border-white/5 bg-black/40">
+                      <th className={cn("p-6 font-bold text-white/70", lang === 'ar' ? 'text-right' : 'text-left')}>{t.compare.feature}</th>
+                      <th className="p-6 font-bold text-primary text-center bg-primary/5">{t.compare.auryx}</th>
+                      <th className="p-6 font-bold text-white/50 text-center">1Password</th>
+                      <th className="p-6 font-bold text-white/50 text-center">Bitwarden</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {t.compare.rows.map((row, i) => (
+                      <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-6 text-white/80 font-medium">{row.name}</td>
+                        <td className="p-6 text-center font-bold text-primary bg-primary/[0.02]">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            {row.a === 'نعم' || row.a === 'Yes' ? <Check className="w-5 h-5 text-primary" /> : null}
+                            <span>{row.a}</span>
+                          </div>
+                        </td>
+                        <td className="p-6 text-center text-white/50">{row.b}</td>
+                        <td className="p-6 text-center text-white/50">{row.c}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p className="text-xs text-white/40 text-center mt-6">{t.compare.disclaimer}</p>
+          </div>
+        </section>
+
+        {/* Community & Team */}
+        <section className="py-24 relative overflow-hidden">
+           <div className="mx-auto max-w-4xl px-4 md:px-8 text-center space-y-6 relative z-10">
+            <h2 className={cn("text-2xl md:text-3xl font-bold text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>{t.community.title}</h2>
+            <p className="text-white/60">{t.community.desc}</p>
+             <div className="trust-placeholders grid sm:grid-cols-3 gap-3 pt-4">
+               {t.community.signals.map((signal) => (
+                 <div key={signal} className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 text-sm text-white/55">
+                   {signal}
+                 </div>
+               ))}
+             </div>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 bg-[#050507] pt-16 pb-8">
-        <div className="mx-auto max-w-7xl px-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center border border-primary/20">
-              <Shield className="w-4 h-4 text-primary" />
+      <footer className="border-t border-white/5 bg-black pt-16 pb-8">
+        <div className="mx-auto max-w-7xl px-4 md:px-8 space-y-12">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded flex items-center justify-center">
+                <img src={auryxLogo} alt="Auryx" className="w-6 h-6 object-contain" />
+              </div>
+              <span className={cn("text-sm font-bold tracking-widest uppercase text-white", lang === 'ar' ? 'font-display-ar' : 'font-display-en')}>AURYX</span>
             </div>
-            <span className="text-sm font-bold tracking-widest uppercase font-display text-white">AURYX &copy; 2026</span>
+
+            <div className="flex items-center gap-4 text-white/60">
+               <Smartphone className="w-5 h-5" />
+               <span className="text-sm">{t.platforms}</span>
+            </div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center gap-6 text-sm text-white/50">
-            <div className="flex items-center gap-5">
-              <Link href="/privacy" className="hover:text-primary transition-colors">سياسة الخصوصية</Link>
-              <Link href="/terms" className="hover:text-primary transition-colors">شروط الاستخدام</Link>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-white/5 text-sm text-white/40">
+            <div className="flex flex-col gap-1">
+              <p>&copy; {new Date().getFullYear()} Auryx. {t.footer.rights}</p>
+              <p>{t.footer.team}</p>
             </div>
-            <span className="hidden md:block w-1 h-1 rounded-full bg-white/20"></span>
-            <a href="mailto:myauryx@gmail.com" className="flex items-center gap-2 hover:text-primary transition-colors">
-              <Mail className="w-4 h-4" />
-              myauryx@gmail.com
-            </a>
-            <span className="hidden md:block w-1 h-1 rounded-full bg-white/20"></span>
-            <a href="tel:+962793310321" dir="ltr" className="flex items-center gap-2 hover:text-primary transition-colors">
-              <Phone className="w-4 h-4" />
-              +962 79 331 0321
-            </a>
+            <div className="flex items-center gap-6">
+              <Link href="/privacy" className="hover:text-primary transition-colors">{t.footer.links.privacy}</Link>
+              <Link href="/terms" className="hover:text-primary transition-colors">{t.footer.links.terms}</Link>
+            </div>
           </div>
         </div>
       </footer>
@@ -242,14 +340,91 @@ export function Landing() {
   )
 }
 
+function PhoneMockup({ src, alt, className }: { src: string, alt: string, className?: string }) {
+  return (
+    <div className={cn("relative rounded-[2.5rem] md:rounded-[3rem] border-[6px] md:border-[8px] border-[#111] bg-black shadow-2xl overflow-hidden aspect-[9/19.5]", className)}>
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-5 md:h-7 bg-[#111] rounded-b-xl md:rounded-b-2xl z-20" />
+      <img src={src} alt={alt} className="w-full h-full object-cover relative z-10" />
+      <div className="absolute inset-0 ring-1 ring-white/10 rounded-[2.2rem] md:rounded-[2.7rem] z-30 pointer-events-none" />
+    </div>
+  )
+}
+
 function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
   return (
-    <div className="glass-panel p-6 rounded-2xl border border-white/5 hover:border-primary/30 transition-colors group">
-      <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6 group-hover:scale-110 transition-transform group-hover:bg-primary/20">
+    <div className="glass-panel p-8 rounded-3xl border border-white/5 hover:border-primary/30 transition-all duration-300 group">
+      <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6 group-hover:scale-110 transition-transform group-hover:bg-primary/20">
         {icon}
       </div>
       <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
-      <p className="text-white/60 text-sm leading-relaxed">{description}</p>
+      <p className="text-white/60 text-sm md:text-base leading-relaxed">{description}</p>
+    </div>
+  )
+}
+
+function TrustCard({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+  return (
+    <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors">
+      <div className="text-white/40 mb-4">{icon}</div>
+      <h4 className="text-lg font-bold text-white mb-2">{title}</h4>
+      <p className="text-sm text-white/50 leading-relaxed">{desc}</p>
+    </div>
+  )
+}
+
+function PricingCard({
+  title,
+  price,
+  period,
+  discount,
+  features,
+  featured = false,
+}: {
+  title: string
+  price: string
+  period: string
+  discount: string
+  features: string[]
+  featured?: boolean
+}) {
+  return (
+    <div className={cn(
+      "glass-panel rounded-3xl p-8 border flex flex-col",
+      featured ? "border-primary/35 shadow-[0_0_35px_rgba(212,175,55,0.12)]" : "border-white/5"
+    )}>
+      {featured && (
+        <span className="self-start rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-primary mb-5">
+          الأكثر توفيراً
+        </span>
+      )}
+      <h3 className="text-xl font-bold text-white">{title}</h3>
+      <div className="mt-4 flex items-baseline gap-2">
+        <span className="text-4xl font-bold text-white">{price}</span>
+        <span className="text-sm text-white/45">{period}</span>
+      </div>
+      <p className="mt-5 rounded-xl bg-primary/10 px-4 py-3 text-sm font-bold text-primary">{discount}</p>
+      <ul className="mt-6 space-y-3 text-sm text-white/65">
+        {features.map((feature) => (
+          <li key={feature} className="flex items-start gap-2">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <span>{feature}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function Step({ number, title, desc, lang }: { number: string, title: string, desc: string, lang: Language }) {
+  return (
+    <div className="relative z-10 flex gap-6">
+      <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shrink-0">
+        {number}
+      </div>
+      <div>
+        <h4 className="text-xl font-bold text-white mb-2">{title}</h4>
+        <p className="text-white/60 leading-relaxed">{desc}</p>
+      </div>
     </div>
   )
 }

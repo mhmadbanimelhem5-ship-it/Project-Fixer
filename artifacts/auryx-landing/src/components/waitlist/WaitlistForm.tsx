@@ -20,17 +20,19 @@ import {
 } from "@/components/ui/form"
 import { Loader2 } from "lucide-react"
 import { Link } from "wouter"
+import { waitlistLocales } from "@/lib/i18n"
 
-const formSchema = z.object({
-  email: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح" }),
-  privacyAccepted: z.boolean().refine((val) => val === true, {
-    message: "يجب الموافقة على سياسة الخصوصية",
-  }),
-})
-
-export function WaitlistForm() {
+export function WaitlistForm({ lang = 'ar' }: { lang?: 'ar' | 'en' }) {
+  const t = waitlistLocales[lang]
   const [success, setSuccess] = React.useState(false)
   const [alreadyConfirmed, setAlreadyConfirmed] = React.useState(false)
+
+  const formSchema = z.object({
+    email: z.string().email({ message: t.emailInvalid }),
+    privacyAccepted: z.boolean().refine((val) => val === true, {
+      message: t.privacyRequired,
+    }),
+  })
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -64,7 +66,7 @@ export function WaitlistForm() {
         onError: (err) => {
           form.setError("root", {
             type: "server",
-            message: "حدث خطأ غير متوقع. حاول مرة أخرى.",
+            message: t.errorGeneric,
           })
         },
       }
@@ -74,9 +76,9 @@ export function WaitlistForm() {
   if (alreadyConfirmed) {
     return (
       <div className="glass-panel p-6 rounded-2xl border border-primary/20 text-center animate-in fade-in zoom-in duration-500">
-        <h3 className="text-xl font-bold text-primary mb-2">أنت مسجل بالفعل!</h3>
+        <h3 className="text-xl font-bold text-primary mb-2">{t.alreadyConfirmedTitle}</h3>
         <p className="text-muted-foreground text-sm">
-          لقد قمت بالتسجيل وتأكيد بريدك مسبقاً. شكراً لثقتك بنا.
+          {t.alreadyConfirmedDesc}
         </p>
       </div>
     )
@@ -85,12 +87,12 @@ export function WaitlistForm() {
   if (success) {
     return (
       <div className="glass-panel p-6 rounded-2xl border border-primary/20 text-center animate-in fade-in zoom-in duration-500">
-        <h3 className="text-xl font-bold text-primary mb-2">تم التسجيل بنجاح!</h3>
+        <h3 className="text-xl font-bold text-primary mb-2">{t.successTitle}</h3>
         <p className="text-muted-foreground text-sm mb-4">
-          لقد أرسلنا رابط التأكيد إلى بريدك الإلكتروني. الرجاء التحقق من صندوق الوارد (أو البريد المزعج) وتأكيد تسجيلك لضمان الخصم.
+          {t.successDesc}
         </p>
         <p className="text-xs text-white/50">
-          لا تنسَ التأكيد لتكون من أول 500 شخص.
+          {t.successNote}
         </p>
       </div>
     )
@@ -98,16 +100,16 @@ export function WaitlistForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" dir="rtl">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <FormField
           control={form.control}
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="sr-only">البريد الإلكتروني</FormLabel>
+              <FormLabel className="sr-only">Email</FormLabel>
               <FormControl>
                 <Input 
-                  placeholder="أدخل بريدك الإلكتروني هنا..." 
+                  placeholder={t.emailPlaceholder}
                   className="h-14 bg-black/40 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-primary text-base px-5 rounded-xl"
                   {...field} 
                 />
@@ -131,8 +133,8 @@ export function WaitlistForm() {
               </FormControl>
               <div className="space-y-1 leading-relaxed">
                 <FormLabel className="text-sm font-medium text-white/70 cursor-pointer">
-                  أوافق على <Link href="/privacy" className="text-primary underline underline-offset-4 hover:text-primary/80">سياسة الخصوصية</Link>
-                  {" "}و<Link href="/terms" className="text-primary underline underline-offset-4 hover:text-primary/80">شروط الاستخدام</Link> وأرغب في الانضمام لقائمة الانتظار.
+                  {t.privacyPrefix} <Link href="/privacy" className="text-primary underline underline-offset-4 hover:text-primary/80">{t.privacyLink}</Link>
+                  {t.and}<Link href="/terms" className="text-primary underline underline-offset-4 hover:text-primary/80">{t.termsLink}</Link>{t.privacySuffix}
                 </FormLabel>
               </div>
             </FormItem>
@@ -153,25 +155,24 @@ export function WaitlistForm() {
             {stats.discountSpotsRemaining > 0 ? (
               <>
                 <p className="text-sm font-bold text-primary">
-                  انضم إلى قائمة الانتظار قبل اكتمال العرض
+                  {t.statsTitle}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-white/65">
-                  أكّد بريدك لتكون من أوائل {stats.discountLimit} شخصًا المؤهلين
-                  لخصم 50% مدى الحياة.
+                  {t.statsDescPrefix}{stats.discountLimit}{t.statsDescSuffix}
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-3 text-xs font-bold">
                   <span className="text-white">
-                    {stats.confirmedCount.toLocaleString("en-US")} مؤكدون
+                    {stats.confirmedCount.toLocaleString("en-US")} {t.confirmed}
                   </span>
                   <span className="h-1 w-1 rounded-full bg-primary/60" />
                   <span className="text-primary">
-                    {stats.discountSpotsRemaining.toLocaleString("en-US")} مقعد متبقٍ
+                    {stats.discountSpotsRemaining.toLocaleString("en-US")} {t.spotsRemaining}
                   </span>
                 </div>
               </>
             ) : (
               <p className="text-sm font-bold text-primary">
-                اكتمل عرض خصم أول {stats.discountLimit} شخص
+                {t.offerFullPrefix}{stats.discountLimit}{t.offerFullSuffix}
               </p>
             )}
           </div>
@@ -185,7 +186,7 @@ export function WaitlistForm() {
           {isPending ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           ) : (
-            "انضم الآن واحصل على الخصم"
+            t.btnSubmit
           )}
         </Button>
       </form>
