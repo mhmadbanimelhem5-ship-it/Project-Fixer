@@ -17,6 +17,11 @@
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "auryx--mhmadbanimelhe2.replit.app",
+        "EXPO_PUBLIC_API_URL": "https://auryx--mhmadbanimelhe2.replit.app",
+        "EXPO_PUBLIC_REPL_ID": "471caf0a-e082-4813-a645-40e3af9f4208"
       }
     }
   }
