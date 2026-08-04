@@ -8,3 +8,4 @@
 - [clerk-custom-domain-dns](clerk-custom-domain-dns.md) — external Clerk publishable keys can bind the SDK to a custom frontend domain; missing DNS causes Failed to load Clerk JS.
 - [clerk-solana-autolinking](clerk-solana-autolinking.md) — Clerk can pull unused Solana native packages into Expo Android builds; exclude them through Expo autolinking.
 - [launch-waitlist-subscriptions](launch-waitlist-subscriptions.md) — launch discount is verified by email first; in-app payments wait for Apple/Google accounts and RevenueCat.
+- [EAS build authentication](eas-build-authentication.md) — EAS builds need an Expo login session or EXPO_TOKEN; the API URL and Clerk public key alone are not enough.
