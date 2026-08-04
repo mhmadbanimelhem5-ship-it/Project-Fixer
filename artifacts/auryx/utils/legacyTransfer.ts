@@ -25,8 +25,9 @@
  *
  *   1. Fetch sealed vault package from server.
  *   2. Find own guardianPackage by email.
- *   3. RSA-decrypt the encrypted share with own private key → raw share hex.
- *   4. POST raw share to server.
+ *   3. RSA-decrypt the encrypted share with own private key.
+ *   4. Re-encrypt the share with the beneficiary's public key.
+ *   5. POST only the beneficiary-encrypted share to the server.
  *
  * UNSEAL flow (beneficiary, triggered from Emergency tab):
  *
@@ -36,7 +37,8 @@
  *
  *   Path B — Shamir (enough guardians have voted):
  *     1. Fetch collected guardian shares from server.
- *     2. Shamir-combine shares → TK bytes.
+ *     2. Decrypt the beneficiary-encrypted shares locally.
+ *     3. Shamir-combine shares → TK bytes.
  *
  *   Both paths: AES-decrypt encryptedBlob with TK → snapshot JSON → items[].
  */
@@ -207,8 +209,8 @@ export async function sealVault(params: SealParams): Promise<SealResult> {
     items: snapItems,
   };
 
-  // 2. Generate 32-byte random transfer key (TK) using the audited RNG helper
-  //    (expo-crypto native on device, Math.random fallback with visible warning)
+  // 2. Generate 32-byte random transfer key (TK) using the audited RNG helper.
+  //    If the native secure RNG is unavailable, the operation fails closed.
   const tk = await secureRandomBytes(32);
   const tkHex = u8ToHex(tk);
 
@@ -394,12 +396,16 @@ export async function approveGuardianAccess(params: ApproveParams): Promise<Appr
   );
   if (!myPkg) return { success: false, error: 'Your share was not found in this vault package' };
 
-  // RSA-decrypt to get raw share hex
+  // Decrypt the share only on the guardian device.
   const rawBytes = await decryptWithPrivateKey(myPkg.encryptedShare);
-  const rawShareHex = new TextDecoder().decode(rawBytes);
+  const beneficiaryKey = await fetchPublicKey(pkg.beneficiaryEmail);
+  if (!beneficiaryKey) {
+    return { success: false, error: 'Beneficiary public key is not registered' };
+  }
+  const encryptedShareForBeneficiary = await encryptWithPublicKey(beneficiaryKey, rawBytes);
 
-  // Submit to server
-  await submitGuardianShareToServer(ownerEmail, guardianEmail, rawShareHex);
+  // The server stores only ciphertext that the beneficiary can decrypt.
+  await submitGuardianShareToServer(ownerEmail, guardianEmail, encryptedShareForBeneficiary);
 
   return { success: true };
 }
@@ -443,16 +449,21 @@ export async function unsealVault(ownerEmail: string): Promise<UnsealResult> {
   // Path B: Shamir combination from guardian shares
   if (!tkHex) {
     const collected = await fetchCollectedShares(ownerEmail).catch(() => null);
-    if (!collected || collected.rawShares.length < collected.threshold) {
+    if (!collected || collected.encryptedShares.length < collected.threshold) {
       const need = collected?.threshold ?? pkg.threshold;
-      const have = collected?.rawShares.length ?? 0;
+      const have = collected?.encryptedShares.length ?? 0;
       return {
         success: false,
         error: `يلزم ${need} أوصياء للموافقة — وافق ${have} حتى الآن`,
       };
     }
 
-    const shares = collected.rawShares.map(decodeShare);
+    const shares = await Promise.all(
+      collected.encryptedShares.map(async (encryptedShare) => {
+        const shareBytes = await decryptWithPrivateKey(encryptedShare);
+        return decodeShare(new TextDecoder().decode(shareBytes));
+      }),
+    );
     const tkBytes = combine(shares.slice(0, collected.threshold));
     tkHex = u8ToHex(tkBytes);
     method = 'shamir';

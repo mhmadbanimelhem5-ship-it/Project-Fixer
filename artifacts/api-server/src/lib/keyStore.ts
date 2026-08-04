@@ -175,22 +175,22 @@ export async function lookupSealedVault(ownerEmail: string): Promise<SealedVault
 export async function submitGuardianShare(
   ownerEmail: string,
   guardianEmail: string,
-  rawShareHex: string,
+  encryptedShareForBeneficiary: string,
 ): Promise<void> {
   const oKey = ownerEmail.toLowerCase();
   const gKey = guardianEmail.toLowerCase();
 
   await db
     .insert(guardianVotesTable)
-    .values({ ownerEmail: oKey, guardianEmail: gKey, rawShareHex })
+    .values({ ownerEmail: oKey, guardianEmail: gKey, encryptedShareForBeneficiary })
     .onConflictDoUpdate({
       target: [guardianVotesTable.ownerEmail, guardianVotesTable.guardianEmail],
-      set: { rawShareHex },
+      set: { encryptedShareForBeneficiary },
     });
 }
 
 export interface CollectedShares {
-  rawShares: string[];
+  encryptedShares: string[];
   threshold: number;
 }
 
@@ -204,7 +204,7 @@ export async function getCollectedShares(ownerEmail: string): Promise<CollectedS
     .where(eq(guardianVotesTable.ownerEmail, ownerEmail.toLowerCase()));
 
   return {
-    rawShares: votes.map(r => r.rawShareHex),
+    encryptedShares: votes.map(r => r.encryptedShareForBeneficiary),
     threshold: vault.threshold,
   };
 }

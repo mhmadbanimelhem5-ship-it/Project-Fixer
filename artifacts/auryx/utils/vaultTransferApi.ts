@@ -94,6 +94,7 @@ export async function sealVaultOnServer(params: SealParams): Promise<void> {
 
 export interface VaultPackage {
   encryptedBlob: string;
+  beneficiaryEmail: string;
   benefEncryptedKey?: string;
   guardianPackages: GuardianPackagePayload[];
   threshold: number;
@@ -110,22 +111,22 @@ export async function fetchVaultPackage(ownerEmail: string): Promise<VaultPackag
 // ── Guardian votes ────────────────────────────────────────────────────────────
 
 /**
- * A guardian submits their raw (already decrypted) Shamir share hex so the
- * beneficiary can collect enough shares to reconstruct the transfer key.
+ * A guardian submits a beneficiary-encrypted Shamir share. The server never
+ * receives the raw share and cannot decrypt it.
  */
 export async function submitGuardianShareToServer(
   ownerEmail: string,
   guardianEmail: string,
-  rawShareHex: string,
+  encryptedShareForBeneficiary: string,
 ): Promise<void> {
   await apiPost(`/api/vault/share/${encodeURIComponent(ownerEmail)}`, {
     guardianEmail,
-    rawShareHex,
+    encryptedShareForBeneficiary,
   });
 }
 
 export interface CollectedSharesResult {
-  rawShares: string[];
+  encryptedShares: string[];
   threshold: number;
 }
 

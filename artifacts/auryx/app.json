@@ -82,6 +82,14 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "autolinking": {
+      "exclude": [
+        "@solana-mobile/mobile-wallet-adapter-protocol",
+        "@solana-mobile/mobile-wallet-adapter-protocol-web3js",
+        "@solana-mobile/wallet-adapter-mobile",
+        "@solana-mobile/wallet-standard-mobile"
+      ]
+    },
     "extra": {
       "eas": {
         "projectId": "18afbd16-05ce-4e7d-af5f-61ccd539bdeb"

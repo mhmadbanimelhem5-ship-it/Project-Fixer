@@ -6,9 +6,8 @@
  *
  * Layer 1 (primary):   expo-crypto.getRandomBytesAsync — native OS RNG
  *                       (/dev/urandom on Android, SecRandomCopyBytes on iOS)
- * Layer 2 (fallback):  Math.random — NOT cryptographically secure; only used
- *                       when the native call throws (extremely rare in production).
- *                       A console.warn is emitted so the developer sees it.
+ * There is intentionally no Math.random fallback. Cryptographic operations must
+ * fail closed if the native OS random source is unavailable.
  */
 
 import * as ExpoCrypto from 'expo-crypto';
@@ -17,15 +16,16 @@ import * as ExpoCrypto from 'expo-crypto';
 
 /**
  * Returns `length` cryptographically-secure random bytes.
- * Falls back to Math.random with a visible warning if the native call fails.
+ * Throws if the native OS random source is unavailable.
  */
 export async function secureRandomBytes(length = 16): Promise<Uint8Array> {
   try {
     return await ExpoCrypto.getRandomBytesAsync(length);
   } catch (e) {
-    console.warn('[auryx] expo-crypto getRandomBytesAsync failed — falling back to Math.random():', e);
-    return new Uint8Array(
-      Array.from({ length }, () => Math.floor(Math.random() * 256)),
+    throw new Error(
+      `Secure random generation is unavailable; refusing to use an insecure fallback: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
     );
   }
 }

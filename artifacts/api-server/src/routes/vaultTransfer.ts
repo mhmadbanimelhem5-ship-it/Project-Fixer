@@ -128,7 +128,12 @@ router.post('/verify-otp/:ownerEmail', requireAuth, authLimiter, validateParams(
 
     const result = await verifyOtp(ownerEmail, beneficiaryEmail, otp);
     if (!result.ok) {
-      const status = result.reason === 'expired' || result.reason === 'already_used' ? 410 : 401;
+      const status =
+        result.reason === 'expired' ||
+        result.reason === 'already_used' ||
+        result.reason === 'max_attempts'
+          ? 410
+          : 401;
       res.status(status).json({ valid: false, reason: result.reason });
       return;
     }
@@ -177,9 +182,9 @@ router.get('/:ownerEmail', requireAuth, validateParams(ownerEmailParams), requir
 // ── POST /api/vault/share/:ownerEmail ─────────────────────────────────────────
 router.post('/share/:ownerEmail', requireAuth, validateParams(ownerEmailParams), validateBody(guardianShareBody), requireVaultParticipant(), requireParticipant(['guardianEmail']), async (req, res, next) => {
   try {
-    const { guardianEmail, rawShareHex } = req.body as {
+    const { guardianEmail, encryptedShareForBeneficiary } = req.body as {
       guardianEmail: string;
-      rawShareHex: string;
+      encryptedShareForBeneficiary: string;
     };
 
     const ownerEmail = String(req.params.ownerEmail);
@@ -188,7 +193,7 @@ router.post('/share/:ownerEmail', requireAuth, validateParams(ownerEmailParams),
       return;
     }
 
-    await submitGuardianShare(ownerEmail, guardianEmail, rawShareHex);
+    await submitGuardianShare(ownerEmail, guardianEmail, encryptedShareForBeneficiary);
     res.json({ success: true });
   } catch (err) { next(err); }
 });

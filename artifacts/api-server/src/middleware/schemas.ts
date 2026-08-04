@@ -39,7 +39,7 @@ export const otpVerifyBody = z.object({
 
 export const guardianShareBody = z.object({
   guardianEmail: email,
-  rawShareHex: z.string().trim().regex(/^[a-f0-9]+$/i).max(100_000),
+  encryptedShareForBeneficiary: z.string().trim().min(1).max(100_000),
 });
 
 export const emailInviteGuardianBody = z.object({

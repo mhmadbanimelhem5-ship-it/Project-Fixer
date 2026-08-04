@@ -32,7 +32,7 @@ export const guardianVotesTable = pgTable(
   {
     ownerEmail:    text("owner_email").notNull(),
     guardianEmail: text("guardian_email").notNull(),
-    rawShareHex:   text("raw_share_hex").notNull(),
+    encryptedShareForBeneficiary: text("encrypted_share_for_beneficiary").notNull(),
   },
   (t) => [primaryKey({ columns: [t.ownerEmail, t.guardianEmail] })],
 );
@@ -105,6 +105,9 @@ export const otpsTable = pgTable("otps", {
   createdAt:        bigint("created_at", { mode: "number" }).notNull(),
   expiresAt:        bigint("expires_at", { mode: "number" }).notNull(),
   usedAt:           bigint("used_at",    { mode: "number" }),
+  attempts:         integer("attempts").notNull().default(0),
+  maxAttempts:      integer("max_attempts").notNull().default(5),
+  lastAttemptAt:    bigint("last_attempt_at", { mode: "number" }),
 });
 
 // ── Auryx launch waitlist ─────────────────────────────────────────────────────
