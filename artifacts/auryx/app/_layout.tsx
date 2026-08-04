@@ -455,6 +455,52 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   );
 }
 
+/**
+ * Render a useful message when a release build is missing a public runtime
+ * setting. This must stay outside the provider tree: throwing here would
+ * terminate Android before ErrorBoundary can render anything.
+ */
+function StartupConfigurationError({ message }: { message: string }) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#0A0F1E',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 28,
+      }}
+    >
+      <Text
+        style={{
+          color: '#D4AF37',
+          fontSize: 24,
+          fontWeight: '700',
+          textAlign: 'center',
+          marginBottom: 16,
+        }}
+      >
+        تعذر تشغيل Auryx
+      </Text>
+      <Text style={{ color: '#CBD5E1', fontSize: 15, lineHeight: 25, textAlign: 'center' }}>
+        نسخة التطبيق لا تحتوي على إعداد Clerk العام المطلوب.
+      </Text>
+      <Text
+        selectable
+        style={{
+          color: '#64748B',
+          fontSize: 12,
+          lineHeight: 19,
+          textAlign: 'center',
+          marginTop: 18,
+        }}
+      >
+        {message}
+      </Text>
+    </View>
+  );
+}
+
 // ─── Root layout ──────────────────────────────────────────────────────────────
 
 export default function RootLayout() {
@@ -481,9 +527,17 @@ export default function RootLayout() {
 
   if (!fontsReady) return null;
 
-  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  // Local/Replit builds map CLERK_PUBLISHABLE_KEY into the public Expo
+  // variable. Keeping the second read here also makes a locally generated
+  // native APK start correctly when Metro receives the workspace secret
+  // directly. The secret Clerk key is intentionally never read.
+  const publishableKey =
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ||
+    process.env.CLERK_PUBLISHABLE_KEY?.trim();
   if (!publishableKey) {
-    throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
+    return (
+      <StartupConfigurationError message="Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" />
+    );
   }
   setBaseUrl(getApiBase());
 
