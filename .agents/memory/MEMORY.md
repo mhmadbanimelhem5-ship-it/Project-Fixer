@@ -11,3 +11,4 @@
 - [EAS build authentication](eas-build-authentication.md) — EAS builds need an Expo login session or EXPO_TOKEN; the API URL and Clerk public key alone are not enough.
 - [Clerk Android SDK requirement](clerk-android-sdk-requirement.md) — the managed Clerk Android UI dependency may require compileSdk 36 even when Expo defaults to 35.
 - [Cross-account production data](cross-account-production-data.md) — publishing the same project from another Replit account can create a separate production database; verify data before retiring the old deployment.
+- [Android duplicate Java resources](android-duplicate-java-resources.md) — duplicate META-INF resources can stop release builds; resolve them with Expo packagingOptions pickFirst.
