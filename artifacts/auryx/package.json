@@ -81,5 +81,15 @@
     "@react-native-community/netinfo": "11.4.1",
     "@react-navigation/elements": "^2.9.27",
     "@react-navigation/native": "^7.3.5"
+  },
+  "expo": {
+    "autolinking": {
+      "exclude": [
+        "@solana-mobile/mobile-wallet-adapter-protocol",
+        "@solana-mobile/mobile-wallet-adapter-protocol-web3js",
+        "@solana-mobile/wallet-adapter-mobile",
+        "@solana-mobile/wallet-standard-mobile"
+      ]
+    }
   }
 }

@@ -27,9 +27,6 @@
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.auryx.app",
       "versionCode": 1,
-      "minSdkVersion": 24,
-      "compileSdkVersion": 35,
-      "targetSdkVersion": 35,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0F1E"
@@ -73,7 +70,10 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "2.0.21"
+            "kotlinVersion": "2.0.21",
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
           }
         }
       ]
@@ -81,14 +81,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "autolinking": {
-      "exclude": [
-        "@solana-mobile/mobile-wallet-adapter-protocol",
-        "@solana-mobile/mobile-wallet-adapter-protocol-web3js",
-        "@solana-mobile/wallet-adapter-mobile",
-        "@solana-mobile/wallet-standard-mobile"
-      ]
     },
     "extra": {
       "eas": {
