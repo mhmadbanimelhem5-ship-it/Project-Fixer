@@ -1,0 +1,23 @@
+{
+  "cli": {
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "471caf0a-e082-4813-a645-40e3af9f4208-00-qo5ec7blp8h3.sisko.replit.dev",
+        "EXPO_PUBLIC_API_URL": "https://471caf0a-e082-4813-a645-40e3af9f4208-00-qo5ec7blp8h3.sisko.replit.dev",
+        "EXPO_PUBLIC_REPL_ID": "471caf0a-e082-4813-a645-40e3af9f4208"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}
