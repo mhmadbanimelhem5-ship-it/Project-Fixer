@@ -13,3 +13,4 @@
 - [Cross-account production data](cross-account-production-data.md) — publishing the same project from another Replit account can create a separate production database; verify data before retiring the old deployment.
 - [Android duplicate Java resources](android-duplicate-java-resources.md) — duplicate META-INF resources can stop release builds; resolve them with Expo packagingOptions pickFirst.
 - [EAS public env propagation](eas-public-env-propagation.md) — Replit secrets are not automatically available to remote EAS builds; public mobile config must be added to the selected EAS environment.
+- [Production secrets need redeploy](production-secrets-redeploy.md) — adding a secret does not update the already published runtime until the artifact is published again.
