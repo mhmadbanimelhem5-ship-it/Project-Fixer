@@ -72,7 +72,7 @@
           "android": {
             "kotlinVersion": "2.0.21",
             "minSdkVersion": 24,
-            "compileSdkVersion": 35,
+            "compileSdkVersion": 36,
             "targetSdkVersion": 35
           }
         }

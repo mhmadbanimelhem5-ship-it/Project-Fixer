@@ -9,3 +9,4 @@
 - [clerk-solana-autolinking](clerk-solana-autolinking.md) — Clerk can pull unused Solana native packages into Expo Android builds; exclude them through Expo autolinking.
 - [launch-waitlist-subscriptions](launch-waitlist-subscriptions.md) — launch discount is verified by email first; in-app payments wait for Apple/Google accounts and RevenueCat.
 - [EAS build authentication](eas-build-authentication.md) — EAS builds need an Expo login session or EXPO_TOKEN; the API URL and Clerk public key alone are not enough.
+- [Clerk Android SDK requirement](clerk-android-sdk-requirement.md) — the managed Clerk Android UI dependency may require compileSdk 36 even when Expo defaults to 35.
