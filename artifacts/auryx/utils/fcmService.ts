@@ -17,6 +17,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 import { authenticatedFetch } from './authenticatedFetch';
 
 const PUSH_TOKEN_KEY = 'auryx_push_token_v1';
@@ -57,9 +58,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     // Get Expo push token (backed by FCM on Android).
     // projectId is required in Expo SDK 50+ — taken from app.json extra.eas.projectId
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: '2d3138f5-a075-4ba9-8136-40740ecc3275',
-    });
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+      throw new Error('Expo EAS projectId is missing from app configuration');
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
 
     // Cache locally so we don't need to call getExpoPushTokenAsync on every action
