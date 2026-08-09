@@ -21,6 +21,8 @@ jobs:
         with:
           node-version: 22
       - name: Build Auryx Landing
+        env:
+          PORT: 3000
         run: |
           cd artifacts/auryx-landing
           pnpm install --no-frozen-lockfile
