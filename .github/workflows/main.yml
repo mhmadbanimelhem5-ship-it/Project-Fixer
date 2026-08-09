@@ -20,8 +20,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
-          cache-dependency-path: artifacts/auryx-landing/pnpm-lock.yaml
       - name: Build Auryx Landing
         run: |
           cd artifacts/auryx-landing
