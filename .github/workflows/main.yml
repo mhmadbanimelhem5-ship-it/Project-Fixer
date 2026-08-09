@@ -23,6 +23,7 @@ jobs:
       - name: Build Auryx Landing
         env:
           PORT: 3000
+          BASE_PATH: /
         run: |
           cd artifacts/auryx-landing
           pnpm install --no-frozen-lockfile
