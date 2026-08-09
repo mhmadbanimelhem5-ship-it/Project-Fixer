@@ -14,14 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: artifacts/auryx-landing/pnpm-lock.yaml
       - name: Build Auryx Landing
-        working-directory: ./artifacts/auryx-landing
         run: |
-          npm install
-          npm run build
+          cd artifacts/auryx-landing
+          pnpm install
+          pnpm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
