@@ -23,7 +23,7 @@ jobs:
       - name: Build Auryx Landing
         run: |
           cd artifacts/auryx-landing
-          pnpm install
+          pnpm install --no-frozen-lockfile
           pnpm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
