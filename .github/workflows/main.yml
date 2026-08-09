@@ -25,14 +25,14 @@ jobs:
           cd artifacts/auryx-landing
           pnpm install --no-frozen-lockfile
           pnpm run build
+          echo "getauryx.com" > dist/public/CNAME
           echo "getauryx.com" > dist/CNAME
-          ls -la dist
-          echo "---INDEX CONTENT---"
-          cat dist/index.html
+          ls -la dist/public
+          cat dist/public/index.html | head -20
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./artifacts/auryx-landing/dist
+          path: ./artifacts/auryx-landing/dist/public
   deploy:
     needs: build
     runs-on: ubuntu-latest
