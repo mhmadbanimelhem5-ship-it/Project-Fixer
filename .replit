@@ -9,60 +9,6 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Auryx Landing Web"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Auryx API Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Auryx Mobile App"
-
-[[workflows.workflow]]
-name = "Auryx Landing Web"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=21019 BASE_PATH=/auryx-landing/ pnpm --filter @workspace/auryx-landing run dev"
-waitForPort = 21019
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow]]
-name = "Auryx API Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
-waitForPort = 8080
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Auryx Mobile App"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "EXPO_TOKEN= EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN PORT=24421 pnpm --filter @workspace/auryx run dev"
-waitForPort = 24421
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [agent]
 stack = "PNPM_WORKSPACE"
