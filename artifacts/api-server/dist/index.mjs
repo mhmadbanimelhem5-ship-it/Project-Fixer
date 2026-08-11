@@ -31936,11 +31936,11 @@ var require_connection = __commonJS({
           }
         });
       }
-      connect(port2, host) {
+      connect(port, host) {
         const self = this;
         this._connecting = true;
         this.stream.setNoDelay(true);
-        this.stream.connect(port2, host);
+        this.stream.connect(port, host);
         this.stream.once("connect", function() {
           if (self._keepAlive) {
             self.stream.setKeepAlive(true, self._keepAliveInitialDelayMillis);
@@ -35636,7 +35636,7 @@ var require_ipv6 = __commonJS({
        */
       static fromURL(url) {
         let host;
-        let port2 = null;
+        let port = null;
         let result;
         const stripped = url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
         if (stripped.indexOf("[") !== -1 && stripped.indexOf("]:") !== -1) {
@@ -35649,7 +35649,7 @@ var require_ipv6 = __commonJS({
             };
           }
           host = result[1];
-          port2 = result[2];
+          port = result[2];
         } else {
           result = constants6.RE_URL.exec(stripped);
           if (result === null) {
@@ -35661,17 +35661,17 @@ var require_ipv6 = __commonJS({
           }
           host = result[1] ?? result[2];
         }
-        if (port2) {
-          port2 = parseInt(port2, 10);
-          if (port2 < 0 || port2 > 65535) {
-            port2 = null;
+        if (port) {
+          port = parseInt(port, 10);
+          if (port < 0 || port > 65535) {
+            port = null;
           }
         } else {
-          port2 = null;
+          port = null;
         }
         return {
           address: new _Address6(host),
-          port: port2
+          port
         };
       }
       /**
@@ -69976,23 +69976,23 @@ function hasPort(host) {
 }
 function requiresPort(_port, _protocol) {
   const protocol = _protocol?.split(":")[0];
-  const port2 = +_port;
-  if (!port2) return false;
+  const port = +_port;
+  if (!port) return false;
   switch (protocol) {
     case "http":
     case "ws":
-      return port2 !== 80;
+      return port !== 80;
     case "https":
     case "wss":
-      return port2 !== 443;
+      return port !== 443;
     case "ftp":
-      return port2 !== 21;
+      return port !== 21;
     case "gopher":
-      return port2 !== 70;
+      return port !== 70;
     case "file":
       return false;
   }
-  return port2 !== 0;
+  return port !== 0;
 }
 function defineProxyMiddleware(m) {
   return m;
@@ -70062,8 +70062,8 @@ function _toURL(target) {
   if (typeof target === "string") return new URL(target);
   const protocol = target.protocol || "http:";
   const host = target.host || target.hostname || "localhost";
-  const port2 = target.port;
-  return new URL(`${protocol}//${host}${port2 ? ":" + port2 : ""}`);
+  const port = target.port;
+  return new URL(`${protocol}//${host}${port ? ":" + port : ""}`);
 }
 var nativeAgents = {
   http: httpNative,
@@ -70329,7 +70329,7 @@ var ProxyServer = class extends EventEmitter {
     this.web = _createProxyFn("web", this);
     this.ws = _createProxyFn("ws", this);
   }
-  listen(port2, hostname, listeningListener) {
+  listen(port, hostname, listeningListener) {
     const closure = (req, res) => {
       return this.web(req, res);
     };
@@ -70345,7 +70345,7 @@ var ProxyServer = class extends EventEmitter {
       this.ws(req, socket, this.options, head).catch(() => {
       });
     });
-    this._server.listen(port2, hostname, listeningListener);
+    this._server.listen(port, hostname, listeningListener);
     return this;
   }
   close(callback) {
@@ -70588,12 +70588,12 @@ function getLogger(options) {
 
 // ../../node_modules/.pnpm/http-proxy-middleware@4.2.0/node_modules/http-proxy-middleware/dist/utils/create-url.js
 import { URL as URL2 } from "url";
-function createUrl({ protocol, host, port: port2, path }) {
+function createUrl({ protocol, host, port, path }) {
   const ipv6Host = host?.includes(":") ? `[${host}]` : host;
   const base = `${protocol || "undefined:"}//${ipv6Host || "[::]"}`;
   const url = new URL2(base);
-  if (port2) {
-    url.port = port2;
+  if (port) {
+    url.port = port;
   }
   if (path) {
     url.pathname = path;
@@ -70621,9 +70621,9 @@ var loggerPlugin = definePlugin((proxyServer, options) => {
     const originalUrl = req.originalUrl ?? `${req.baseUrl || ""}${req.url}`;
     let target;
     try {
-      const port2 = getPort2(proxyRes.req?.agent?.sockets);
+      const port = getPort2(proxyRes.req?.agent?.sockets);
       const { protocol, host, path } = proxyRes.req;
-      target = createUrl({ protocol, host, port: port2, path });
+      target = createUrl({ protocol, host, port, path });
     } catch (err) {
       console.error("[HPM] Unexpected error while creating target URL", err);
       target = new URL3(options.target);
@@ -71151,23 +71151,27 @@ app.use("/api", routes_default);
 var app_default = app;
 
 // src/index.ts
-var rawPort = process.env["PORT"];
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided."
-  );
-}
-var port = Number(rawPort);
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-app_default.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
+var src_default = app_default;
+if (process.env.VERCEL) {
+  logger.info("Running on Vercel - skipping listen");
+} else {
+  const rawPort = process.env["PORT"] || "3001";
+  const port = Number(rawPort);
+  if (Number.isNaN(port) || port <= 0) {
+    throw new Error(`Invalid PORT value: "${rawPort}"`);
   }
-  logger.info({ port }, "Server listening");
-});
+  app_default.listen(port, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+    logger.info({ port }, "Server listening");
+  });
+}
+export {
+  app_default as app,
+  src_default as default
+};
 /*! Bundled license information:
 
 depd/index.js:
