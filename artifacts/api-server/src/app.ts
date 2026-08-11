@@ -63,5 +63,7 @@ app.use(express.urlencoded({ extended: true }));
 // Apply the general API limit before any route handler runs.
 app.use("/api/", generalLimiter);
 app.use("/api", router);
-
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Auryx API is running 🚀', endpoints: '/api/v1/*' });
+});
 export default app;
