@@ -28,7 +28,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -510,7 +510,10 @@ export default function RootLayout() {
     Poppins_700Bold,
   });
   const [timedOut, setTimedOut]   = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  // The animated native splash uses native-driver timing and can remain as a
+  // blank overlay in Expo web previews. Keep it for iOS/Android, but let the
+  // web preview render the actual auth screen immediately.
+  const [showSplash, setShowSplash] = useState(Platform.OS !== 'web');
   const [fontsReady, setFontsReady] = useState(false);
 
   useEffect(() => {
