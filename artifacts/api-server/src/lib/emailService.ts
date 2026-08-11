@@ -168,11 +168,7 @@ export async function checkEmailHealth(): Promise<{
 }
 
 function getBaseUrl(): string {
-  const domains = process.env.REPLIT_DOMAINS;
-  if (domains) return `https://${domains.split(',')[0].trim()}`;
-  const devDomain = process.env.REPLIT_DEV_DOMAIN;
-  if (devDomain) return `https://${devDomain}`;
-  return 'http://localhost:80';
+  return 'https://getauryx.com';
 }
 
 async function sendMail(to: string, subject: string, html: string): Promise<void> {
@@ -185,9 +181,8 @@ async function sendMail(to: string, subject: string, html: string): Promise<void
 
   if (provider === 'resend') {
     try {
-      const smtpUser = process.env.SMTP_USER ?? 'noreply@auryx.app';
-      const result = await getResendClient().emails.send({
-        from: `Auryx Vault <${smtpUser}>`,
+            const result = await getResendClient().emails.send({
+        from: `Auryx Support <support@getauryx.com>`,
         to,
         subject,
         html,
