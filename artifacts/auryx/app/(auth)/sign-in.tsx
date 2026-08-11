@@ -3,6 +3,24 @@ import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+type ClerkErrorLike = {
+  message?: string;
+  longMessage?: string;
+  errors?: Array<{ message?: string; longMessage?: string }>;
+};
+
+function getClerkErrorMessage(error: unknown): string {
+  const value = error as ClerkErrorLike | null | undefined;
+  const firstError = value?.errors?.[0];
+  return (
+    firstError?.longMessage ||
+    firstError?.message ||
+    value?.longMessage ||
+    value?.message ||
+    'تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة أخرى.'
+  );
+}
+
 export default function SignInScreen() {
   const { signIn, errors, fetchStatus } = useSignIn();
   const router = useRouter();
@@ -10,6 +28,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [needsCode, setNeedsCode] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const busy = fetchStatus === 'fetching';
 
   const finish = async () => {
@@ -19,24 +38,39 @@ export default function SignInScreen() {
   };
 
   const submit = async () => {
-    const result = await signIn.password({ emailAddress: emailAddress.trim(), password });
-    if (result.error) return;
-    if (signIn.status === 'complete') {
-      await finish();
-    } else if (signIn.status === 'needs_client_trust') {
-      const factor = signIn.supportedSecondFactors?.find(
-        (item) => item.strategy === 'email_code',
-      );
-      if (factor) {
-        await signIn.mfa.sendEmailCode();
-        setNeedsCode(true);
+    setErrorMessage('');
+    try {
+      const result = await signIn.password({ emailAddress: emailAddress.trim(), password });
+      if (result.error) {
+        setErrorMessage(getClerkErrorMessage(result.error));
+        return;
       }
+      if (signIn.status === 'complete') {
+        await finish();
+      } else if (signIn.status === 'needs_client_trust') {
+        const factor = signIn.supportedSecondFactors?.find(
+          (item) => item.strategy === 'email_code',
+        );
+        if (factor) {
+          await signIn.mfa.sendEmailCode();
+          setNeedsCode(true);
+        }
+      }
+    } catch (error) {
+      console.error('[Auryx] Sign-in failed:', error);
+      setErrorMessage(getClerkErrorMessage(error));
     }
   };
 
   const verify = async () => {
-    await signIn.mfa.verifyEmailCode({ code: code.trim() });
-    if (signIn.status === 'complete') await finish();
+    setErrorMessage('');
+    try {
+      await signIn.mfa.verifyEmailCode({ code: code.trim() });
+      if (signIn.status === 'complete') await finish();
+    } catch (error) {
+      console.error('[Auryx] MFA verification failed:', error);
+      setErrorMessage(getClerkErrorMessage(error));
+    }
   };
 
   return (
@@ -90,7 +124,11 @@ export default function SignInScreen() {
           </Pressable>
         </>
       )}
-      {errors?.fields && <Text style={styles.error}>تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة أخرى.</Text>}
+      {(errorMessage || errors?.fields) && (
+        <Text style={styles.error}>
+          {errorMessage || 'تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة أخرى.'}
+        </Text>
+      )}
     </View>
   );
 }

@@ -3,24 +3,59 @@ import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+type ClerkErrorLike = {
+  message?: string;
+  longMessage?: string;
+  errors?: Array<{ message?: string; longMessage?: string }>;
+};
+
+function getClerkErrorMessage(error: unknown): string {
+  const value = error as ClerkErrorLike | null | undefined;
+  const firstError = value?.errors?.[0];
+  return (
+    firstError?.longMessage ||
+    firstError?.message ||
+    value?.longMessage ||
+    value?.message ||
+    'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.'
+  );
+}
+
 export default function SignUpScreen() {
   const { signUp, errors, fetchStatus } = useSignUp();
   const router = useRouter();
   const [emailAddress, setEmailAddress] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const busy = fetchStatus === 'fetching';
   const verifying = signUp.status === 'missing_requirements' && signUp.unverifiedFields.includes('email_address');
 
   const submit = async () => {
-    const result = await signUp.password({ emailAddress: emailAddress.trim(), password });
-    if (!result.error) await signUp.verifications.sendEmailCode();
+    setErrorMessage('');
+    try {
+      const result = await signUp.password({ emailAddress: emailAddress.trim(), password });
+      if (result.error) {
+        setErrorMessage(getClerkErrorMessage(result.error));
+        return;
+      }
+      await signUp.verifications.sendEmailCode();
+    } catch (error) {
+      console.error('[Auryx] Sign-up failed:', error);
+      setErrorMessage(getClerkErrorMessage(error));
+    }
   };
 
   const verify = async () => {
-    await signUp.verifications.verifyEmailCode({ code: code.trim() });
-    if (signUp.status === 'complete') {
-      await signUp.finalize({ navigate: () => router.replace('/lock') });
+    setErrorMessage('');
+    try {
+      await signUp.verifications.verifyEmailCode({ code: code.trim() });
+      if (signUp.status === 'complete') {
+        await signUp.finalize({ navigate: () => router.replace('/lock') });
+      }
+    } catch (error) {
+      console.error('[Auryx] Email verification failed:', error);
+      setErrorMessage(getClerkErrorMessage(error));
     }
   };
 
@@ -44,10 +79,25 @@ export default function SignUpScreen() {
         <>
           <TextInput style={styles.input} value={code} onChangeText={setCode} placeholder="رمز التحقق" placeholderTextColor="#64748B" keyboardType="number-pad" />
           <Pressable style={[styles.button, busy && styles.disabled]} onPress={verify} disabled={busy}><Text style={styles.buttonText}>تحقق</Text></Pressable>
-          <Pressable onPress={() => signUp.verifications.sendEmailCode()}><Text style={styles.link}>إرسال رمز جديد</Text></Pressable>
+          <Pressable
+            onPress={async () => {
+              setErrorMessage('');
+              try {
+                await signUp.verifications.sendEmailCode();
+              } catch (error) {
+                setErrorMessage(getClerkErrorMessage(error));
+              }
+            }}
+          >
+            <Text style={styles.link}>إرسال رمز جديد</Text>
+          </Pressable>
         </>
       )}
-      {errors?.fields && <Text style={styles.error}>تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.</Text>}
+      {(errorMessage || errors?.fields) && (
+        <Text style={styles.error}>
+          {errorMessage || 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.'}
+        </Text>
+      )}
       <View nativeID="clerk-captcha" />
     </View>
   );
