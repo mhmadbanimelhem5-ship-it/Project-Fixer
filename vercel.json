@@ -3,6 +3,6 @@
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "cd artifacts/api-server && node build.mjs && cd ../..",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+    { "source": "/(.*)", "destination": "/api/index.mjs" }
   ]
 }
