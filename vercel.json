@@ -1,14 +1,7 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["artifacts/api-server/dist/**"]
-      }
-    }
-  ],
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "cd artifacts/api-server && node build.mjs && cd ../..",
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ]
