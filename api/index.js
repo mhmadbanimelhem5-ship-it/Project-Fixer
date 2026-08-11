@@ -1,33 +1,22 @@
-let app = null;
-
-async function getApp() {
-  if (app) return app;
-  try {
-    const mod = await import('../artifacts/api-server/dist/index.js');
-    app = mod.app || mod.default || mod;
-    if (app.ready) await app.ready();
-    return app;
-  } catch (e) {
-    console.log('Failed to load real app, using fallback', e.message);
-    const Fastify = (await import('fastify')).default;
-    const fastify = Fastify({ logger: false });
-    fastify.get('/', async () => ({ status: 'ok', fallback: true, error: e.message }));
-    fastify.get('/api/health', async () => ({ status: 'ok', fallback: true }));
-    await fastify.ready();
-    app = fastify;
-    return app;
+export default function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
-}
 
-export default async function handler(req, res) {
-  const fApp = await getApp();
-  const response = await fApp.inject({
-    method: req.method,
+  return res.status(200).json({
+    status: 'ok',
+    message: 'API is running on Vercel!',
     url: req.url,
-    headers: req.headers,
-    payload: req.body,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    env: {
+      hasDatabase: !!process.env.DATABASE_URL,
+      hasResend: !!process.env.RESEND_API_KEY,
+      hasClerk: !!process.env.CLERK_SECRET_KEY
+    }
   });
-  res.statusCode = response.statusCode;
-  for (const [k, v] of Object.entries(response.headers)) res.setHeader(k, v);
-  res.end(response.payload);
 }
