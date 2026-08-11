@@ -1,39 +1,42 @@
-let cachedApp = null;
-
-async function getApp() {
-  if (cachedApp) return cachedApp;
-  
-  // جرب كل الاحتمالات
-  const paths = [
-    '../artifacts/api-server/dist/index.mjs',
-    '../artifacts/api-server/dist/index.js',
-    '../artifacts/api-server/dist/app.mjs',
-    '../artifacts/api-server/dist/app.js'
-  ];
-  
-  for (const p of paths) {
-    try {
-      const mod = await import(p);
-      const app = mod.app || mod.default || mod;
-      if (app && (app.inject || app.server)) {
-        // اذا في ready استخدمه، اذا لا تخطاه
-        if (typeof app.ready === 'function') {
-          await app.ready();
-        }
-        cachedApp = app;
-        console.log('Loaded app from', p);
-        return app;
-      }
-    } catch (e) {
-      console.log('Failed', p, e.message);
-    }
-  }
-  throw new Error('Could not load Fastify app');
-}
-
 export default async function handler(req, res) {
   try {
-    const app = await getApp();
+    // جرب نجيب الـ app من كل مكان ممكن
+    let app;
+    let lastError = null;
+    
+    const tries = [
+      () => import('../artifacts/api-server/dist/index.mjs'),
+      () => import('../artifacts/api-server/dist/index.js'),
+      () => import('../artifacts/api-server/dist/app.mjs'),
+      () => import('../artifacts/api-server/dist/app.js'),
+    ];
+    
+    for (const fn of tries) {
+      try {
+        const mod = await fn();
+        const candidate = mod.app || mod.default || mod;
+        if (candidate && candidate.inject) {
+          app = candidate;
+          if (typeof app.ready === 'function') await app.ready();
+          break;
+        }
+      } catch (e) {
+        lastError = e.message + ' | ' + e.stack?.slice(0,200);
+      }
+    }
+    
+    // اذا ما لقينا الـ app، شغل سيرفر مؤقت بس عشان ما يعطيك 500
+    // وبنفس الوقت بنطبع الايرور الحقيقي
+    if (!app) {
+      return res.status(200).json({
+        status: "debug",
+        error: "Could not load Fastify app",
+        lastError: lastError,
+        hint: "Check build.mjs output folder - dist not found",
+        url: req.url
+      });
+    }
+
     const response = await app.inject({
       method: req.method,
       url: req.url,
@@ -46,8 +49,9 @@ export default async function handler(req, res) {
       res.setHeader(k, v);
     }
     return res.end(response.payload);
+    
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 }
