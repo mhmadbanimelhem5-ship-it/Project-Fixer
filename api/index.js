@@ -1,21 +1,27 @@
-function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+let app = null;
 
-  return res.status(200).json({
-    status: 'ok',
-    message: 'API is running! No more 404!',
-    url: req.url,
-    method: req.method,
-    timestamp: new Date().toISOString()
-  });
+async function getApp() {
+  if (app) return app;
+  const mod = await import('../artifacts/api-server/dist/index.mjs');
+  const fastifyApp = mod.app || mod.default;
+  if (fastifyApp.ready) await fastifyApp.ready();
+  app = fastifyApp;
+  return app;
 }
 
-module.exports = handler;
-module.exports.default = handler;
-export default handler;
+export default async function handler(req, res) {
+  try {
+    const fApp = await getApp();
+    const response = await fApp.inject({
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      payload: req.body,
+    });
+    res.statusCode = response.statusCode;
+    for (const [k, v] of Object.entries(response.headers)) res.setHeader(k, v);
+    res.end(response.payload);
+  } catch (e) {
+    res.status(500).json({ error: e.message, stack: e.stack });
+  }
+}
