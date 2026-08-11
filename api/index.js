@@ -1,21 +1,16 @@
+let cachedApp = null;
+
+async function getApp() {
+  if (cachedApp) return cachedApp;
+  const mod = await import('../artifacts/api-server/dist/index.mjs');
+  const app = mod.app || mod.default || mod;
+  if (app.ready) await app.ready();
+  cachedApp = app;
+  return app;
+}
+
 export default async function handler(req, res) {
-  const url = req.url || '';
-  
-  if (url.includes('/health') || url.includes('health')) {
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(200).end(JSON.stringify({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      message: 'API is running!',
-      path: url
-    }));
-  }
-  
-  res.setHeader('Content-Type', 'application/json');
-  return res.status(200).end(JSON.stringify({
-    status: 'ok',
-    message: 'Project Fixer API',
-    path: url,
-    endpoints: ['/api/health', '/api']
-  }));
+  const app = await getApp();
+  // مهم جدا لـ Vercel
+  app.server.emit('request', req, res);
 }
