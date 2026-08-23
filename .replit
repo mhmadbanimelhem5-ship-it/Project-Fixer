@@ -26,3 +26,6 @@ SMTP_USER = "myauryx@gmail.com"
 [nix]
 channel = "stable-25_05"
 packages = ["eas-cli"]
+
+[[ports]]
+localPort = 5000
