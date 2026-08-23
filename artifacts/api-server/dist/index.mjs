@@ -71148,6 +71148,9 @@ app.use(import_express11.default.json());
 app.use(import_express11.default.urlencoded({ extended: true }));
 app.use("/api/", generalLimiter);
 app.use("/api", routes_default);
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "Auryx API is running \u{1F680}", endpoints: "/api/v1/*" });
+});
 var app_default = app;
 
 // src/index.ts
