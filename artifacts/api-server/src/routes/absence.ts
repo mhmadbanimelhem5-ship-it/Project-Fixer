@@ -59,7 +59,7 @@ function getBaseUrl(): string {
   if (d) return `https://${d.split(',')[0].trim()}`;
   const dev = process.env.REPLIT_DEV_DOMAIN;
   if (dev) return `https://${dev}`;
-  return 'http://localhost:80';
+  return 'https://getauryx.com';
 }
 
 function htmlPage(title: string, body: string): string {
