@@ -1,5 +1,5 @@
 export function getApiBase(): string {
-  return 'https://getauryx.com';
+  return 'https://project-fixer-api-server-chi.vercel.app';
 }
 
 export function getSecureApiBase(): string {
