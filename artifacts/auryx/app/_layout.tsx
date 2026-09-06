@@ -319,13 +319,30 @@ function RootLayoutNav() {
   const segments = useSegments();
 
   useEffect(() => {
-    setAuthenticatedTokenGetter(() => getToken());
-    setAuthTokenGetter(() => getToken());
+    if (!clerkLoaded) return;
+
+    const getApiAuthToken = async () => {
+      try {
+        const token = await getToken();
+        console.log(
+          `[Auryx][Auth] getToken=${token ? `present(length=${token.length})` : 'null'} ` +
+            `signedIn=${isSignedIn}`,
+        );
+        return token;
+      } catch (error) {
+        console.warn('[Auryx][Auth] getToken failed:', error instanceof Error ? error.message : 'unknown_error');
+        throw error;
+      }
+    };
+
+    setAuthenticatedTokenGetter(getApiAuthToken);
+    setAuthTokenGetter(getApiAuthToken);
+    console.log(`[Auryx][Auth] token bridge ready signedIn=${isSignedIn}`);
     return () => {
       setAuthenticatedTokenGetter(null);
       setAuthTokenGetter(null);
     };
-  }, [getToken]);
+  }, [clerkLoaded, getToken, isSignedIn]);
 
   // Unified effect: sync auth state → vault content
   useEffect(() => {

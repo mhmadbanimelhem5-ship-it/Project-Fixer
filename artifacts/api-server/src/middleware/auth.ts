@@ -26,6 +26,13 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
     if (!user) {
+      const authorization = req.get("authorization");
+      console.warn("[auth] rejected protected request", {
+        method: req.method,
+        path: req.originalUrl,
+        hasAuthorization: Boolean(authorization),
+        authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
+      });
       res.status(401).json({ error: "unauthorized" });
       return;
     }

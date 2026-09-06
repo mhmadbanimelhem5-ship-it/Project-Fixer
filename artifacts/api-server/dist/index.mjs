@@ -67933,6 +67933,13 @@ var requireAuth = async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
     if (!user) {
+      const authorization = req.get("authorization");
+      console.warn("[auth] rejected protected request", {
+        method: req.method,
+        path: req.originalUrl,
+        hasAuthorization: Boolean(authorization),
+        authorizationScheme: authorization?.split(" ", 1)[0] ?? null
+      });
       res.status(401).json({ error: "unauthorized" });
       return;
     }
@@ -69159,7 +69166,7 @@ function getBaseUrl2() {
   if (d) return `https://${d.split(",")[0].trim()}`;
   const dev = process.env.REPLIT_DEV_DOMAIN;
   if (dev) return `https://${dev}`;
-  return "http://localhost:80";
+  return "https://getauryx.com";
 }
 function htmlPage(title, body) {
   return `<!DOCTYPE html><html dir="rtl" lang="ar">
@@ -69625,7 +69632,7 @@ function getBaseUrl3() {
   if (domains) return `https://${domains.split(",")[0].trim()}`;
   const devDomain = process.env.REPLIT_DEV_DOMAIN;
   if (devDomain) return `https://${devDomain}`;
-  return "http://localhost:80";
+  return "https://getauryx.com";
 }
 function page2(title, icon, body) {
   return `<!DOCTYPE html><html dir="rtl" lang="ar">

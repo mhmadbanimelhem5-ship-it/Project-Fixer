@@ -20,6 +20,7 @@ import {
 import { clearKeyCache, generateAndStoreKeyPair, getOrCreatePublicKey, hasKeyPair } from '@/utils/keyManager';
 import { registerPublicKey } from '@/utils/vaultTransferApi';
 import { sealVault, approveGuardianAccess, type SealResult } from '@/utils/legacyTransfer';
+import { getApiBase } from '@/utils/apiBase';
 
 export type VaultCategory = 'logins' | 'media' | 'banking' | 'notes' | 'documents' | 'crypto';
 
@@ -379,10 +380,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     // are ready by the time the user interacts with guardians or beneficiary.
     // Fire-and-forget: a failure here has no user-visible effect.
     setTimeout(() => {
-      const domain = (process.env.EXPO_PUBLIC_DOMAIN as string | undefined) ?? '';
-      if (domain) {
-        fetch(`https://${domain}/api/healthz`, { method: 'GET' }).catch(() => {});
-      }
+      fetch(`${getApiBase()}/api/healthz`, { method: 'GET' }).catch(() => {});
     }, 800);
 
     // Initialize RSA key pair (idempotent) and register public key on server.

@@ -19,14 +19,13 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { authenticatedFetch } from './authenticatedFetch';
+import { getApiBase as getApiRoot } from './apiBase';
 
 const PUSH_TOKEN_KEY = 'auryx_push_token_v1';
 
-// Resolve API base from Expo public env vars (set by the dev workflow script)
+// Resolve the API server independently from the static Expo hosting domain.
 function getApiBase(): string {
-  const domain = (process.env.EXPO_PUBLIC_DOMAIN as string | undefined) ?? '';
-  if (domain) return `https://${domain}/api`;
-  return '/api';
+  return `${getApiRoot()}/api`;
 }
 
 /* ─── Token Registration ──────────────────────────────────────────────────── */
