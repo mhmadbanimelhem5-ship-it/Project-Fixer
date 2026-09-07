@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type ErrorRequestHandler, type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
@@ -38,14 +38,23 @@ app.use(
   }),
 );
 const allowedOrigins = new Set(
-  [process.env.WEB_APP_ORIGIN, process.env.REPLIT_DEV_DOMAIN, process.env.REPLIT_DOMAINS]
+  [
+    process.env.WEB_APP_ORIGIN,
+    process.env.REPLIT_DEV_DOMAIN,
+    process.env.REPLIT_DOMAINS,
+    "https://getauryx.com",
+    "https://www.getauryx.com",
+  ]
     .flatMap((value) => (value ? value.split(",") : []))
     .map((value) => (value.startsWith("http") ? value : `https://${value}`))
     .map((value) => value.replace(/\/+$/, "")),
 );
+const isLocalDevelopmentOrigin = (origin: string): boolean =>
+  /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin);
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.has(origin)) {
+    if (!origin || allowedOrigins.has(origin) || isLocalDevelopmentOrigin(origin)) {
       callback(null, true);
       return;
     }
@@ -66,4 +75,15 @@ app.use("/api", router);
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Auryx API is running 🚀', endpoints: '/api/v1/*' });
 });
+
+const corsErrorHandler: ErrorRequestHandler = (error, _req, res, next) => {
+  if (error instanceof Error && error.message === "origin_not_allowed") {
+    res.status(403).json({ error: "origin_not_allowed" });
+    return;
+  }
+  next(error);
+};
+
+app.use(corsErrorHandler);
+
 export default app;

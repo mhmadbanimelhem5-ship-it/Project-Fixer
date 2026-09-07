@@ -27,11 +27,24 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     const user = await getAuthenticatedUser(req);
     if (!user) {
       const authorization = req.get("authorization");
+      const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
+      const clerkAuth = getAuth(req);
+      const reasonFor401 = !authorization
+        ? "missing_authorization_header"
+        : !hasBearerToken
+          ? "invalid_authorization_scheme"
+          : !clerkAuth.userId
+            ? "clerk_user_missing"
+            : "clerk_user_lookup_failed_or_primary_email_missing";
       console.warn("[auth] rejected protected request", {
         method: req.method,
         path: req.originalUrl,
         hasAuthorization: Boolean(authorization),
+        hasBearerToken,
         authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
+        clerkUserIdPresent: Boolean(clerkAuth.userId),
+        clerkAuthenticated: false,
+        reasonFor401,
       });
       res.status(401).json({ error: "unauthorized" });
       return;

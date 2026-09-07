@@ -44,6 +44,14 @@ function emailArr(v: unknown, field: string): string[] {
   return v.map((e, i) => emailStr(e, `${field}[${i}]`));
 }
 
+function safeErrorDetails(error: unknown): { errorName?: string; errorCode?: string } {
+  const value = error as { name?: unknown; code?: unknown };
+  return {
+    errorName: typeof value.name === 'string' ? value.name : undefined,
+    errorCode: typeof value.code === 'string' ? value.code : undefined,
+  };
+}
+
 // ── 0. Health check ───────────────────────────────────────────────────────────
 // Returns which email provider is active and whether SMTP is reachable.
 // Used by the mobile app to diagnose "SMTP not configured" errors.
@@ -56,19 +64,28 @@ router.get('/healthz', async (req, res, next) => {
 
 // ── 1. Invite guardian ────────────────────────────────────────────────────────
 router.post('/invite-guardian', requireAuth, authLimiter, validateBody(emailInviteGuardianBody), requireOwner(), async (req, res, next) => {
+  const ownerName    = str(req.body.ownerName, 'ownerName');
+  const guardianName = str(req.body.guardianName, 'guardianName');
+  const guardianEmail = emailStr(req.body.guardianEmail, 'guardianEmail');
+
+  let token: string;
   try {
-    const ownerName    = str(req.body.ownerName, 'ownerName');
-    const guardianName = str(req.body.guardianName, 'guardianName');
-    const guardianEmail = emailStr(req.body.guardianEmail, 'guardianEmail');
-
-    const token = await createToken('guardian-invite', guardianEmail, ownerName, { guardianName });
-    await sendGuardianInvite(ownerName, guardianEmail, token);
-
-    res.json({ success: true, token });
-  } catch (err) {
-    req.log.error({ err, path: 'invite-guardian' }, 'Email send failed');
-    res.status(502).json({ success: false, error: 'email_delivery_failed' });
+    token = await createToken('guardian-invite', guardianEmail, ownerName, { guardianName });
+  } catch (error) {
+    req.log.error({ path: 'invite-guardian', stage: 'database', ...safeErrorDetails(error) }, 'Invite token creation failed');
+    res.status(503).json({ success: false, error: 'database_unavailable' });
+    return;
   }
+
+  try {
+    await sendGuardianInvite(ownerName, guardianEmail, token);
+  } catch (error) {
+    req.log.error({ path: 'invite-guardian', stage: 'email', ...safeErrorDetails(error) }, 'Email send failed');
+    res.status(502).json({ success: false, error: 'email_delivery_failed' });
+    return;
+  }
+
+  res.json({ success: true, token });
 });
 
 // ── 2. Remove guardian ────────────────────────────────────────────────────────
@@ -87,20 +104,29 @@ router.post('/remove-guardian', requireAuth, validateBody(emailRemoveGuardianBod
 
 // ── 3. Invite beneficiary ─────────────────────────────────────────────────────
 router.post('/invite-beneficiary', requireAuth, authLimiter, validateBody(emailInviteBeneficiaryBody), requireOwner(), async (req, res, next) => {
+  const ownerName       = str(req.body.ownerName, 'ownerName');
+  const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
+  const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, 'beneficiaryEmail');
+  const relationship    = typeof req.body.relationship === 'string' ? req.body.relationship : '';
+
+  let token: string;
   try {
-    const ownerName       = str(req.body.ownerName, 'ownerName');
-    const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
-    const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, 'beneficiaryEmail');
-    const relationship    = typeof req.body.relationship === 'string' ? req.body.relationship : '';
-
-    const token = await createToken('beneficiary-invite', beneficiaryEmail, ownerName, { beneficiaryName, relationship });
-    await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token);
-
-    res.json({ success: true, token });
-  } catch (err) {
-    req.log.error({ err, path: 'invite-beneficiary' }, 'Email send failed');
-    res.status(502).json({ success: false, error: 'email_delivery_failed' });
+    token = await createToken('beneficiary-invite', beneficiaryEmail, ownerName, { beneficiaryName, relationship });
+  } catch (error) {
+    req.log.error({ path: 'invite-beneficiary', stage: 'database', ...safeErrorDetails(error) }, 'Invite token creation failed');
+    res.status(503).json({ success: false, error: 'database_unavailable' });
+    return;
   }
+
+  try {
+    await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token);
+  } catch (error) {
+    req.log.error({ path: 'invite-beneficiary', stage: 'email', ...safeErrorDetails(error) }, 'Email send failed');
+    res.status(502).json({ success: false, error: 'email_delivery_failed' });
+    return;
+  }
+
+  res.json({ success: true, token });
 });
 
 // ── 4. Remove beneficiary ─────────────────────────────────────────────────────

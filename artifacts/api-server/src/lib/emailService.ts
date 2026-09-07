@@ -171,6 +171,10 @@ function getBaseUrl(): string {
   return 'https://getauryx.com';
 }
 
+function getResendFromAddress(): string {
+  return process.env.RESEND_FROM_EMAIL?.trim() || 'Auryx Support <support@getauryx.com>';
+}
+
 async function sendMail(to: string, subject: string, html: string): Promise<void> {
   const provider = getActiveProvider();
 
@@ -182,7 +186,7 @@ async function sendMail(to: string, subject: string, html: string): Promise<void
   if (provider === 'resend') {
     try {
             const result = await getResendClient().emails.send({
-        from: `Auryx Support <support@getauryx.com>`,
+        from: getResendFromAddress(),
         to,
         subject,
         html,

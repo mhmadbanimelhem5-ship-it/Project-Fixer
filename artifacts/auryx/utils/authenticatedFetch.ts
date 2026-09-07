@@ -26,9 +26,13 @@ export async function authenticatedFetch(
   }
   const response = await fetch(input, { ...init, headers });
   if (!response.ok) {
+    const hasBearerToken = /^Bearer\s+\S+$/i.test(headers.get('Authorization') ?? '');
     console.warn(
       `[Auryx][API] ${init.method ?? 'GET'} ${requestUrl} -> ${response.status} ` +
-        `authHeader=${headers.has('Authorization')}`,
+        `authHeader=${headers.has('Authorization')} hasBearerToken=${hasBearerToken}` +
+        (response.status === 401
+          ? ` reasonFor401=${hasBearerToken ? 'server_rejected_or_expired_token' : 'missing_token'}`
+          : ''),
     );
   }
   return response;

@@ -52,6 +52,8 @@ import { getApiBase } from '@/utils/apiBase';
 
 SplashScreen.preventAutoHideAsync();
 
+let clerkDiagnosticsLogged = false;
+
 // ─── Crypto engine diagnostic (runs once on cold start) ───────────────────────
 // Logs which RSA engine is active so post-build issues are immediately visible.
 // Safe: no secrets, no side effects — read-only availability check.
@@ -547,13 +549,22 @@ export default function RootLayout() {
 
   if (!fontsReady) return null;
 
-  // Local/Replit builds map CLERK_PUBLISHABLE_KEY into the public Expo
-  // variable. Keeping the second read here also makes a locally generated
-  // native APK start correctly when Metro receives the workspace secret
-  // directly. The secret Clerk key is intentionally never read.
-  const publishableKey =
-    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ||
-    process.env.CLERK_PUBLISHABLE_KEY?.trim();
+  // Expo must receive only the public Clerk key. Build/dev scripts may map
+  // other environment names into this EXPO_PUBLIC variable before bundling,
+  // but the app runtime never reads a backend secret or a non-public fallback.
+  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() || '';
+  if (!clerkDiagnosticsLogged) {
+    const clerkKeyMode = publishableKey.startsWith('pk_live_')
+      ? 'live'
+      : publishableKey.startsWith('pk_test_')
+        ? 'test'
+        : 'unknown';
+    console.log('[Auryx][Clerk] configuration', {
+      clerkKeyMode,
+      clerkConfigured: Boolean(publishableKey),
+    });
+    clerkDiagnosticsLogged = true;
+  }
   if (!publishableKey) {
     return (
       <StartupConfigurationError message="Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" />
