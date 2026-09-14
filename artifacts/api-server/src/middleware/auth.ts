@@ -13,6 +13,18 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function decodeJwtClaims(token: string | null): Record<string, unknown> | null {
+  try {
+    if (!token) return null;
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const json = Buffer.from(part, "base64url").toString("utf8");
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export async function getAuthenticatedUser(req: Request): Promise<{ id: string; email: string } | null> {
   const { userId } = getAuth(req);
   if (!userId) return null;
@@ -36,6 +48,8 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
           : !clerkAuth.userId
             ? "clerk_user_missing"
             : "clerk_user_lookup_failed_or_primary_email_missing";
+      const rawToken = authorization?.replace(/^Bearer\s+/i, "") ?? null;
+      const claims = decodeJwtClaims(rawToken);
       console.warn("[auth] rejected protected request", {
         method: req.method,
         path: req.originalUrl,
@@ -45,6 +59,9 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
         clerkUserIdPresent: Boolean(clerkAuth.userId),
         clerkAuthenticated: false,
         reasonFor401,
+        tokenIss: typeof claims?.iss === "string" ? claims.iss : null,
+        tokenExp: typeof claims?.exp === "number" ? claims.exp : null,
+        nowEpoch: Math.floor(Date.now() / 1000),
       });
       res.status(401).json({ error: "unauthorized" });
       return;
@@ -57,7 +74,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
 };
 
 export function requireOwner(field = "ownerEmail"): RequestHandler {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req, res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       const requested = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
@@ -78,7 +95,7 @@ export function requireOwner(field = "ownerEmail"): RequestHandler {
 }
 
 export function requireParticipant(fields: string[]): RequestHandler {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req, res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       if (!user) {
@@ -102,7 +119,7 @@ export function requireParticipant(fields: string[]): RequestHandler {
 }
 
 export function requireVaultParticipant(field = "ownerEmail"): RequestHandler {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req, res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       const ownerEmail = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
@@ -131,7 +148,7 @@ export function requireVaultParticipant(field = "ownerEmail"): RequestHandler {
 }
 
 export function requirePublicKeyAccess(field = "email"): RequestHandler {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req, res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       const requested = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
