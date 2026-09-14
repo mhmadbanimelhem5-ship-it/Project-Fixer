@@ -44544,16 +44544,20 @@ var GetMyWaitlistEligibilityResponse = objectType({
   }).optional()
 });
 
-// src/routes/health.ts
-var router = (0, import_express.Router)();
-router.get("/healthz", (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
-});
-var health_default = router;
-
-// src/routes/email.ts
-var import_express3 = __toESM(require_express2(), 1);
+// ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
+var import_lib = __toESM(require_lib5(), 1);
+var Client = import_lib.default.Client;
+var Pool = import_lib.default.Pool;
+var Connection = import_lib.default.Connection;
+var types = import_lib.default.types;
+var Query = import_lib.default.Query;
+var DatabaseError = import_lib.default.DatabaseError;
+var escapeIdentifier = import_lib.default.escapeIdentifier;
+var escapeLiteral = import_lib.default.escapeLiteral;
+var Result = import_lib.default.Result;
+var TypeOverrides = import_lib.default.TypeOverrides;
+var defaults = import_lib.default.defaults;
+var esm_default = import_lib.default;
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/entity.js
 var entityKind = /* @__PURE__ */ Symbol.for("drizzle:entityKind");
@@ -44580,6 +44584,61 @@ function is(value, type) {
   }
   return false;
 }
+
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/logger.js
+var ConsoleLogWriter = class {
+  static [entityKind] = "ConsoleLogWriter";
+  write(message) {
+    console.log(message);
+  }
+};
+var DefaultLogger = class {
+  static [entityKind] = "DefaultLogger";
+  writer;
+  constructor(config) {
+    this.writer = config?.writer ?? new ConsoleLogWriter();
+  }
+  logQuery(query, params) {
+    const stringifiedParams = params.map((p) => {
+      try {
+        return JSON.stringify(p);
+      } catch {
+        return String(p);
+      }
+    });
+    const paramsStr = stringifiedParams.length ? ` -- params: [${stringifiedParams.join(", ")}]` : "";
+    this.writer.write(`Query: ${query}${paramsStr}`);
+  }
+};
+var NoopLogger = class {
+  static [entityKind] = "NoopLogger";
+  logQuery() {
+  }
+};
+
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/query-promise.js
+var QueryPromise = class {
+  static [entityKind] = "QueryPromise";
+  [Symbol.toStringTag] = "QueryPromise";
+  catch(onRejected) {
+    return this.then(void 0, onRejected);
+  }
+  finally(onFinally) {
+    return this.then(
+      (value) => {
+        onFinally?.();
+        return value;
+      },
+      (reason) => {
+        onFinally?.();
+        throw reason;
+      }
+    );
+  }
+  then(onFulfilled, onRejected) {
+    return this.execute().then(onFulfilled, onRejected);
+  }
+};
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/column.js
 var Column = class {
@@ -45782,85 +45841,71 @@ function mapColumnsInSQLToAlias(query, alias) {
   }));
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/errors.js
-var DrizzleError = class extends Error {
-  static [entityKind] = "DrizzleError";
-  constructor({ message, cause }) {
-    super(message);
-    this.name = "DrizzleError";
-    this.cause = cause;
-  }
-};
-var DrizzleQueryError = class _DrizzleQueryError extends Error {
-  constructor(query, params, cause) {
-    super(`Failed query: ${query}
-params: ${params}`);
-    this.query = query;
-    this.params = params;
-    this.cause = cause;
-    Error.captureStackTrace(this, _DrizzleQueryError);
-    if (cause) this.cause = cause;
-  }
-};
-var TransactionRollbackError = class extends DrizzleError {
-  static [entityKind] = "TransactionRollbackError";
-  constructor() {
-    super({ message: "Rollback" });
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/logger.js
-var ConsoleLogWriter = class {
-  static [entityKind] = "ConsoleLogWriter";
-  write(message) {
-    console.log(message);
-  }
-};
-var DefaultLogger = class {
-  static [entityKind] = "DefaultLogger";
-  writer;
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/selection-proxy.js
+var SelectionProxyHandler = class _SelectionProxyHandler {
+  static [entityKind] = "SelectionProxyHandler";
+  config;
   constructor(config) {
-    this.writer = config?.writer ?? new ConsoleLogWriter();
+    this.config = { ...config };
   }
-  logQuery(query, params) {
-    const stringifiedParams = params.map((p) => {
-      try {
-        return JSON.stringify(p);
-      } catch {
-        return String(p);
+  get(subquery, prop) {
+    if (prop === "_") {
+      return {
+        ...subquery["_"],
+        selectedFields: new Proxy(
+          subquery._.selectedFields,
+          this
+        )
+      };
+    }
+    if (prop === ViewBaseConfig) {
+      return {
+        ...subquery[ViewBaseConfig],
+        selectedFields: new Proxy(
+          subquery[ViewBaseConfig].selectedFields,
+          this
+        )
+      };
+    }
+    if (typeof prop === "symbol") {
+      return subquery[prop];
+    }
+    const columns = is(subquery, Subquery) ? subquery._.selectedFields : is(subquery, View) ? subquery[ViewBaseConfig].selectedFields : subquery;
+    const value = columns[prop];
+    if (is(value, SQL.Aliased)) {
+      if (this.config.sqlAliasedBehavior === "sql" && !value.isSelectionField) {
+        return value.sql;
       }
-    });
-    const paramsStr = stringifiedParams.length ? ` -- params: [${stringifiedParams.join(", ")}]` : "";
-    this.writer.write(`Query: ${query}${paramsStr}`);
-  }
-};
-var NoopLogger = class {
-  static [entityKind] = "NoopLogger";
-  logQuery() {
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/query-promise.js
-var QueryPromise = class {
-  static [entityKind] = "QueryPromise";
-  [Symbol.toStringTag] = "QueryPromise";
-  catch(onRejected) {
-    return this.then(void 0, onRejected);
-  }
-  finally(onFinally) {
-    return this.then(
-      (value) => {
-        onFinally?.();
+      const newValue = value.clone();
+      newValue.isSelectionField = true;
+      return newValue;
+    }
+    if (is(value, SQL)) {
+      if (this.config.sqlBehavior === "sql") {
         return value;
-      },
-      (reason) => {
-        onFinally?.();
-        throw reason;
       }
-    );
-  }
-  then(onFulfilled, onRejected) {
-    return this.execute().then(onFulfilled, onRejected);
+      throw new Error(
+        `You tried to reference "${prop}" field from a subquery, which is a raw SQL field, but it doesn't have an alias declared. Please add an alias to the field using ".as('alias')" method.`
+      );
+    }
+    if (is(value, Column)) {
+      if (this.config.alias) {
+        return new Proxy(
+          value,
+          new ColumnAliasProxyHandler(
+            new Proxy(
+              value.table,
+              new TableAliasProxyHandler(this.config.alias, this.config.replaceOriginalName ?? false)
+            )
+          )
+        );
+      }
+      return value;
+    }
+    if (typeof value !== "object" || value === null) {
+      return value;
+    }
+    return new Proxy(value, new _SelectionProxyHandler(this.config));
   }
 };
 
@@ -47463,6 +47508,85 @@ var PrimaryKey = class {
   }
 };
 
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/casing.js
+function toSnakeCase(input) {
+  const words = input.replace(/['\u2019]/g, "").match(/[\da-z]+|[A-Z]+(?![a-z])|[A-Z][\da-z]+/g) ?? [];
+  return words.map((word) => word.toLowerCase()).join("_");
+}
+function toCamelCase(input) {
+  const words = input.replace(/['\u2019]/g, "").match(/[\da-z]+|[A-Z]+(?![a-z])|[A-Z][\da-z]+/g) ?? [];
+  return words.reduce((acc, word, i) => {
+    const formattedWord = i === 0 ? word.toLowerCase() : `${word[0].toUpperCase()}${word.slice(1)}`;
+    return acc + formattedWord;
+  }, "");
+}
+function noopCase(input) {
+  return input;
+}
+var CasingCache = class {
+  static [entityKind] = "CasingCache";
+  /** @internal */
+  cache = {};
+  cachedTables = {};
+  convert;
+  constructor(casing) {
+    this.convert = casing === "snake_case" ? toSnakeCase : casing === "camelCase" ? toCamelCase : noopCase;
+  }
+  getColumnCasing(column) {
+    if (!column.keyAsName) return column.name;
+    const schema = column.table[Table.Symbol.Schema] ?? "public";
+    const tableName = column.table[Table.Symbol.OriginalName];
+    const key = `${schema}.${tableName}.${column.name}`;
+    if (!this.cache[key]) {
+      this.cacheTable(column.table);
+    }
+    return this.cache[key];
+  }
+  cacheTable(table) {
+    const schema = table[Table.Symbol.Schema] ?? "public";
+    const tableName = table[Table.Symbol.OriginalName];
+    const tableKey = `${schema}.${tableName}`;
+    if (!this.cachedTables[tableKey]) {
+      for (const column of Object.values(table[Table.Symbol.Columns])) {
+        const columnKey = `${tableKey}.${column.name}`;
+        this.cache[columnKey] = this.convert(column.name);
+      }
+      this.cachedTables[tableKey] = true;
+    }
+  }
+  clearCache() {
+    this.cache = {};
+    this.cachedTables = {};
+  }
+};
+
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/errors.js
+var DrizzleError = class extends Error {
+  static [entityKind] = "DrizzleError";
+  constructor({ message, cause }) {
+    super(message);
+    this.name = "DrizzleError";
+    this.cause = cause;
+  }
+};
+var DrizzleQueryError = class _DrizzleQueryError extends Error {
+  constructor(query, params, cause) {
+    super(`Failed query: ${query}
+params: ${params}`);
+    this.query = query;
+    this.params = params;
+    this.cause = cause;
+    Error.captureStackTrace(this, _DrizzleQueryError);
+    if (cause) this.cause = cause;
+  }
+};
+var TransactionRollbackError = class extends DrizzleError {
+  static [entityKind] = "TransactionRollbackError";
+  constructor() {
+    super({ message: "Rollback" });
+  }
+};
+
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/sql/expressions/conditions.js
 function bindIfParam(value, column) {
   if (isDriverValueEncoder(column) && !isSQLWrapper(value) && !is(value, Param) && !is(value, Placeholder) && !is(value, Column) && !is(value, Table) && !is(value, View)) {
@@ -47846,141 +47970,6 @@ function mapRelationalRow(tablesConfig, tableConfig, row, buildQueryResultSelect
   }
   return result;
 }
-
-// ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
-var import_lib = __toESM(require_lib5(), 1);
-var Client = import_lib.default.Client;
-var Pool = import_lib.default.Pool;
-var Connection = import_lib.default.Connection;
-var types = import_lib.default.types;
-var Query = import_lib.default.Query;
-var DatabaseError = import_lib.default.DatabaseError;
-var escapeIdentifier = import_lib.default.escapeIdentifier;
-var escapeLiteral = import_lib.default.escapeLiteral;
-var Result = import_lib.default.Result;
-var TypeOverrides = import_lib.default.TypeOverrides;
-var defaults = import_lib.default.defaults;
-var esm_default = import_lib.default;
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/selection-proxy.js
-var SelectionProxyHandler = class _SelectionProxyHandler {
-  static [entityKind] = "SelectionProxyHandler";
-  config;
-  constructor(config) {
-    this.config = { ...config };
-  }
-  get(subquery, prop) {
-    if (prop === "_") {
-      return {
-        ...subquery["_"],
-        selectedFields: new Proxy(
-          subquery._.selectedFields,
-          this
-        )
-      };
-    }
-    if (prop === ViewBaseConfig) {
-      return {
-        ...subquery[ViewBaseConfig],
-        selectedFields: new Proxy(
-          subquery[ViewBaseConfig].selectedFields,
-          this
-        )
-      };
-    }
-    if (typeof prop === "symbol") {
-      return subquery[prop];
-    }
-    const columns = is(subquery, Subquery) ? subquery._.selectedFields : is(subquery, View) ? subquery[ViewBaseConfig].selectedFields : subquery;
-    const value = columns[prop];
-    if (is(value, SQL.Aliased)) {
-      if (this.config.sqlAliasedBehavior === "sql" && !value.isSelectionField) {
-        return value.sql;
-      }
-      const newValue = value.clone();
-      newValue.isSelectionField = true;
-      return newValue;
-    }
-    if (is(value, SQL)) {
-      if (this.config.sqlBehavior === "sql") {
-        return value;
-      }
-      throw new Error(
-        `You tried to reference "${prop}" field from a subquery, which is a raw SQL field, but it doesn't have an alias declared. Please add an alias to the field using ".as('alias')" method.`
-      );
-    }
-    if (is(value, Column)) {
-      if (this.config.alias) {
-        return new Proxy(
-          value,
-          new ColumnAliasProxyHandler(
-            new Proxy(
-              value.table,
-              new TableAliasProxyHandler(this.config.alias, this.config.replaceOriginalName ?? false)
-            )
-          )
-        );
-      }
-      return value;
-    }
-    if (typeof value !== "object" || value === null) {
-      return value;
-    }
-    return new Proxy(value, new _SelectionProxyHandler(this.config));
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/casing.js
-function toSnakeCase(input) {
-  const words = input.replace(/['\u2019]/g, "").match(/[\da-z]+|[A-Z]+(?![a-z])|[A-Z][\da-z]+/g) ?? [];
-  return words.map((word) => word.toLowerCase()).join("_");
-}
-function toCamelCase(input) {
-  const words = input.replace(/['\u2019]/g, "").match(/[\da-z]+|[A-Z]+(?![a-z])|[A-Z][\da-z]+/g) ?? [];
-  return words.reduce((acc, word, i) => {
-    const formattedWord = i === 0 ? word.toLowerCase() : `${word[0].toUpperCase()}${word.slice(1)}`;
-    return acc + formattedWord;
-  }, "");
-}
-function noopCase(input) {
-  return input;
-}
-var CasingCache = class {
-  static [entityKind] = "CasingCache";
-  /** @internal */
-  cache = {};
-  cachedTables = {};
-  convert;
-  constructor(casing) {
-    this.convert = casing === "snake_case" ? toSnakeCase : casing === "camelCase" ? toCamelCase : noopCase;
-  }
-  getColumnCasing(column) {
-    if (!column.keyAsName) return column.name;
-    const schema = column.table[Table.Symbol.Schema] ?? "public";
-    const tableName = column.table[Table.Symbol.OriginalName];
-    const key = `${schema}.${tableName}.${column.name}`;
-    if (!this.cache[key]) {
-      this.cacheTable(column.table);
-    }
-    return this.cache[key];
-  }
-  cacheTable(table) {
-    const schema = table[Table.Symbol.Schema] ?? "public";
-    const tableName = table[Table.Symbol.OriginalName];
-    const tableKey = `${schema}.${tableName}`;
-    if (!this.cachedTables[tableKey]) {
-      for (const column of Object.values(table[Table.Symbol.Columns])) {
-        const columnKey = `${tableKey}.${column.name}`;
-        this.cache[columnKey] = this.convert(column.name);
-      }
-      this.cachedTables[tableKey] = true;
-    }
-  }
-  clearCache() {
-    this.cache = {};
-    this.cachedTables = {};
-  }
-};
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/view-base.js
 var PgViewBase = class extends View {
@@ -51701,6 +51690,30 @@ var logger = (0, import_pino.default)({
     }
   }
 });
+
+// src/routes/health.ts
+var router = (0, import_express.Router)();
+router.get("/healthz", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    const data = HealthCheckResponse.parse({ status: "ok" });
+    res.json(data);
+  } catch (error) {
+    const value = error;
+    logger.error(
+      {
+        errorCode: typeof value.code === "string" ? value.code : void 0,
+        errorName: typeof value.name === "string" ? value.name : void 0
+      },
+      "Health check database failed"
+    );
+    res.status(503).json({ status: "error", service: "database" });
+  }
+});
+var health_default = router;
+
+// src/routes/email.ts
+var import_express3 = __toESM(require_express2(), 1);
 
 // src/lib/emailService.ts
 import nodemailer from "nodemailer";
@@ -56929,6 +56942,9 @@ async function checkEmailHealth() {
 function getBaseUrl() {
   return "https://getauryx.com";
 }
+function getResendFromAddress() {
+  return process.env.RESEND_FROM_EMAIL?.trim() || "Auryx Support <support@getauryx.com>";
+}
 async function sendMail(to, subject, html) {
   const provider = getActiveProvider();
   if (provider === "none") {
@@ -56938,7 +56954,7 @@ async function sendMail(to, subject, html) {
   if (provider === "resend") {
     try {
       const result = await getResendClient().emails.send({
-        from: `Auryx Support <support@getauryx.com>`,
+        from: getResendFromAddress(),
         to,
         subject,
         html
@@ -67921,6 +67937,17 @@ async function getCollectedShares(ownerEmail) {
 function normalizeEmail(value) {
   return value.trim().toLowerCase();
 }
+function decodeJwtClaims(token2) {
+  try {
+    if (!token2) return null;
+    const part = token2.split(".")[1];
+    if (!part) return null;
+    const json2 = Buffer.from(part, "base64url").toString("utf8");
+    return JSON.parse(json2);
+  } catch {
+    return null;
+  }
+}
 async function getAuthenticatedUser(req) {
   const { userId } = getAuth(req);
   if (!userId) return null;
@@ -67934,11 +67961,23 @@ var requireAuth = async (req, res, next) => {
     const user = await getAuthenticatedUser(req);
     if (!user) {
       const authorization = req.get("authorization");
+      const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
+      const clerkAuth = getAuth(req);
+      const reasonFor401 = !authorization ? "missing_authorization_header" : !hasBearerToken ? "invalid_authorization_scheme" : !clerkAuth.userId ? "clerk_user_missing" : "clerk_user_lookup_failed_or_primary_email_missing";
+      const rawToken = authorization?.replace(/^Bearer\s+/i, "") ?? null;
+      const claims = decodeJwtClaims(rawToken);
       console.warn("[auth] rejected protected request", {
         method: req.method,
         path: req.originalUrl,
         hasAuthorization: Boolean(authorization),
-        authorizationScheme: authorization?.split(" ", 1)[0] ?? null
+        hasBearerToken,
+        authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
+        clerkUserIdPresent: Boolean(clerkAuth.userId),
+        clerkAuthenticated: false,
+        reasonFor401,
+        tokenIss: typeof claims?.iss === "string" ? claims.iss : null,
+        tokenExp: typeof claims?.exp === "number" ? claims.exp : null,
+        nowEpoch: Math.floor(Date.now() / 1e3)
       });
       res.status(401).json({ error: "unauthorized" });
       return;
@@ -68180,6 +68219,13 @@ function emailArr(v, field) {
   if (!Array.isArray(v)) throw new Error(`${field} must be an array`);
   return v.map((e, i) => emailStr(e, `${field}[${i}]`));
 }
+function safeErrorDetails(error) {
+  const value = error;
+  return {
+    errorName: typeof value.name === "string" ? value.name : void 0,
+    errorCode: typeof value.code === "string" ? value.code : void 0
+  };
+}
 router2.get("/healthz", async (req, res, next) => {
   try {
     const health = await checkEmailHealth();
@@ -68189,17 +68235,25 @@ router2.get("/healthz", async (req, res, next) => {
   }
 });
 router2.post("/invite-guardian", requireAuth, authLimiter, validateBody(emailInviteGuardianBody), requireOwner(), async (req, res, next) => {
+  const ownerName = str(req.body.ownerName, "ownerName");
+  const guardianName = str(req.body.guardianName, "guardianName");
+  const guardianEmail = emailStr(req.body.guardianEmail, "guardianEmail");
+  let token2;
   try {
-    const ownerName = str(req.body.ownerName, "ownerName");
-    const guardianName = str(req.body.guardianName, "guardianName");
-    const guardianEmail = emailStr(req.body.guardianEmail, "guardianEmail");
-    const token2 = await createToken("guardian-invite", guardianEmail, ownerName, { guardianName });
-    await sendGuardianInvite(ownerName, guardianEmail, token2);
-    res.json({ success: true, token: token2 });
-  } catch (err) {
-    req.log.error({ err, path: "invite-guardian" }, "Email send failed");
-    res.status(502).json({ success: false, error: "email_delivery_failed" });
+    token2 = await createToken("guardian-invite", guardianEmail, ownerName, { guardianName });
+  } catch (error) {
+    req.log.error({ path: "invite-guardian", stage: "database", ...safeErrorDetails(error) }, "Invite token creation failed");
+    res.status(503).json({ success: false, error: "database_unavailable" });
+    return;
   }
+  try {
+    await sendGuardianInvite(ownerName, guardianEmail, token2);
+  } catch (error) {
+    req.log.error({ path: "invite-guardian", stage: "email", ...safeErrorDetails(error) }, "Email send failed");
+    res.status(502).json({ success: false, error: "email_delivery_failed" });
+    return;
+  }
+  res.json({ success: true, token: token2 });
 });
 router2.post("/remove-guardian", requireAuth, validateBody(emailRemoveGuardianBody), requireOwner(), async (req, res, next) => {
   try {
@@ -68213,18 +68267,26 @@ router2.post("/remove-guardian", requireAuth, validateBody(emailRemoveGuardianBo
   }
 });
 router2.post("/invite-beneficiary", requireAuth, authLimiter, validateBody(emailInviteBeneficiaryBody), requireOwner(), async (req, res, next) => {
+  const ownerName = str(req.body.ownerName, "ownerName");
+  const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
+  const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, "beneficiaryEmail");
+  const relationship = typeof req.body.relationship === "string" ? req.body.relationship : "";
+  let token2;
   try {
-    const ownerName = str(req.body.ownerName, "ownerName");
-    const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
-    const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, "beneficiaryEmail");
-    const relationship = typeof req.body.relationship === "string" ? req.body.relationship : "";
-    const token2 = await createToken("beneficiary-invite", beneficiaryEmail, ownerName, { beneficiaryName, relationship });
-    await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token2);
-    res.json({ success: true, token: token2 });
-  } catch (err) {
-    req.log.error({ err, path: "invite-beneficiary" }, "Email send failed");
-    res.status(502).json({ success: false, error: "email_delivery_failed" });
+    token2 = await createToken("beneficiary-invite", beneficiaryEmail, ownerName, { beneficiaryName, relationship });
+  } catch (error) {
+    req.log.error({ path: "invite-beneficiary", stage: "database", ...safeErrorDetails(error) }, "Invite token creation failed");
+    res.status(503).json({ success: false, error: "database_unavailable" });
+    return;
   }
+  try {
+    await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token2);
+  } catch (error) {
+    req.log.error({ path: "invite-beneficiary", stage: "email", ...safeErrorDetails(error) }, "Email send failed");
+    res.status(502).json({ success: false, error: "email_delivery_failed" });
+    return;
+  }
+  res.json({ success: true, token: token2 });
 });
 router2.post("/remove-beneficiary", requireAuth, validateBody(emailRemoveBeneficiaryBody), requireOwner(), async (req, res, next) => {
   try {
@@ -71135,11 +71197,18 @@ app.use(
   })
 );
 var allowedOrigins = new Set(
-  [process.env.WEB_APP_ORIGIN, process.env.REPLIT_DEV_DOMAIN, process.env.REPLIT_DOMAINS].flatMap((value) => value ? value.split(",") : []).map((value) => value.startsWith("http") ? value : `https://${value}`).map((value) => value.replace(/\/+$/, ""))
+  [
+    process.env.WEB_APP_ORIGIN,
+    process.env.REPLIT_DEV_DOMAIN,
+    process.env.REPLIT_DOMAINS,
+    "https://getauryx.com",
+    "https://www.getauryx.com"
+  ].flatMap((value) => value ? value.split(",") : []).map((value) => value.startsWith("http") ? value : `https://${value}`).map((value) => value.replace(/\/+$/, ""))
 );
+var isLocalDevelopmentOrigin = (origin) => /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin);
 app.use((0, import_cors.default)({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.has(origin)) {
+    if (!origin || allowedOrigins.has(origin) || isLocalDevelopmentOrigin(origin)) {
       callback(null, true);
       return;
     }
@@ -71158,6 +71227,14 @@ app.use("/api", routes_default);
 app.get("/", (req, res) => {
   res.json({ status: "ok", message: "Auryx API is running \u{1F680}", endpoints: "/api/v1/*" });
 });
+var corsErrorHandler = (error, _req, res, next) => {
+  if (error instanceof Error && error.message === "origin_not_allowed") {
+    res.status(403).json({ error: "origin_not_allowed" });
+    return;
+  }
+  next(error);
+};
+app.use(corsErrorHandler);
 var app_default = app;
 
 // src/index.ts
