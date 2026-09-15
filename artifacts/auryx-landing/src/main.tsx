@@ -7,7 +7,7 @@ import './index.css';
 
 setBaseUrl(
   import.meta.env.VITE_API_URL?.trim() ||
-    'https://project-fixer-api-server-chi.vercel.app',
+    'https://getauryx.com',
 );
 
 createRoot(document.getElementById('root')!).render(<App />);
