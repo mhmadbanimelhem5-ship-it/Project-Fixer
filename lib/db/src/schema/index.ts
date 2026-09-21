@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, integer, bigint, primaryKey, serial, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, jsonb, integer, bigint, primaryKey, serial, boolean, index } from "drizzle-orm/pg-core";
 
 // ── RSA public keys ───────────────────────────────────────────────────────────
 export const publicKeysTable = pgTable("public_keys", {
@@ -131,3 +131,22 @@ export const waitlistVerificationsTable = pgTable("waitlist_verifications", {
   expiresAt:  bigint("expires_at", { mode: "number" }).notNull(),
   usedAt:     bigint("used_at", { mode: "number" }),
 });
+
+// ── Subscriptions (RevenueCat + Google Play) ──────────────────────────────────
+export const subscriptionsTable = pgTable(
+  "subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull().unique(), // Clerk user ID
+    plan: text("plan").notNull(), // 'monthly' | 'yearly'
+    status: text("status").notNull(), // 'active' | 'canceled' | 'expired' | 'grace_period'
+    providerToken: text("provider_token"), // Google Play purchase token
+    currentPeriodEnd: bigint("current_period_end", { mode: "number" }),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("subscriptions_user_id_idx").on(table.userId),
+    statusIdx: index("subscriptions_status_idx").on(table.status),
+  })
+);

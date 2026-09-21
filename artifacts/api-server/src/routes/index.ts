@@ -7,6 +7,7 @@ import keysRouter from "./keys";
 import vaultTransferRouter from "./vaultTransfer";
 import absenceRouter from "./absence";
 import waitlistRouter from "./waitlist";
+import subscriptionsRouter from "./subscriptions"; // ← السطر الجديد 1
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use('/keys', keysRouter);
 router.use('/vault', vaultTransferRouter);
 router.use('/absence', absenceRouter);
 router.use('/waitlist', waitlistRouter);
+router.use('/subscriptions', subscriptionsRouter); // ← السطر الجديد 2
 
 export default router;
