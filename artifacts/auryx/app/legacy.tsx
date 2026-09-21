@@ -30,6 +30,15 @@
  *   • The owner's own vault is NOT affected — they can keep using it normally.
  *   • The button can be pressed again at any time to refresh the sealed package
  *     with the latest vault contents.
+ *
+ * ─── Premium Gate (Feature Gating) ─────────────────────────────────────────
+ *
+ *   Digital Legacy is a fully Premium feature.  Every mutating action on this
+ *   screen (set beneficiary, choose absence days, seal vault, toggle legacy
+ *   mode) is intercepted by `usePremiumGuard`.  Free users see the explanatory
+ *   UI but any attempt to change state opens the existing Paywall instead.
+ *   Read-only browsing of the screen is intentionally left open so free users
+ *   understand the value before subscribing.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,8 +73,8 @@ import type { SealResult } from '@/utils/legacyTransfer';
 import { useNetwork } from '@/contexts/NetworkContext';
 import NetInfo from '@react-native-community/netinfo';
 import * as SecureStore from 'expo-secure-store';
+import { usePremiumGuard } from '@/hooks/usePremiumGuard'; // ← Premium Gate
 
-const ABSENCE_DAYS: AbsenceDays[] = [7, 14, 30, 60, 90];
 const ROW1: AbsenceDays[] = [7, 14, 30];
 const ROW2: AbsenceDays[] = [60, 90];
 
@@ -92,7 +101,7 @@ function SealRow({ icon, label, sublabel, color, ok }: {
   icon: string; label: string; sublabel?: string; color: string; ok: boolean;
 }) {
   const { colors: tc } = useTheme();
-  const styles = useMemo(() => makeStyles(tc), [tc]);
+  
   return (
     <View style={successStyles.row}>
       <View style={[successStyles.rowIcon, { backgroundColor: `${color}20` }]}>
@@ -516,6 +525,9 @@ export default function LegacyScreen() {
   const { legacy, updateLegacy, sealVaultForLegacy, keyReady, keyError, keyErrorMsg, retryKeyGeneration, guardians, items } = useVault();
   const { recheckConnectivity } = useNetwork();
 
+  // ✅ Premium Gate — single source of truth for legacy feature access
+  const { checkAndGate } = usePremiumGuard();
+
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
   const [toast, setToast] = useState<{ msg: string; color?: string } | null>(null);
   const [isRetryingNet, setIsRetryingNet] = useState(false);
@@ -639,6 +651,11 @@ export default function LegacyScreen() {
    *   4. retryKeyGeneration now returns Promise<boolean> — we await it here so
    *      we can show an explicit success/failure toast without relying on a
    *      separate useEffect transition watcher.
+   *
+   * NOTE: This is an internal recovery action for an already-Premium flow.
+   * It is intentionally NOT gated because reaching it implies the user already
+   * passed the gate when enabling legacy.  If somehow a free user triggers it,
+   * the underlying key generation still runs locally and harms nothing.
    */
   const handleRetryKey = useCallback(async () => {
     if (isRetryingNet) return;
@@ -672,10 +689,27 @@ export default function LegacyScreen() {
     }
   }, [isRetryingNet, recheckConnectivity, retryKeyGeneration, legacy.ownerEmail, showToast]);
 
-  const handleDaysSelect = (days: AbsenceDays) => {
+  /**
+   * ✅ Premium-gated: choosing absence days mutates legacy configuration.
+   * Free users are redirected to the Paywall instead of changing the timer.
+   */
+  const handleDaysSelect = async (days: AbsenceDays) => {
+    const allowed = await checkAndGate('legacy_setup');
+    if (!allowed) return;
     updateLegacy({ absenceDays: days });
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  /**
+   * ✅ Premium-gated: opening the beneficiary form is the entry point to the
+   * whole legacy setup.  We gate the OPEN action itself so a free user never
+   * even sees the input fields — they hit the Paywall immediately.
+   */
+  const openBeneficiaryModal = useCallback(async () => {
+    const allowed = await checkAndGate('legacy_setup');
+    if (!allowed) return;
+    setShowBeneficiaryModal(true);
+  }, [checkAndGate]);
 
   const handleSaveBeneficiary = (name: string, email: string) => {
     const previous = legacy.beneficiary;
@@ -734,12 +768,26 @@ export default function LegacyScreen() {
     showToast(t('legacy.beneficiaryRemoved'), tc.orange);
   };
 
-  const handleLegacyToggle = () => {
-    if (!legacy.beneficiary) { setShowBeneficiaryModal(true); return; }
+  /**
+   * ✅ Premium-gated: toggling legacy mode ON is the master switch for the
+   * entire feature.  Turning it OFF is always allowed (we never trap a user
+   * inside a paid state against their will), but turning it ON requires a
+   * valid Premium entitlement.
+   */
+  const handleLegacyToggle = async () => {
+    if (!legacy.beneficiary) {
+      // No beneficiary yet → route through the gated opener, not raw setState
+      await openBeneficiaryModal();
+      return;
+    }
     if (legacy.enabled) {
+      // Disabling is free — let the user opt out at any time
       updateLegacy({ enabled: false });
       showToast(t('legacy.legacyDisabled'), tc.orange);
     } else {
+      // Enabling is Premium-only
+      const allowed = await checkAndGate('legacy_setup');
+      if (!allowed) return;
       updateLegacy({ enabled: true, lastActiveAt: Date.now() });
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast(t('legacy.legacyActivated'));
@@ -757,8 +805,15 @@ export default function LegacyScreen() {
    * On failure: shows an inline error box with the rejection reason.
    *
    * The owner's vault is NOT locked or modified — they can keep using it normally.
+   *
+   * ✅ Premium-gated: sealing uploads a cryptographic package to the server and
+   * is the most expensive operation on this screen.  Free users are stopped at
+   * the gate before any crypto work begins.
    */
   const handleSealVault = async () => {
+    const allowed = await checkAndGate('legacy_setup');
+    if (!allowed) return;
+
     if (!legacy.beneficiary) {
       showToast(t('legacy.setBeneficiaryFirst'), tc.orange);
       return;
@@ -909,7 +964,8 @@ export default function LegacyScreen() {
                 })()}
               </View>
               <View style={styles.beneficiaryActions}>
-                <TouchableOpacity style={styles.editBtn} onPress={() => setShowBeneficiaryModal(true)}>
+                {/* ✅ Edit goes through the gated opener, not raw setState */}
+                <TouchableOpacity style={styles.editBtn} onPress={openBeneficiaryModal}>
                   <Feather name="edit-2" size={14} color={tc.gold} />
                   <Text style={styles.editBtnText}>{t('common.edit')}</Text>
                 </TouchableOpacity>
@@ -920,7 +976,8 @@ export default function LegacyScreen() {
               </View>
             </>
           ) : (
-            <TouchableOpacity style={styles.addBeneficiaryBtn} onPress={() => setShowBeneficiaryModal(true)}>
+            /* ✅ Add beneficiary goes through the gated opener */
+            <TouchableOpacity style={styles.addBeneficiaryBtn} onPress={openBeneficiaryModal}>
               <Text style={styles.addBeneficiaryText}>{t('legacy.addBeneficiary')}</Text>
             </TouchableOpacity>
           )}
@@ -1161,6 +1218,7 @@ export default function LegacyScreen() {
               Disabled when: RSA key not ready, or seal operation in progress.
               Loading: cycles through SEAL_PHASES labels (1 per 1.6 s).
               Done: turns green — can be pressed again to refresh the package.
+              ✅ handleSealVault is internally Premium-gated.
           ── */}
           <TouchableOpacity
             style={[styles.sealBtn, (sealState === 'loading' || !keyReady) && { opacity: 0.6 }]}
@@ -1193,7 +1251,9 @@ export default function LegacyScreen() {
           </TouchableOpacity>
         </GlassCard>
 
-        {/* ── Activate / Deactivate Button ── */}
+        {/* ── Activate / Deactivate Button ──
+            ✅ handleLegacyToggle is internally Premium-gated for the ON path.
+        ── */}
         <TouchableOpacity style={styles.setLegacyBtn} activeOpacity={0.85} onPress={handleLegacyToggle}>
           <LinearGradient
             colors={legacy.enabled ? ['#22C55E', '#16A34A'] : ['#D4AF37', '#B8960C']}
@@ -1236,7 +1296,7 @@ export default function LegacyScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────────────────────
 
 const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   container: { flex: 1 },

@@ -31,6 +31,7 @@ import { getApiBase } from '@/utils/apiBase';
 import { authenticatedFetch } from '@/utils/authenticatedFetch';
 import { fetchVaultPackage } from '@/utils/vaultTransferApi';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
+import { usePremiumGuard } from '@/hooks/usePremiumGuard';
 
 const { width: SW } = Dimensions.get('window');
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
@@ -113,6 +114,7 @@ export default function EmergencyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { legacy, guardians, addAuditEntry } = useVault();
+  const { checkAndGate } = usePremiumGuard();
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [activatedAt, setActivatedAt] = useState<number | null>(null);
@@ -136,13 +138,13 @@ export default function EmergencyScreen() {
   const isBeneficiaryRole = legacy.userRole === 'beneficiary';
 
   const ownerName = isBeneficiaryRole
-    ? (legacy.beneficiaryOwnerName || t('legacy.ownerDefault'))
+   ? (legacy.beneficiaryOwnerName || t('legacy.ownerDefault'))
     : (legacy.ownerName || t('legacy.ownerDefault'));
   const ownerEmail = (legacy.ownerEmail || '').trim().toLowerCase();
   const beneficiaryName = isBeneficiaryRole
-    ? (legacy.ownerName || t('legacy.beneficiary'))
+   ? (legacy.ownerName || t('legacy.beneficiary'))
     : (legacy.beneficiary?.name || t('legacy.beneficiary'));
-  const deadline48h = activatedAt ? activatedAt + FORTY_EIGHT_HOURS_MS : 0;
+  const deadline48h = activatedAt? activatedAt + FORTY_EIGHT_HOURS_MS : 0;
 
   useEffect(() => {
     return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
@@ -183,7 +185,7 @@ export default function EmergencyScreen() {
 
   // ── Owner: start server absence protocol ───────────────────────────────────
   useEffect(() => {
-    if (phase !== 'waiting' || !ownerEmail || serverProtocolActive) return;
+    if (phase!== 'waiting' ||!ownerEmail || serverProtocolActive) return;
     let mounted = true;
     setServerProtocolActive(true);
     const start = async () => {
@@ -200,11 +202,11 @@ export default function EmergencyScreen() {
 
   // ── Owner: poll server status every 30s ────────────────────────────────────
   useEffect(() => {
-    if (phase !== 'waiting' || !ownerEmail) return;
+    if (phase!== 'waiting' ||!ownerEmail) return;
     let mounted = true;
     const poll = async () => {
       const status = await fetchServerAbsenceStatus(ownerEmail);
-      if (!mounted || !status) return;
+      if (!mounted ||!status) return;
       setOwnerNotifCount(status.ownerNotifCount);
       if (status.status === 'cancelled_by_owner') {
         addAuditEntry('absence_protocol_cancelled_by_owner', 'app');
@@ -227,17 +229,17 @@ export default function EmergencyScreen() {
 
   // ── Poll guardian vote status every 20s while voting ──────────────────────
   useEffect(() => {
-    if (phase !== 'voting' || !ownerEmail) return;
+    if (phase!== 'voting' ||!ownerEmail) return;
     let mounted = true;
     const poll = async () => {
       const status = await fetchGuardianVoteStatus(ownerEmail);
-      if (!mounted || !status) return;
+      if (!mounted ||!status) return;
       setVoteStatus(status);
       if (status.quorumReached && phase === 'voting') {
         setPhase('complete');
         addAuditEntry('guardian_quorum_reached', 'app');
         showToast(t('emergency.quorumReached'), tc.green);
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     };
     void poll().catch(() => {});
@@ -250,7 +252,7 @@ export default function EmergencyScreen() {
 
   // ── Owner: auto-advance to voting after 48h ────────────────────────────────
   useEffect(() => {
-    if (phase !== 'waiting' || !activatedAt) return;
+    if (phase!== 'waiting' ||!activatedAt) return;
     const remaining = deadline48h - Date.now();
     if (remaining <= 0) { setPhase('voting'); return; }
     const timer = setTimeout(() => setPhase('voting'), remaining);
@@ -272,8 +274,12 @@ export default function EmergencyScreen() {
 
   // ── Owner: activate emergency (waiting phase) ──────────────────────────────
   const handleActivate = async () => {
-    if (phase !== 'idle') return;
-    if (Platform.OS !== 'web') {
+    if (phase!== 'idle') return;
+    // Emergency Protocol is Premium-only for the OWNER. Beneficiary paths are
+    // intentionally never gated (a third-party heir must be able to act).
+    const allowed = await checkAndGate('emergency_mode');   // ✅ 
+    if (!allowed) return; // Paywall opened — do not start the protocol
+    if (Platform.OS!== 'web') {
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch {}
     }
     Animated.sequence([
@@ -288,14 +294,14 @@ export default function EmergencyScreen() {
     addAuditEntry('emergency_protocol_activated', 'app');
     const guardianEmails = await resolveGuardianEmails();
     if (guardianEmails.length > 0) {
-      const relation = (legacy.beneficiary as any)?.relationship ?? '';
+      const relation = (legacy.beneficiary as any)?.relationship?? '';
       await triggerEmergencyEmail(legacy.ownerEmail || '', ownerName, beneficiaryName, relation, guardianEmails);
     }
   };
 
   // ── Beneficiary: request guardian vote → goes directly to voting ───────────
   const handleBeneficiaryActivate = async () => {
-    if (voteLoading || phase !== 'idle') return;
+    if (voteLoading || phase!== 'idle') return;
     if (!ownerEmail) { showToast(t('emergency.noOwnerEmail'), tc.orange); return; }
     setVoteLoading(true);
     try {
@@ -305,11 +311,11 @@ export default function EmergencyScreen() {
       addAuditEntry('emergency_protocol_activated', 'app');
       addAuditEntry('vote_request_sent', 'app');
 
-      const result = await triggerStartVote(ownerEmail, beneficiaryName, legacy.ownerName ?? '');
+      const result = await triggerStartVote(ownerEmail, beneficiaryName, legacy.ownerName?? '');
       if (result.success) {
         setVoteRequestSent(true);
         showToast(t('emergency.voteSentToast'), tc.green);
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const status = await fetchGuardianVoteStatus(ownerEmail);
         if (status) {
           setVoteStatus(status);
@@ -322,7 +328,7 @@ export default function EmergencyScreen() {
         setPhase('idle');
         showToast(
           result.error?.includes('No guardians')
-            ? t('emergency.startVoteNoGuardians')
+           ? t('emergency.startVoteNoGuardians')
             : t('emergency.startVoteFailed'),
           tc.orange,
         );
@@ -340,7 +346,7 @@ export default function EmergencyScreen() {
     if (!ownerEmail || voteLoading) return;
     setVoteLoading(true);
     try {
-      const result = await triggerStartVote(ownerEmail, beneficiaryName, legacy.ownerName ?? '');
+      const result = await triggerStartVote(ownerEmail, beneficiaryName, legacy.ownerName?? '');
       if (result.success) {
         addAuditEntry('vote_request_sent', 'app');
         showToast(t('emergency.voteSentToast'), tc.green);
@@ -357,12 +363,12 @@ export default function EmergencyScreen() {
   // ── Owner: send vote request during voting phase ───────────────────────────
   const handleVoteRequest = async () => {
     if (!ownerEmail) { showToast(t('emergency.noOwnerEmail'), tc.orange); return; }
-    const result = await triggerStartVote(ownerEmail, beneficiaryName, legacy.ownerName ?? '');
+    const result = await triggerStartVote(ownerEmail, beneficiaryName, legacy.ownerName?? '');
     if (result.success) {
       setVoteRequestSent(true);
       addAuditEntry('vote_request_sent', 'app');
       showToast(t('emergency.voteSentToast'), tc.green);
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const status = await fetchGuardianVoteStatus(ownerEmail);
       if (status) setVoteStatus(status);
     } else if (result.error?.includes('No guardians')) {
@@ -380,7 +386,7 @@ export default function EmergencyScreen() {
       const res = await authenticatedFetch(`${getApiBase()}/api/vault/request-otp/${encodeURIComponent(ownerEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ beneficiaryEmail: legacy.ownerEmail ?? '', ownerName }),
+        body: JSON.stringify({ beneficiaryEmail: legacy.ownerEmail?? '', ownerName }),
       });
       if (res.ok) {
         setOtpSent(true);
@@ -399,19 +405,19 @@ export default function EmergencyScreen() {
   // ── OTP: verify and unlock vault ───────────────────────────────────────────
   const handleVerifyOtp = async () => {
     const code = otpCode.replace(/\s/g, '').trim();
-    if (code.length < 6 || !ownerEmail || otpLoading) return;
+    if (code.length < 6 ||!ownerEmail || otpLoading) return;
     setOtpLoading(true);
     try {
       const res = await authenticatedFetch(`${getApiBase()}/api/vault/verify-otp/${encodeURIComponent(ownerEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ beneficiaryEmail: legacy.ownerEmail ?? '', otp: code }),
+        body: JSON.stringify({ beneficiaryEmail: legacy.ownerEmail?? '', otp: code }),
       });
       if (res.ok) {
         addAuditEntry('vault_otp_verified', 'app');
         addAuditEntry('vault_opened', 'app');
         setVaultUnlocked(true);
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         showToast(t('emergency.vaultUnlocked'), tc.green);
       } else {
         showToast(t('emergency.otpInvalid'), tc.red);
@@ -423,15 +429,15 @@ export default function EmergencyScreen() {
     }
   };
 
-  const activated = phase !== 'idle';
+  const activated = phase!== 'idle';
   const styles = useMemo(() => makeStyles(tc), [tc]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BENEFICIARY VIEW — full-screen redesign
   // ═══════════════════════════════════════════════════════════════════════════
   if (isBeneficiaryRole) {
-    const stepIndex = phase === 'idle' ? 0 : phase === 'voting' ? 1 : 2;
-    const quorumMet = (voteStatus?.quorumReached ?? false) || phase === 'complete';
+    const stepIndex = phase === 'idle'? 0 : phase === 'voting'? 1 : 2;
+    const quorumMet = (voteStatus?.quorumReached?? false) || phase === 'complete';
 
     const stepDefs = [
       { label: t('emergency.stepRequest'), activeColor: tc.red },
@@ -446,8 +452,8 @@ export default function EmergencyScreen() {
           <Feather name="users" size={13} color={tc.textMuted} />
           <Text style={styles.guardiansBlockTitle}>{t('emergency.voteStatusTitle')}</Text>
           {vs && (
-            <View style={[styles.tallyPill, { backgroundColor: quorumMet ? `${tc.green}20` : `${tc.gold}18`, borderColor: quorumMet ? `${tc.green}35` : `${tc.gold}35` }]}>
-              <Text style={[styles.tallyPillText, { color: quorumMet ? tc.green : tc.gold }]}>
+            <View style={[styles.tallyPill, { backgroundColor: quorumMet? `${tc.green}20` : `${tc.gold}18`, borderColor: quorumMet? `${tc.green}35` : `${tc.gold}35` }]}>
+              <Text style={[styles.tallyPillText, { color: quorumMet? tc.green : tc.gold }]}>
                 {t('emergency.voteApprovals', { count: vs.approvals, n: vs.threshold })}
               </Text>
             </View>
@@ -456,12 +462,12 @@ export default function EmergencyScreen() {
         {guardians.map((g, i) => {
           const decision = vs?.decisions.find(
             d => d.guardianEmail.toLowerCase() === g.email.toLowerCase()
-          )?.decision ?? null;
-          const dc = decision === 'approve' ? tc.green : decision === 'reject' ? tc.red : tc.gold;
+          )?.decision?? null;
+          const dc = decision === 'approve'? tc.green : decision === 'reject'? tc.red : tc.gold;
           const dIcon: 'check-circle' | 'x-circle' | 'clock' =
-            decision === 'approve' ? 'check-circle' : decision === 'reject' ? 'x-circle' : 'clock';
-          const dLabel = decision === 'approve' ? t('emergency.voteApproved')
-            : decision === 'reject' ? t('emergency.voteRejected')
+            decision === 'approve'? 'check-circle' : decision === 'reject'? 'x-circle' : 'clock';
+          const dLabel = decision === 'approve'? t('emergency.voteApproved')
+            : decision === 'reject'? t('emergency.voteRejected')
             : t('emergency.votePending');
           return (
             <View
@@ -492,7 +498,7 @@ export default function EmergencyScreen() {
     );
 
     return (
-      <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 0) }]}>
+      <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === 'web'? 67 : 0) }]}>
         <LinearGradient colors={['#0F0A1E', '#0A0F1E', '#0C1020']} style={StyleSheet.absoluteFill} />
 
         {/* Header */}
@@ -541,27 +547,27 @@ export default function EmergencyScreen() {
           {stepDefs.map((step, i) => {
             const isDone = i < stepIndex;
             const isActive = i === stepIndex;
-            const color = isDone ? tc.green : isActive ? step.activeColor : tc.textMuted;
+            const color = isDone? tc.green : isActive? step.activeColor : tc.textMuted;
             return (
               <React.Fragment key={i}>
                 <View style={styles.stepItem}>
                   <View style={[
                     styles.stepBubble,
                     {
-                      backgroundColor: isDone ? `${tc.green}20` : isActive ? `${color}20` : 'rgba(255,255,255,0.05)',
-                      borderColor: isDone ? tc.green : isActive ? color : 'rgba(255,255,255,0.13)',
+                      backgroundColor: isDone? `${tc.green}20` : isActive? `${color}20` : 'rgba(255,255,255,0.05)',
+                      borderColor: isDone? tc.green : isActive? color : 'rgba(255,255,255,0.13)',
                     },
                   ]}>
                     {isDone
-                      ? <Feather name="check" size={13} color={tc.green} />
-                      : <Text style={[styles.stepNum, { color: isActive ? color : tc.textMuted }]}>{i + 1}</Text>
+                     ? <Feather name="check" size={13} color={tc.green} />
+                      : <Text style={[styles.stepNum, { color: isActive? color : tc.textMuted }]}>{i + 1}</Text>
                     }
                   </View>
                   <Text style={[styles.stepLabel2, { color }]} numberOfLines={1}>{step.label}</Text>
                 </View>
                 {i < 2 && (
                   <View style={[styles.stepConnector, {
-                    backgroundColor: i < stepIndex ? tc.green : 'rgba(255,255,255,0.10)',
+                    backgroundColor: i < stepIndex? tc.green : 'rgba(255,255,255,0.10)',
                   }]} />
                 )}
               </React.Fragment>
@@ -594,13 +600,13 @@ export default function EmergencyScreen() {
               </View>
 
               <TouchableOpacity
-                style={[styles.ctaBtn, styles.ctaBtnRed, { opacity: (!ownerEmail || voteLoading) ? 0.5 : 1 }]}
+                style={[styles.ctaBtn, styles.ctaBtnRed, { opacity: (!ownerEmail || voteLoading)? 0.5 : 1 }]}
                 onPress={() => { void handleBeneficiaryActivate(); }}
                 activeOpacity={0.85}
                 disabled={!ownerEmail || voteLoading}
               >
                 <Text style={styles.ctaBtnText}>
-                  {voteLoading ? '···' : t('emergency.requestVoteBtn')}
+                  {voteLoading? '···' : t('emergency.requestVoteBtn')}
                 </Text>
               </TouchableOpacity>
             </>
@@ -610,18 +616,18 @@ export default function EmergencyScreen() {
           {phase === 'voting' && (
             <>
               <View style={[styles.phaseCard, {
-                borderColor: quorumMet ? 'rgba(34,197,94,0.35)' : 'rgba(212,175,55,0.28)',
-                backgroundColor: quorumMet ? 'rgba(34,197,94,0.07)' : 'rgba(212,175,55,0.07)',
+                borderColor: quorumMet? 'rgba(34,197,94,0.35)' : 'rgba(212,175,55,0.28)',
+                backgroundColor: quorumMet? 'rgba(34,197,94,0.07)' : 'rgba(212,175,55,0.07)',
               }]}>
                 <View style={styles.phaseCardRow}>
-                  <View style={[styles.phaseCardDot, { backgroundColor: quorumMet ? tc.green : tc.gold }]} />
-                  <Text style={[styles.phaseCardTitle, { color: quorumMet ? tc.green : tc.text }]}>
-                    {quorumMet ? t('emergency.quorumReached') : t('legacy.phase2Title')}
+                  <View style={[styles.phaseCardDot, { backgroundColor: quorumMet? tc.green : tc.gold }]} />
+                  <Text style={[styles.phaseCardTitle, { color: quorumMet? tc.green : tc.text }]}>
+                    {quorumMet? t('emergency.quorumReached') : t('legacy.phase2Title')}
                   </Text>
                 </View>
-                {voteStatus ? (
+                {voteStatus? (
                   <View style={styles.tallyRow}>
-                    <Text style={[styles.tallyBig, { color: quorumMet ? tc.green : tc.gold }]}>
+                    <Text style={[styles.tallyBig, { color: quorumMet? tc.green : tc.gold }]}>
                       {voteStatus.approvals}
                     </Text>
                     <Text style={styles.tallyOf}>/{voteStatus.threshold}</Text>
@@ -634,15 +640,15 @@ export default function EmergencyScreen() {
 
               {renderGuardianRows(voteStatus)}
 
-              {quorumMet ? (
+              {quorumMet? (
                 <TouchableOpacity
-                  style={[styles.ctaBtn, styles.ctaBtnGreen, { opacity: otpLoading ? 0.6 : 1 }]}
+                  style={[styles.ctaBtn, styles.ctaBtnGreen, { opacity: otpLoading? 0.6 : 1 }]}
                   onPress={() => { void handleRequestOtp(); }}
                   activeOpacity={0.85}
                   disabled={otpLoading}
                 >
                   <Text style={[styles.ctaBtnText, styles.ctaBtnDarkText]}>
-                    {otpLoading ? '···' : t('emergency.openVaultBtn')}
+                    {otpLoading? '···' : t('emergency.openVaultBtn')}
                   </Text>
                 </TouchableOpacity>
               ) : (
@@ -660,7 +666,7 @@ export default function EmergencyScreen() {
           )}
 
           {/* ── COMPLETE: open vault / request OTP ───────────────────────── */}
-          {phase === 'complete' && !otpSent && (
+          {phase === 'complete' &&!otpSent && (
             <>
               <View style={[styles.phaseCard, { borderColor: 'rgba(34,197,94,0.35)', backgroundColor: 'rgba(34,197,94,0.07)' }]}>
                 <View style={styles.phaseCardRow}>
@@ -673,20 +679,20 @@ export default function EmergencyScreen() {
               {renderGuardianRows(voteStatus)}
 
               <TouchableOpacity
-                style={[styles.ctaBtn, styles.ctaBtnGreen, { opacity: otpLoading ? 0.6 : 1 }]}
+                style={[styles.ctaBtn, styles.ctaBtnGreen, { opacity: otpLoading? 0.6 : 1 }]}
                 onPress={() => { void handleRequestOtp(); }}
                 activeOpacity={0.85}
                 disabled={otpLoading}
               >
                 <Text style={[styles.ctaBtnText, styles.ctaBtnDarkText]}>
-                  {otpLoading ? '···' : t('emergency.openVaultBtn')}
+                  {otpLoading? '···' : t('emergency.openVaultBtn')}
                 </Text>
               </TouchableOpacity>
             </>
           )}
 
           {/* ── COMPLETE: OTP entry ───────────────────────────────────────── */}
-          {phase === 'complete' && otpSent && !vaultUnlocked && (
+          {phase === 'complete' && otpSent &&!vaultUnlocked && (
             <>
               <View style={[styles.phaseCard, { borderColor: 'rgba(212,175,55,0.32)', backgroundColor: 'rgba(212,175,55,0.07)' }]}>
                 <View style={styles.phaseCardRow}>
@@ -713,14 +719,14 @@ export default function EmergencyScreen() {
 
               <TouchableOpacity
                 style={[styles.ctaBtn, styles.ctaBtnGold, {
-                  opacity: otpCode.replace(/\s/g, '').length < 6 || otpLoading ? 0.5 : 1,
+                  opacity: otpCode.replace(/\s/g, '').length < 6 || otpLoading? 0.5 : 1,
                 }]}
                 onPress={() => { void handleVerifyOtp(); }}
                 activeOpacity={0.85}
                 disabled={otpCode.replace(/\s/g, '').length < 6 || otpLoading}
               >
                 <Text style={[styles.ctaBtnText, styles.ctaBtnDarkText]}>
-                  {otpLoading ? '···' : t('emergency.verifyOtp')}
+                  {otpLoading? '···' : t('emergency.verifyOtp')}
                 </Text>
               </TouchableOpacity>
 
@@ -775,9 +781,9 @@ export default function EmergencyScreen() {
   // OWNER VIEW
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 0) }]}>
+    <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === 'web'? 67 : 0) }]}>
       <LinearGradient colors={['#1A0505', '#0D0818', '#0A0F1E']} style={StyleSheet.absoluteFill} />
-      <Animated.View pointerEvents="none" style={[styles.ambientGlow, { opacity: activated ? glowOpacity : new Animated.Value(0.08) }]} />
+      <Animated.View pointerEvents="none" style={[styles.ambientGlow, { opacity: activated? glowOpacity : new Animated.Value(0.08) }]} />
       <ScreenGlow color="#EF4444" icon="zap" />
 
       <View style={styles.header}>
@@ -817,12 +823,12 @@ export default function EmergencyScreen() {
             </>
           )}
           <Animated.View pointerEvents="box-none" style={[styles.btnOuter, { transform: [{ scale: scaleAnim }] }]}>
-            <TouchableOpacity onPress={() => { void handleActivate(); }} activeOpacity={activated ? 1 : 0.85} disabled={activated}>
+            <TouchableOpacity onPress={() => { void handleActivate(); }} activeOpacity={activated? 1 : 0.85} disabled={activated}>
               <LinearGradient
-                colors={activated ? ['#22C55E', '#16A34A'] : ['#EF4444', '#B91C1C']}
+                colors={activated? ['#22C55E', '#16A34A'] : ['#EF4444', '#B91C1C']}
                 style={styles.btnCircle}
               >
-                <Feather name={activated ? 'check' : 'zap'} size={44} color="#fff" />
+                <Feather name={activated? 'check' : 'zap'} size={44} color="#fff" />
               </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
@@ -861,7 +867,7 @@ export default function EmergencyScreen() {
                 {t('emergency.waitingFor', { owner: '' })}<Text style={{ color: tc.gold }}>{ownerName}</Text>:
               </Text>
               <Countdown from={deadline48h} />
-              {ownerEmail ? (
+              {ownerEmail? (
                 <View style={styles.notifRow}>
                   <Feather name="send" size={12} color={tc.blue} />
                   <Text style={styles.notifText}>{t('emergency.ownerNotifCount', { count: ownerNotifCount })}</Text>
@@ -893,7 +899,7 @@ export default function EmergencyScreen() {
                     <View style={[styles.stepIcon, { backgroundColor: `${step.color}20`, borderColor: `${step.color}40` }]}>
                       <Feather name={step.icon as any} size={16} color={step.color} />
                     </View>
-                    <Text style={[styles.stepLabel, { color: step.done ? step.color : tc.textMuted }]}>{step.label}</Text>
+                    <Text style={[styles.stepLabel, { color: step.done? step.color : tc.textMuted }]}>{step.label}</Text>
                   </View>
                   {i < 2 && <View style={styles.stepLine} />}
                 </React.Fragment>
@@ -915,7 +921,7 @@ export default function EmergencyScreen() {
                 {t('emergency.phase2Desc', { m: legacy.mOfN.m, n: legacy.mOfN.n })}
               </Text>
               <View style={styles.divider} />
-              {!voteRequestSent ? (
+              {!voteRequestSent? (
                 <TouchableOpacity style={styles.voteBtn} onPress={() => { void handleVoteRequest(); }} activeOpacity={0.85}>
                   <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.voteBtnGrad}>
                     <Feather name="users" size={18} color="#fff" />
@@ -940,7 +946,7 @@ export default function EmergencyScreen() {
                     <View style={[styles.stepIcon, { backgroundColor: `${step.color}20`, borderColor: `${step.color}40` }]}>
                       <Feather name={step.icon as any} size={16} color={step.color} />
                     </View>
-                    <Text style={[styles.stepLabel, { color: step.done ? step.color : tc.textMuted }]}>{step.label}</Text>
+                    <Text style={[styles.stepLabel, { color: step.done? step.color : tc.textMuted }]}>{step.label}</Text>
                   </View>
                   {i < 2 && <View style={styles.stepLine} />}
                 </React.Fragment>
@@ -971,13 +977,13 @@ export default function EmergencyScreen() {
                     <View style={[styles.stepIcon, { backgroundColor: `${step.color}20`, borderColor: `${step.color}40` }]}>
                       <Feather name={step.icon as any} size={16} color={step.color} />
                     </View>
-                    <Text style={[styles.stepLabel, { color: step.done ? step.color : tc.textMuted }]}>{step.label}</Text>
+                    <Text style={[styles.stepLabel, { color: step.done? step.color : tc.textMuted }]}>{step.label}</Text>
                   </View>
                   {i < 2 && <View style={styles.stepLine} />}
                 </React.Fragment>
               ))}
             </View>
-            {!vaultUnlocked ? (
+            {!vaultUnlocked? (
               <View style={[styles.statusCard, { borderColor: 'rgba(212,175,55,0.30)', backgroundColor: 'rgba(0,0,0,0.25)', gap: 14 }]}>
                 <Text style={[styles.statusLine, { marginLeft: 0, color: tc.textSecondary, textAlign: 'center' }]}>
                   {t('emergency.enterOtp')}
@@ -996,7 +1002,7 @@ export default function EmergencyScreen() {
                   />
                 </View>
                 <TouchableOpacity
-                  style={[styles.voteBtn, { opacity: otpCode.replace(/\s/g, '').length < 6 || otpLoading ? 0.5 : 1 }]}
+                  style={[styles.voteBtn, { opacity: otpCode.replace(/\s/g, '').length < 6 || otpLoading? 0.5 : 1 }]}
                   onPress={() => { void handleVerifyOtp(); }}
                   activeOpacity={0.85}
                   disabled={otpCode.replace(/\s/g, '').length < 6 || otpLoading}
@@ -1044,15 +1050,15 @@ function GuardiansList({ guardians, voteStatus }: {
 
   const getVoteDecision = (email: string) => {
     if (!voteStatus) return null;
-    return voteStatus.decisions.find(d => d.guardianEmail.toLowerCase() === email.toLowerCase())?.decision ?? null;
+    return voteStatus.decisions.find(d => d.guardianEmail.toLowerCase() === email.toLowerCase())?.decision?? null;
   };
 
   return (
     <View style={styles.guardiansCard}>
       <View style={styles.guardiansHeader}>
-        <Feather name={voteStatus ? 'check-square' : 'mail'} size={14} color={voteStatus ? tc.purple : tc.blue} />
+        <Feather name={voteStatus? 'check-square' : 'mail'} size={14} color={voteStatus? tc.purple : tc.blue} />
         <Text style={styles.guardiansTitle}>
-          {voteStatus ? t('emergency.voteStatusTitle') : t('emergency.notifiedGuardians')}
+          {voteStatus? t('emergency.voteStatusTitle') : t('emergency.notifiedGuardians')}
         </Text>
         {voteStatus && (
           <View style={styles.voteCountBadge}>
@@ -1064,10 +1070,10 @@ function GuardiansList({ guardians, voteStatus }: {
       </View>
       {guardians.map((g, i) => {
         const decision = getVoteDecision(g.email);
-        const decisionColor = decision === 'approve' ? tc.green : decision === 'reject' ? tc.red : tc.textMuted;
-        const decisionIcon = decision === 'approve' ? 'check-circle' : decision === 'reject' ? 'x-circle' : 'clock';
-        const decisionLabel = decision === 'approve' ? t('emergency.voteApproved')
-          : decision === 'reject' ? t('emergency.voteRejected')
+        const decisionColor = decision === 'approve'? tc.green : decision === 'reject'? tc.red : tc.textMuted;
+        const decisionIcon = decision === 'approve'? 'check-circle' : decision === 'reject'? 'x-circle' : 'clock';
+        const decisionLabel = decision === 'approve'? t('emergency.voteApproved')
+          : decision === 'reject'? t('emergency.voteRejected')
           : t('emergency.votePending');
         return (
           <View key={g.id} style={[styles.guardianRow, i > 0 && { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }]}>
@@ -1078,7 +1084,7 @@ function GuardiansList({ guardians, voteStatus }: {
               <Text style={styles.guardianName}>{g.name}</Text>
               <Text style={styles.guardianEmail}>{g.email}</Text>
             </View>
-            {voteStatus ? (
+            {voteStatus? (
               <View style={[styles.sentBadge, { backgroundColor: `${decisionColor}15`, borderColor: `${decisionColor}30` }]}>
                 <Feather name={decisionIcon as any} size={11} color={decisionColor} />
                 <Text style={[styles.sentText, { color: decisionColor }]}>{decisionLabel}</Text>

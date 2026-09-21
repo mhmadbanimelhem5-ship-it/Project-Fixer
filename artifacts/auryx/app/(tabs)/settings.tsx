@@ -25,6 +25,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme, ThemeColors, ThemeMode } from '@/contexts/ThemeContext';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import { getStealthMode, saveStealthMode } from '@/utils/stealthStore';
+import { usePremiumGuard } from '@/hooks/usePremiumGuard';
 
 /* ─── Setting row ─── */
 // React.memo: settings list is long; memo prevents each row from re-rendering
@@ -43,8 +44,8 @@ const SettingRow = React.memo(function SettingRow({
     <TouchableOpacity
       style={styles.settingRow}
       onPress={onPress}
-      activeOpacity={isToggle ? 1 : 0.7}
-      disabled={isToggle && !onPress}
+      activeOpacity={isToggle? 1 : 0.7}
+      disabled={isToggle &&!onPress}
     >
       <View style={[styles.settingIcon, { backgroundColor: `${iconColor}20` }]}>
         <Feather name={icon as any} size={18} color={iconColor} />
@@ -53,14 +54,14 @@ const SettingRow = React.memo(function SettingRow({
         <Text style={[styles.settingTitle, isDanger && { color: tc.red }]}>{title}</Text>
         {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
       </View>
-      {isToggle ? (
+      {isToggle? (
         <Switch
           value={value}
           onValueChange={onToggle}
           trackColor={{ false: tc.glass, true: `${iconColor}60` }}
-          thumbColor={value ? iconColor : tc.textSecondary}
+          thumbColor={value? iconColor : tc.textSecondary}
         />
-      ) : showArrow ? (
+      ) : showArrow? (
         <Feather name="chevron-right" size={16} color={tc.textMuted} />
       ) : null}
     </TouchableOpacity>
@@ -87,7 +88,7 @@ function PinSetupModal({
 
   const handleDone = () => {
     if (pin.length < minLen) { setError(t('settings.pinMinLengthError', { n: minLen })); return; }
-    if (pin !== confirm) { setError(t('settings.pinMismatchError')); return; }
+    if (pin!== confirm) { setError(t('settings.pinMismatchError')); return; }
     setError('');
     onConfirm(pin);
     setPin(''); setConfirm('');
@@ -102,7 +103,7 @@ function PinSetupModal({
   const styles = useMemo(() => makeStyles(tc), [tc]);
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onCancel}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : 'height'} style={{ flex: 1 }}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
@@ -134,7 +135,7 @@ function PinSetupModal({
             autoComplete="off"
             spellCheck={false}
           />
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error? <Text style={styles.errorText}>{error}</Text> : null}
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalCancel} onPress={handleCancel}>
               <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
@@ -190,7 +191,7 @@ function ChangePinModal({
       if (newPin === currentPin) { setError(t('settings.changePinErrSame')); return; }
       setStep('confirm');
     } else {
-      if (confirmPin !== newPin) { setError(t('settings.changePinErrMismatch')); setConfirmPin(''); return; }
+      if (confirmPin!== newPin) { setError(t('settings.changePinErrMismatch')); setConfirmPin(''); return; }
       setLoading(true);
       const ok = await changePin(currentPin, newPin);
       setLoading(false);
@@ -198,7 +199,7 @@ function ChangePinModal({
         setError(t('settings.changePinErrGeneric'));
         reset();
       } else {
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         handleClose();
         Alert.alert(t('settings.changePinSuccessTitle'), t('settings.changePinSuccessMsg'));
       }
@@ -223,14 +224,14 @@ function ChangePinModal({
     },
   };
   const { title, subtitle, placeholder } = stepLabels[step];
-  const currentValue = step === 'current' ? currentPin : step === 'new' ? newPin : confirmPin;
-  const currentSetter = step === 'current' ? setCurrentPin : step === 'new' ? setNewPin : setConfirmPin;
+  const currentValue = step === 'current'? currentPin : step === 'new'? newPin : confirmPin;
+  const currentSetter = step === 'current'? setCurrentPin : step === 'new'? setNewPin : setConfirmPin;
 
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : 'height'} style={{ flex: 1 }}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
@@ -264,7 +265,7 @@ function ChangePinModal({
             spellCheck={false}
           />
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error? <Text style={styles.errorText}>{error}</Text> : null}
 
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalCancel} onPress={handleClose}>
@@ -274,9 +275,9 @@ function ChangePinModal({
               <LinearGradient colors={['#D4AF37', '#B8960C']} style={styles.modalConfirmGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 <Text style={styles.modalConfirmText}>
                   {loading
-                    ? t('settings.checking')
+                   ? t('settings.checking')
                     : step === 'confirm'
-                    ? t('settings.savePin')
+                   ? t('settings.savePin')
                     : t('settings.nextArrow')}
                 </Text>
               </LinearGradient>
@@ -321,7 +322,7 @@ function AuditLogModal({ visible, onClose, auditLog }: {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
-            {auditLog.length === 0 ? (
+            {auditLog.length === 0? (
               <View style={styles.auditEmpty}>
                 <Feather name="check-circle" size={32} color={tc.textMuted} />
                 <Text style={styles.auditEmptyText}>{t('settings.auditLogEmpty')}</Text>
@@ -380,7 +381,7 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
       setCopied(true);
       if (copiedTimer.current) clearTimeout(copiedTimer.current);
       copiedTimer.current = setTimeout(() => setCopied(false), 2500);
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Alert.alert(t('settings.copyFailedTitle'), t('settings.copyFailedMsg'));
     }
@@ -448,9 +449,9 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
 
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalCancel} onPress={handleCopy}>
-              <Feather name={copied ? 'check' : 'copy'} size={14} color={copied ? tc.green : tc.textSecondary} style={{ marginRight: 6 }} />
+              <Feather name={copied? 'check' : 'copy'} size={14} color={copied? tc.green : tc.textSecondary} style={{ marginRight: 6 }} />
               <Text style={[styles.modalCancelText, copied && { color: tc.green }]}>
-                {copied ? t('common.copied') : t('common.copy')}
+                {copied? t('common.copied') : t('common.copy')}
               </Text>
             </TouchableOpacity>
             {Platform.OS === 'web' && (
@@ -491,7 +492,7 @@ function EditProfileModal({
     const n = name.trim();
     const e = email.trim().toLowerCase();
     if (!n) { setNameErr(t('onboarding.nameRequired')); return; }
-    if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setEmailErr(t('guardians.invalidEmail')); return; }
+    if (!e ||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setEmailErr(t('guardians.invalidEmail')); return; }
     onConfirm(n, e);
   };
 
@@ -502,7 +503,7 @@ function EditProfileModal({
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]}
           onPress={onCancel}
         />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : undefined}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{t('settings.editProfileTitle')}</Text>
@@ -515,7 +516,7 @@ function EditProfileModal({
                 <Text style={styles.profileLabelText}>{t('settings.profileNameLabel')}</Text>
               </View>
               <TextInput
-                style={[styles.pinInput, nameErr ? { borderColor: tc.red } : null]}
+                style={[styles.pinInput, nameErr? { borderColor: tc.red } : null]}
                 placeholder={t('onboarding.namePlaceholder')}
                 placeholderTextColor={tc.textMuted}
                 value={name}
@@ -524,7 +525,7 @@ function EditProfileModal({
                 autoCorrect={false}
                 returnKeyType="next"
               />
-              {nameErr ? <Text style={styles.errorText}>{nameErr}</Text> : null}
+              {nameErr? <Text style={styles.errorText}>{nameErr}</Text> : null}
             </View>
 
             {/* Email field */}
@@ -534,7 +535,7 @@ function EditProfileModal({
                 <Text style={styles.profileLabelText}>{t('settings.profileEmailLabel')}</Text>
               </View>
               <TextInput
-                style={[styles.pinInput, emailErr ? { borderColor: tc.red } : null]}
+                style={[styles.pinInput, emailErr? { borderColor: tc.red } : null]}
                 placeholder={t('onboarding.emailPlaceholder')}
                 placeholderTextColor={tc.textMuted}
                 value={email}
@@ -545,7 +546,7 @@ function EditProfileModal({
                 returnKeyType="done"
                 onSubmitEditing={handleSave}
               />
-              {emailErr ? <Text style={styles.errorText}>{emailErr}</Text> : null}
+              {emailErr? <Text style={styles.errorText}>{emailErr}</Text> : null}
             </View>
 
             <View style={styles.modalActions}>
@@ -608,6 +609,7 @@ export default function SettingsScreen() {
     setupDecoyPin, changePin, verifyPin,
   } = useAuth();
   const { items, auditLog, guardians, legacy, encryptData, updateLegacy } = useVault();
+  const { checkAndGate } = usePremiumGuard();
 
   const [decoyVaultEnabled, setDecoyVaultEnabled] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
@@ -624,7 +626,7 @@ export default function SettingsScreen() {
   const [showWipeConfirm, setShowWipeConfirm] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
 
-  const tabBarHeight = 60 + (Platform.OS === 'web' ? 34 : insets.bottom);
+  const tabBarHeight = 60 + (Platform.OS === 'web'? 34 : insets.bottom);
 
   const handleBiometricsToggle = async (val: boolean) => {
     if (val) {
@@ -651,8 +653,11 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDecoyToggle = (val: boolean) => {
+  const handleDecoyToggle = async (val: boolean) => {
     if (val) {
+      // Decoy Vault is a Premium-only feature — gate before opening setup
+      const allowed = await checkAndGate('decoy_vault');
+      if (!allowed) return; // Paywall opened — do not show setup modal
       setShowDecoyModal(true);
     } else {
       Alert.alert(t('settings.disableDecoyTitle'), t('settings.disableDecoyMsg'), [
@@ -667,7 +672,7 @@ export default function SettingsScreen() {
       await setupDecoyPin(pin);
       setDecoyVaultEnabled(true);
       setShowDecoyModal(false);
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(t('settings.decoyActiveTitle'), t('settings.decoyActiveMsg'));
     } catch (err) {
       console.warn('[auryx][settings] handleDecoyPinSet error:', err);
@@ -678,7 +683,7 @@ export default function SettingsScreen() {
   const handleLogoutConfirmed = () => {
     try {
       setShowLogoutConfirm(false);
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       lock();
     } catch (err) {
       console.warn('[auryx][settings] handleLogoutConfirmed error:', err);
@@ -690,7 +695,7 @@ export default function SettingsScreen() {
     try {
       setShowWipeConfirm(false);
       await wipeAll();
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } catch (err) {
       console.warn('[auryx][settings] handleWipeConfirmed error:', err);
       Alert.alert(t('settings.genericErrorTitle'), t('settings.genericErrorMsg'));
@@ -698,24 +703,24 @@ export default function SettingsScreen() {
   };
 
   const toggleLanguage = () => {
-    const newLang = language === 'en' ? 'ar' : 'en';
+    const newLang = language === 'en'? 'ar' : 'en';
     setLanguage(newLang);
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   const { colors: tc, mode: themeMode, setMode: setThemeMode } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
 
   const modeLabels: Record<ThemeMode, string> = {
-    dark:   t('settings.modeDark'),
-    light:  t('settings.modeLight'),
+    dark: t('settings.modeDark'),
+    light: t('settings.modeLight'),
     system: t('settings.modeSystem'),
   };
 
   return (
     <View style={[styles.container, { backgroundColor: tc.background }]}>
       <ScreenGlow color="#3B82F6" icon="settings" />
-      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 0) }]}>
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'web'? 67 : 0) }]}>
         <Text style={styles.headerTitle}>{t('settings.title')}</Text>
       </View>
 
@@ -733,15 +738,15 @@ export default function SettingsScreen() {
                 <View style={styles.profileAvatarRow}>
                   <View style={styles.profileAvatar}>
                     <Text style={styles.profileAvatarText}>
-                      {(legacy.ownerName ?? '?').charAt(0).toUpperCase()}
+                      {(legacy.ownerName?? '?').charAt(0).toUpperCase()}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.profileName} numberOfLines={1}>
-                      {legacy.ownerName ?? '—'}
+                      {legacy.ownerName?? '—'}
                     </Text>
                     <Text style={styles.profileEmail} numberOfLines={1}>
-                      {legacy.ownerEmail ?? '—'}
+                      {legacy.ownerEmail?? '—'}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -767,7 +772,7 @@ export default function SettingsScreen() {
                 <View style={styles.profileAvatarRow}>
                   <View style={[styles.profileAvatar, { backgroundColor: 'rgba(212,175,55,0.15)', borderColor: 'rgba(212,175,55,0.35)' }]}>
                     <Text style={styles.profileAvatarText}>
-                      {(legacy.beneficiaryOwnerName ?? legacy.ownerEmail ?? '?').charAt(0).toUpperCase()}
+                      {(legacy.beneficiaryOwnerName?? legacy.ownerEmail?? '?').charAt(0).toUpperCase()}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -804,10 +809,10 @@ export default function SettingsScreen() {
             title={t('settings.biometrics')}
             subtitle={
               Platform.OS === 'web'
-                ? t('settings.biometricsSubWeb')
+               ? t('settings.biometricsSubWeb')
                 : biometricsAvailable
-                ? biometricsEnabled
-                  ? t('settings.biometricsSubActive')
+               ? biometricsEnabled
+                 ? t('settings.biometricsSubActive')
                   : t('settings.biometricsSubInactive')
                 : t('settings.biometricsSubNone')
             }
@@ -822,7 +827,7 @@ export default function SettingsScreen() {
             title={t('settings.decoyVault')}
             subtitle={
               decoyVaultEnabled
-                ? t('settings.decoyPinActive')
+               ? t('settings.decoyPinActive')
                 : t('settings.decoyVaultSub')
             }
             isToggle
@@ -840,7 +845,7 @@ export default function SettingsScreen() {
             onToggle={async (val: boolean) => {
               setStealthMode(val);
               await saveStealthMode(val);
-              if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }}
           />
           <View style={styles.rowDivider} />
@@ -862,10 +867,10 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingTitle}>{t('settings.changeLanguage')}</Text>
-              <Text style={styles.settingSubtitle}>{language === 'en' ? 'English → العربية' : 'العربية → English'}</Text>
+              <Text style={styles.settingSubtitle}>{language === 'en'? 'English → العربية' : 'العربية → English'}</Text>
             </View>
             <View style={styles.langBadge}>
-              <Text style={styles.langBadgeText}>{language === 'en' ? 'EN' : 'AR'}</Text>
+              <Text style={styles.langBadgeText}>{language === 'en'? 'EN' : 'AR'}</Text>
             </View>
           </TouchableOpacity>
         </GlassCard>
@@ -881,12 +886,12 @@ export default function SettingsScreen() {
                   style={styles.settingRow}
                   onPress={() => {
                     setThemeMode(m);
-                    if (Platform.OS !== 'web') Haptics.selectionAsync();
+                    if (Platform.OS!== 'web') Haptics.selectionAsync();
                   }}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.settingIcon, { backgroundColor: isSelected ? `${tc.gold}20` : `${tc.textMuted}15` }]}>
-                    <Feather name={m === 'dark' ? 'moon' : m === 'light' ? 'sun' : 'smartphone'} size={18} color={isSelected ? tc.gold : tc.textMuted} />
+                  <View style={[styles.settingIcon, { backgroundColor: isSelected? `${tc.gold}20` : `${tc.textMuted}15` }]}>
+                    <Feather name={m === 'dark'? 'moon' : m === 'light'? 'sun' : 'smartphone'} size={18} color={isSelected? tc.gold : tc.textMuted} />
                   </View>
                   <View style={styles.settingContent}>
                     <Text style={[styles.settingTitle, isSelected && { color: tc.gold }]}>{modeLabels[m]}</Text>
@@ -908,7 +913,7 @@ export default function SettingsScreen() {
             title={t('settings.encryptedBackup')}
             subtitle={t('settings.backupSubExport', { count: items.length })}
             onPress={() => {
-              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowBackupModal(true);
             }}
           />
@@ -919,7 +924,7 @@ export default function SettingsScreen() {
             title={t('settings.backup_now')}
             subtitle={t('settings.backupNowSub')}
             onPress={() => {
-              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowBackupModal(true);
             }}
           />
@@ -940,13 +945,13 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <View style={styles.rowDivider} />
-                {legacy.beneficiaryOwnerName ? (
+                {legacy.beneficiaryOwnerName? (
                   <View style={styles.ownerInfoRow}>
                     <Text style={styles.ownerInfoLabel}>{t('settings.ownerInfoNameLabel')}</Text>
                     <Text style={styles.ownerInfoValue}>{legacy.beneficiaryOwnerName}</Text>
                   </View>
                 ) : null}
-                {legacy.ownerEmail ? (
+                {legacy.ownerEmail? (
                   <>
                     <View style={styles.rowDivider} />
                     <View style={styles.ownerInfoRow}>
@@ -1018,8 +1023,8 @@ export default function SettingsScreen() {
 
       <EditProfileModal
         visible={showEditProfile}
-        currentName={legacy.ownerName ?? ''}
-        currentEmail={legacy.ownerEmail ?? ''}
+        currentName={legacy.ownerName?? ''}
+        currentEmail={legacy.ownerEmail?? ''}
         onConfirm={(name, email) => {
           updateLegacy({ ownerName: name, ownerEmail: email });
           setShowEditProfile(false);

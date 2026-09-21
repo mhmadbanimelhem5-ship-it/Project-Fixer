@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import Purchases from 'react-native-purchases'; // ← المكتبة الرسمية لـ RevenueCat
+import Purchases from 'react-native-purchases';
 import { GlassCard } from '@/components/GlassCard';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import colors from '@/constants/colors';
 import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useLocalSearchParams } from 'expo-router';
 
 // ── Types for Packages ────────────────────────────────────────────────────────
 interface PackageOffer {
@@ -32,13 +33,13 @@ const MOCK_PACKAGES: PackageOffer[] = [
     id: 'monthly',
     title: 'شهري',
     price: '$4.99',
-    period: '/ شهرياً',
+    period: '/ شهرياَ',
   },
   {
     id: 'yearly',
     title: 'سنوي',
     price: '$39.99',
-    period: '/ سنوياً',
+    period: '/ سنوياَ',
     isBestValue: true,
   },
 ];
@@ -47,7 +48,10 @@ export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const { colors: tc } = useTheme();
   const { t } = useLanguage();
-  
+
+  // ✅ قراءة سبب فتح الشاشة (إذا وجد)
+  const { source } = useLocalSearchParams<{ source?: string }>();
+
   const [selectedPackageId, setSelectedPackageId] = useState<string>('yearly');
   const [isLoading, setIsLoading] = useState(false);
   const [packages, setPackages] = useState<PackageOffer[]>(MOCK_PACKAGES);
@@ -57,39 +61,81 @@ export default function SubscriptionScreen() {
     const fetchOffers = async () => {
       try {
         const offerings = await Purchases.getOfferings();
-        if (offerings.current?.availablePackages.length > 0) {
-          // Map RC packages to our UI format
-          const mapped = offerings.current.availablePackages.map(pkg => ({
-            id: pkg.packageType === 'ANNUAL' ? 'yearly' : 
+        // FIX (Ln 64/65): offerings.current may be undefined — bind + guard explicitly
+        const current = offerings.current;
+        if (current && current.availablePackages.length > 0) {
+          const mapped = current.availablePackages.map(pkg => ({
+            id: pkg.packageType === 'ANNUAL' ? 'yearly' :
                  pkg.packageType === 'MONTHLY' ? 'monthly' : pkg.identifier,
             title: pkg.packageType === 'ANNUAL' ? 'سنوي' : 'شهري',
             price: pkg.product.priceString,
-            period: pkg.packageType === 'ANNUAL' ? '/ سنوياً' : '/ شهرياً',
-            isBestValue: pkg.packageType === 'ANNUAL', // Usually annual is best value
+            period: pkg.packageType === 'ANNUAL' ? '/ سنوياَ' : '/ شهرياَ',
+            isBestValue: pkg.packageType === 'ANNUAL',
           }));
           setPackages(mapped);
-          
-          // Auto-select the best value package initially
+
           const bestVal = mapped.find(p => p.isBestValue);
           if (bestVal) setSelectedPackageId(bestVal.id);
         }
       } catch (error) {
         console.warn('Failed to load offers:', error);
-        // Fallback to mock data already set
       }
     };
-    
+
     fetchOffers();
   }, []);
 
+  // ✅ تحديد الرسائل الديناميكية بناءً على المصدر
+  const dynamicContent = useMemo(() => {
+    switch (source) {
+      case 'secrets_limit':
+        return {
+          title: t('sub.dynamicTitles.secrets'),
+          subtitle: t('sub.dynamicSubtitles.secrets'),
+        };
+
+      case 'add_guardian':
+        return {
+          title: t('sub.dynamicTitles.guardians'),
+          subtitle: t('sub.dynamicSubtitles.guardians'),
+        };
+
+      case 'legacy_setup':
+        return {
+          title: t('sub.dynamicTitles.legacy'),
+          subtitle: t('sub.dynamicSubtitles.legacy'),
+        };
+
+      case 'decoy_vault':
+        return {
+          title: t('sub.dynamicTitles.decoy'),
+          subtitle: t('sub.dynamicSubtitles.decoy'),
+        };
+
+      case 'emergency_mode':
+        return {
+          title: t('sub.dynamicTitles.emergency'),
+          subtitle: t('sub.dynamicSubtitles.emergency'),
+        };
+
+      default:
+        // الحالة الافتراضية
+        return {
+          title: t('sub.title'),
+          subtitle: t('sub.subtitle'),
+        };
+    }
+  }, [source, t]);
+
   const handleSubscribe = useCallback(async () => {
     if (!selectedPackageId) return;
-    
+
     setIsLoading(true);
     try {
       const offering = await Purchases.getOfferings();
-      const targetPackage = offering.current?.availablePackages.find(
-        pkg => 
+      // FIX (defensive): optional-chain before .find — same root cause as Ln 64/65
+      const targetPackage = offering.current?.availablePackages?.find(
+        pkg =>
           (pkg.packageType === 'ANNUAL' && selectedPackageId === 'yearly') ||
           (pkg.packageType === 'MONTHLY' && selectedPackageId === 'monthly') ||
           pkg.identifier === selectedPackageId
@@ -98,10 +144,9 @@ export default function SubscriptionScreen() {
       if (!targetPackage) throw new Error('Package not found');
 
       const purchaseResult = await Purchases.purchasePackage(targetPackage);
-      
+
       if (purchaseResult.customerInfo.entitlements.active['premium']) {
         Alert.alert(t('sub.successTitle'), t('sub.successMessage'));
-        // Navigate back or update state locally
       } else {
         Alert.alert(t('sub.errorTitle'), t('sub.errorMessage'));
       }
@@ -118,8 +163,9 @@ export default function SubscriptionScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenGlow variant="gold" intensity={0.15} />
-      
+      {/* FIX (Ln 163): ScreenGlow accepts color/icon, not variant/intensity */}
+      <ScreenGlow color="#D4AF37" icon="shield" />
+
       {/* Header Section */}
       <View style={styles.headerSection}>
         <LinearGradient
@@ -128,17 +174,19 @@ export default function SubscriptionScreen() {
           style={styles.headerBg}
         >
           <Feather name="shield" size={48} color={tc.gold} style={styles.logoIcon} />
+
+          {/* ✅ استخدام النصوص الديناميكية هنا بدلاً من الثوابت القديمة */}
           <Text style={[styles.title, { color: tc.text }]}>
-            {t('sub.title')}
+            {dynamicContent.title}
           </Text>
           <Text style={[styles.subtitle, { color: tc.textSecondary }]}>
-            {t('sub.subtitle')}
+            {dynamicContent.subtitle}
           </Text>
         </LinearGradient>
       </View>
 
       {/* Features List */}
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.featuresList}
         showsVerticalScrollIndicator={false}
       >
@@ -168,19 +216,21 @@ export default function SubscriptionScreen() {
             activeOpacity={0.8}
             disabled={isLoading}
           >
-            <GlassCard 
-              style={[
-                styles.priceCard,
-                selectedPackageId === pkg.id && styles.selectedPriceCard,
-                pkg.isBestValue && styles.bestValueBadgeParent
-              ]}
+            <GlassCard
+              // Root fix: GlassCard.style expects ONE ViewStyle object, not an array.
+              // Merge conditionally via spread so the result is always a plain object.
+              style={{
+                ...styles.priceCard,
+                ...(selectedPackageId === pkg.id ? styles.selectedPriceCard : {}),
+                ...(pkg.isBestValue ? styles.bestValueBadgeParent : {}),
+              }}
             >
               {pkg.isBestValue && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{t('sub.bestValue')}</Text>
                 </View>
               )}
-              
+
               <Text style={[styles.pkgTitle, { color: tc.text }]}>
                 {pkg.title}
               </Text>
@@ -192,7 +242,7 @@ export default function SubscriptionScreen() {
                   {pkg.period}
                 </Text>
               </View>
-              
+
               {selectedPackageId === pkg.id && (
                 <View style={styles.checkmarkWrap}>
                   <Feather name="check-circle" size={20} color={tc.green} />
@@ -227,7 +277,7 @@ export default function SubscriptionScreen() {
             )}
           </LinearGradient>
         </TouchableOpacity>
-        
+
         <Text style={[styles.termsText, { color: tc.textMuted }]}>
           {t('sub.termsNote')}
         </Text>

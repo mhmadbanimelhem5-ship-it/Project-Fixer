@@ -25,8 +25,12 @@ import { useVault, VaultCategory, VaultItem } from '@/contexts/VaultContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import colors from '@/constants/colors';
 import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
-
+import { usePremiumGuard } from '@/hooks/usePremiumGuard';
 const _tc = colors.dark; // module-level fallback for CATEGORIES 0026 STRENGTH_COLORS
+
+// Free-tier cap: a non-subscribed user may store at most this many secrets
+// (text items AND media alike, since both live in `items`).
+const FREE_SECRETS_LIMIT = 6;
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import {
   clearMediaTemp,
@@ -45,12 +49,12 @@ type CategoryConfig = {
 };
 
 const CATEGORIES: CategoryConfig[] = [
-  { key: 'logins',    labelKey: 'vault.logins',    icon: 'user',        color: _tc.blue,  angle: -90 },
-  { key: 'media',     labelKey: 'vault.media',     icon: 'image',       color: _tc.purple,angle: -30 },
-  { key: 'banking',   labelKey: 'vault.banking',   icon: 'credit-card', color: _tc.gold,  angle: 30  },
-  { key: 'notes',     labelKey: 'vault.notes',     icon: 'file-text',   color: _tc.teal,  angle: 90  },
-  { key: 'documents', labelKey: 'vault.documents', icon: 'folder',      color: _tc.orange,angle: 150 },
-  { key: 'crypto',    labelKey: 'vault.crypto',    icon: 'cpu',         color: _tc.green, angle: 210 },
+  { key: 'logins', labelKey: 'vault.logins', icon: 'user', color: _tc.blue, angle: -90 },
+  { key: 'media', labelKey: 'vault.media', icon: 'image', color: _tc.purple,angle: -30 },
+  { key: 'banking', labelKey: 'vault.banking', icon: 'credit-card', color: _tc.gold, angle: 30 },
+  { key: 'notes', labelKey: 'vault.notes', icon: 'file-text', color: _tc.teal, angle: 90 },
+  { key: 'documents', labelKey: 'vault.documents', icon: 'folder', color: _tc.orange,angle: 150 },
+  { key: 'crypto', labelKey: 'vault.crypto', icon: 'cpu', color: _tc.green, angle: 210 },
 ];
 
 const STRENGTH_COLORS = {
@@ -61,7 +65,7 @@ const STRENGTH_COLORS = {
 };
 
 function getCatConfig(key: VaultCategory) {
-  return CATEGORIES.find(c => c.key === key) ?? CATEGORIES[0];
+  return CATEGORIES.find(c => c.key === key)?? CATEGORIES[0];
 }
 
 // Pure function — no closure captures, safe as module-level constant
@@ -86,12 +90,12 @@ const CategoryOrb = React.memo(function CategoryOrb({ config, count, onPress, se
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.75}
-        style={[styles.orb, { borderColor: selected ? config.color : `${config.color}55` }, selected && { backgroundColor: `${config.color}22` }]}
+        style={[styles.orb, { borderColor: selected? config.color : `${config.color}55` }, selected && { backgroundColor: `${config.color}22` }]}
       >
         <Feather name={config.icon as any} size={18} color={config.color} />
         <Text style={[styles.orbCount, { color: config.color }]}>{count}</Text>
       </TouchableOpacity>
-      <Text style={[styles.orbLabel, { color: selected ? config.color : tc.textSecondary }]}>
+      <Text style={[styles.orbLabel, { color: selected? config.color : tc.textSecondary }]}>
         {t(config.labelKey)}
       </Text>
     </View>
@@ -100,26 +104,32 @@ const CategoryOrb = React.memo(function CategoryOrb({ config, count, onPress, se
 
 function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useLanguage();
-  const { addItem } = useVault();
-  const [title, setTitle]         = useState('');
-  const [subtitle, setSubtitle]   = useState('');
+  const { addItem, items } = useVault();
+  const { checkAndGate } = usePremiumGuard();
+  const [title, setTitle] = useState('');
+  const [subtitle, setSubtitle] = useState('');
   const [selectedCat, setSelectedCat] = useState<VaultCategory>('logins');
-  const [password, setPassword]   = useState('');
-  const [showPw, setShowPw]       = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!title.trim()) return;
+    // Re-check the cap at save time — never create the 7th secret for a free user
+    if (items.length >= FREE_SECRETS_LIMIT) {
+      const allowed = await checkAndGate('secrets_limit');
+      if (!allowed) return;
+    }
     addItem({ category: selectedCat, title: title.trim(), subtitle: subtitle.trim(), encryptedData: password, strength: getPasswordStrength(password), tags: [] });
     setTitle(''); setSubtitle(''); setPassword(''); setSelectedCat('logins');
     onClose();
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : 'height'} style={{ flex: 1 }}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
@@ -129,11 +139,11 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
             {CATEGORIES.map(c => (
               <TouchableOpacity
                 key={c.key}
-                style={[styles.catChip, { borderColor: selectedCat === c.key ? c.color : tc.border }, selectedCat === c.key && { backgroundColor: `${c.color}20` }]}
+                style={[styles.catChip, { borderColor: selectedCat === c.key? c.color : tc.border }, selectedCat === c.key && { backgroundColor: `${c.color}20` }]}
                 onPress={() => setSelectedCat(c.key)}
               >
-                <Feather name={c.icon as any} size={12} color={selectedCat === c.key ? c.color : tc.textSecondary} />
-                <Text style={[styles.catChipText, { color: selectedCat === c.key ? c.color : tc.textSecondary }]}>{t(c.labelKey)}</Text>
+                <Feather name={c.icon as any} size={12} color={selectedCat === c.key? c.color : tc.textSecondary} />
+                <Text style={[styles.catChipText, { color: selectedCat === c.key? c.color : tc.textSecondary }]}>{t(c.labelKey)}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -175,8 +185,8 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
               returnKeyType="done"
               onSubmitEditing={handleAdd}
             />
-            <TouchableOpacity style={styles.eyeToggle} onPress={() => setShowPw(v => !v)}>
-              <Feather name={showPw ? 'eye-off' : 'eye'} size={18} color={tc.textSecondary} />
+            <TouchableOpacity style={styles.eyeToggle} onPress={() => setShowPw(v =>!v)}>
+              <Feather name={showPw? 'eye-off' : 'eye'} size={18} color={tc.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -184,7 +194,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
             <View style={styles.strengthRow}>
               <View style={[styles.strengthBar, { backgroundColor: STRENGTH_COLORS[getPasswordStrength(password)] }]} />
               <Text style={[styles.strengthLabel, { color: STRENGTH_COLORS[getPasswordStrength(password)] }]}>
-                {getPasswordStrength(password) === 'very_strong' ? t('vault.veryStrong') : getPasswordStrength(password) === 'strong' ? t('vault.strong') : getPasswordStrength(password) === 'fair' ? t('vault.fair') : t('vault.weak')}
+                {getPasswordStrength(password) === 'very_strong'? t('vault.veryStrong') : getPasswordStrength(password) === 'strong'? t('vault.strong') : getPasswordStrength(password) === 'fair'? t('vault.fair') : t('vault.weak')}
               </Text>
             </View>
           )}
@@ -209,10 +219,10 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
 function EditItemModal({ item, onClose }: { item: VaultItem | null; onClose: () => void }) {
   const { updateItem } = useVault();
   const { t } = useLanguage();
-  const [title, setTitle]       = useState(item?.title ?? '');
-  const [subtitle, setSubtitle] = useState(item?.subtitle ?? '');
-  const [password, setPassword] = useState(item?.encryptedData ?? '');
-  const [showPw, setShowPw]     = useState(false);
+  const [title, setTitle] = useState(item?.title?? '');
+  const [subtitle, setSubtitle] = useState(item?.subtitle?? '');
+  const [password, setPassword] = useState(item?.encryptedData?? '');
+  const [showPw, setShowPw] = useState(false);
   // ⚠️ Hooks MUST all be called before any early return (Rules of Hooks).
   // useTheme/useMemo were previously placed after `if (!item) return null`
   // which caused a hook-count mismatch crash when item transitioned null→value.
@@ -222,15 +232,15 @@ function EditItemModal({ item, onClose }: { item: VaultItem | null; onClose: () 
   React.useEffect(() => {
     if (item) {
       setTitle(item.title);
-      setSubtitle(item.subtitle ?? '');
-      setPassword(item.encryptedData ?? '');
+      setSubtitle(item.subtitle?? '');
+      setPassword(item.encryptedData?? '');
     }
   }, [item]);
 
   const handleSave = () => {
-    if (!item || !title.trim()) return;
+    if (!item ||!title.trim()) return;
     updateItem(item.id, { title: title.trim(), subtitle: subtitle.trim(), encryptedData: password, strength: getPasswordStrength(password) });
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onClose();
   };
 
@@ -239,7 +249,7 @@ function EditItemModal({ item, onClose }: { item: VaultItem | null; onClose: () 
   const cat = getCatConfig(item.category);
   return (
     <Modal visible={!!item} animationType="slide" transparent presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : 'height'} style={{ flex: 1 }}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
@@ -287,8 +297,8 @@ function EditItemModal({ item, onClose }: { item: VaultItem | null; onClose: () 
               returnKeyType="done"
               onSubmitEditing={handleSave}
             />
-            <TouchableOpacity style={styles.eyeToggle} onPress={() => setShowPw(v => !v)}>
-              <Feather name={showPw ? 'eye-off' : 'eye'} size={18} color={tc.textSecondary} />
+            <TouchableOpacity style={styles.eyeToggle} onPress={() => setShowPw(v =>!v)}>
+              <Feather name={showPw? 'eye-off' : 'eye'} size={18} color={tc.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -296,7 +306,7 @@ function EditItemModal({ item, onClose }: { item: VaultItem | null; onClose: () 
             <View style={styles.strengthRow}>
               <View style={[styles.strengthBar, { backgroundColor: STRENGTH_COLORS[getPasswordStrength(password)] }]} />
               <Text style={[styles.strengthLabel, { color: STRENGTH_COLORS[getPasswordStrength(password)] }]}>
-                {getPasswordStrength(password) === 'very_strong' ? t('vault.veryStrong') : getPasswordStrength(password) === 'strong' ? t('vault.strong') : getPasswordStrength(password) === 'fair' ? t('vault.fair') : t('vault.weak')}
+                {getPasswordStrength(password) === 'very_strong'? t('vault.veryStrong') : getPasswordStrength(password) === 'strong'? t('vault.strong') : getPasswordStrength(password) === 'fair'? t('vault.fair') : t('vault.weak')}
               </Text>
             </View>
           )}
@@ -339,26 +349,26 @@ function ViewItemModal({ item, onClose }: { item: VaultItem | null; onClose: () 
             <Feather name={cat.icon as any} size={28} color={cat.color} />
           </View>
           <Text style={styles.viewTitle}>{item.title}</Text>
-          {item.subtitle ? <Text style={styles.viewSubtitle}>{item.subtitle}</Text> : null}
+          {item.subtitle? <Text style={styles.viewSubtitle}>{item.subtitle}</Text> : null}
 
           {item.strength && (
             <View style={[styles.strengthPill, { backgroundColor: `${STRENGTH_COLORS[item.strength]}20`, borderColor: `${STRENGTH_COLORS[item.strength]}50` }]}>
               <View style={[styles.strengthDot2, { backgroundColor: STRENGTH_COLORS[item.strength] }]} />
               <Text style={[styles.strengthPillText, { color: STRENGTH_COLORS[item.strength] }]}>
-                {item.strength === 'very_strong' ? t('vault.veryStrong') : item.strength === 'strong' ? t('vault.strong') : item.strength === 'fair' ? t('vault.fair') : t('vault.weak')}
+                {item.strength === 'very_strong'? t('vault.veryStrong') : item.strength === 'strong'? t('vault.strong') : item.strength === 'fair'? t('vault.fair') : t('vault.weak')}
               </Text>
             </View>
           )}
 
-          {item.encryptedData ? (
+          {item.encryptedData? (
             <View style={styles.secretBox}>
               <Text style={styles.secretLabel}>{t('vault.secretLabel')}</Text>
               <View style={styles.secretRow}>
-                <Text style={styles.secretValue} numberOfLines={showSecret ? undefined : 1}>
-                  {showSecret ? item.encryptedData : '••••••••••••'}
+                <Text style={styles.secretValue} numberOfLines={showSecret? undefined : 1}>
+                  {showSecret? item.encryptedData : '••••••••••••'}
                 </Text>
-                <TouchableOpacity onPress={() => setShowSecret(v => !v)} style={styles.secretEye}>
-                  <Feather name={showSecret ? 'eye-off' : 'eye'} size={18} color={tc.gold} />
+                <TouchableOpacity onPress={() => setShowSecret(v =>!v)} style={styles.secretEye}>
+                  <Feather name={showSecret? 'eye-off' : 'eye'} size={18} color={tc.gold} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -395,7 +405,7 @@ function MediaThumb({ item }: { item: VaultItem }) {
   const { getMediaPreview, mediaSessionVersion } = useVault();
   const [uri, setUri] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const kind = item.mediaKind ?? 'file';
+  const kind = item.mediaKind?? 'file';
 
   // Decrypt the image preview. Driven only by item identity so a session wipe
   // can never trigger a fresh decrypt with a still-present key.
@@ -403,8 +413,8 @@ function MediaThumb({ item }: { item: VaultItem }) {
     let active = true;
     if (kind === 'image' && item.mediaRef) {
       getMediaPreview(item)
-        .then(u => { if (active) setUri(u); })
-        .catch(() => { if (active) setFailed(true); });
+       .then(u => { if (active) setUri(u); })
+       .catch(() => { if (active) setFailed(true); });
     }
     return () => { active = false; };
   }, [item.id]);
@@ -416,12 +426,12 @@ function MediaThumb({ item }: { item: VaultItem }) {
     setFailed(false);
   }, [mediaSessionVersion]);
 
-  if (kind === 'image' && uri && !failed) {
+  if (kind === 'image' && uri &&!failed) {
     return <Image source={{ uri }} style={styles.mediaThumbImg} contentFit="cover" transition={150} />;
   }
   return (
     <View style={styles.mediaThumbPlaceholder}>
-      {kind === 'image' && !failed ? (
+      {kind === 'image' &&!failed? (
         <ActivityIndicator color={tc.purple} />
       ) : (
         <Feather name={MEDIA_ICON[kind] as any} size={26} color={MEDIA_COLOR[kind]} />
@@ -443,7 +453,7 @@ function MediaCard({ item, onOpen, onLongPress }: {
       activeOpacity={0.8}
       onPress={() => onOpen(item)}
       onLongPress={() => {
-        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onLongPress(item);
       }}
       delayLongPress={350}
@@ -470,7 +480,7 @@ function MediaActionSheet({ item, onClose, onDelete, onShare }: {
   onShare: (item: VaultItem) => void;
 }) {
   if (!item) return null;
-  const kind = item.mediaKind ?? 'file';
+  const kind = item.mediaKind?? 'file';
   const color = MEDIA_COLOR[kind];
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
@@ -488,7 +498,7 @@ function MediaActionSheet({ item, onClose, onDelete, onShare }: {
           </View>
           <View style={styles.actionDivider} />
           {/* Share / export — native only (expo-sharing unavailable on web) */}
-          {Platform.OS !== 'web' && (
+          {Platform.OS!== 'web' && (
             <TouchableOpacity
               style={styles.actionRow}
               activeOpacity={0.75}
@@ -557,15 +567,15 @@ function MediaViewerModal({ item, onClose, onDelete }: { item: VaultItem | null;
     if (item.mediaKind === 'image') {
       setLoading(true);
       getMediaPreview(item)
-        .then(u => { if (active) setImageUri(u); })
-        .catch(() => { if (active) setError(true); })
-        .finally(() => { if (active) setLoading(false); });
+       .then(u => { if (active) setImageUri(u); })
+       .catch(() => { if (active) setError(true); })
+       .finally(() => { if (active) setLoading(false); });
     } else if (item.mediaKind === 'video') {
       setLoading(true);
       getMediaTempFile(item)
-        .then(u => { if (active) setVideoUri(u); })
-        .catch(() => { if (active) setError(true); })
-        .finally(() => { if (active) setLoading(false); });
+       .then(u => { if (active) setVideoUri(u); })
+       .catch(() => { if (active) setError(true); })
+       .finally(() => { if (active) setLoading(false); });
     }
     return () => { active = false; };
   }, [item?.id]);
@@ -598,7 +608,7 @@ function MediaViewerModal({ item, onClose, onDelete }: { item: VaultItem | null;
   };
 
   if (!item) return null;
-  const kind = item.mediaKind ?? 'file';
+  const kind = item.mediaKind?? 'file';
 
   return (
     <Modal visible={!!item} animationType="fade" transparent onRequestClose={handleClose}>
@@ -619,32 +629,32 @@ function MediaViewerModal({ item, onClose, onDelete }: { item: VaultItem | null;
                 <Text style={styles.viewerFallbackText}>{t('vault.mediaLoadError')}</Text>
               </View>
             )}
-            {!loading && !error && kind === 'image' && imageUri && (
+            {!loading &&!error && kind === 'image' && imageUri && (
               <Image source={{ uri: imageUri }} style={styles.viewerImage} contentFit="contain" />
             )}
-            {!loading && !error && kind === 'video' && videoUri && (
+            {!loading &&!error && kind === 'video' && videoUri && (
               <VaultVideoPlayer uri={videoUri} />
             )}
-            {!loading && !error && kind === 'file' && (
+            {!loading &&!error && kind === 'file' && (
               <View style={styles.viewerFallback}>
                 <View style={styles.viewerFileIcon}>
                   <Feather name="file" size={34} color={tc.orange} />
                 </View>
-                <Text style={styles.viewerFileName} numberOfLines={2}>{item.fileName ?? item.title}</Text>
-                {item.fileSize ? <Text style={styles.viewerFileMeta}>{formatBytes(item.fileSize)}</Text> : null}
+                <Text style={styles.viewerFileName} numberOfLines={2}>{item.fileName?? item.title}</Text>
+                {item.fileSize? <Text style={styles.viewerFileMeta}>{formatBytes(item.fileSize)}</Text> : null}
                 <Text style={styles.viewerFileHint}>{t('vault.fileOpenHint')}</Text>
               </View>
             )}
           </View>
 
           <View style={styles.viewerActions}>
-            {Platform.OS !== 'web' && (
+            {Platform.OS!== 'web' && (
               <TouchableOpacity style={styles.viewerActionBtn} onPress={handleShare}>
                 <Feather name="share-2" size={16} color={tc.blue} />
                 <Text style={[styles.viewerActionText, { color: tc.blue }]}>{t('vault.share')}</Text>
               </TouchableOpacity>
             )}
-            {Platform.OS !== 'web' && (
+            {Platform.OS!== 'web' && (
               <TouchableOpacity style={styles.viewerActionBtn} onPress={handleExport}>
                 <Feather name="download" size={16} color={tc.gold} />
                 <Text style={[styles.viewerActionText, { color: tc.gold }]}>{t('vault.exportEncrypted')}</Text>
@@ -671,9 +681,9 @@ function MediaSection({ items, decoyMode, busy, onAdd, onOpen, onLongPress }: {
 }) {
   const { t } = useLanguage();
   const addButtons: { kind: MediaKind; icon: string; labelKey: string }[] = [
-    { kind: 'image', icon: 'image',     labelKey: 'vault.addImage' },
-    { kind: 'video', icon: 'video',     labelKey: 'vault.addVideo' },
-    { kind: 'file',  icon: 'file-plus', labelKey: 'vault.addFile'  },
+    { kind: 'image', icon: 'image', labelKey: 'vault.addImage' },
+    { kind: 'video', icon: 'video', labelKey: 'vault.addVideo' },
+    { kind: 'file', icon: 'file-plus', labelKey: 'vault.addFile' },
   ];
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
@@ -693,10 +703,10 @@ function MediaSection({ items, decoyMode, busy, onAdd, onOpen, onLongPress }: {
           </TouchableOpacity>
         ))}
       </View>
-      {items.length === 0 ? (
+      {items.length === 0? (
         <View style={styles.emptyState}>
           <Feather name="image" size={40} color={tc.textMuted} />
-          <Text style={styles.emptyText}>{decoyMode ? t('vault.noMediaDecoy') : t('vault.noMedia')}</Text>
+          <Text style={styles.emptyText}>{decoyMode? t('vault.noMediaDecoy') : t('vault.noMedia')}</Text>
         </View>
       ) : (
         <View style={styles.mediaGrid}>
@@ -713,6 +723,7 @@ export default function VaultScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const { items, getItemsByCategory, removeItem, getWeakItemsCount, addMediaItem, shareMedia, decoyMode, mediaSessionVersion } = useVault();
+  const { checkAndGate } = usePremiumGuard();
 
   // Memoised per-category counts so CATEGORIES.map() in the orb grid never
   // triggers 6 separate array filters on every render.
@@ -725,7 +736,7 @@ export default function VaultScreen() {
   );
 
   const [selectedCat, setSelectedCat] = useState<VaultCategory | null>(null);
-  const [showAdd, setShowAdd]   = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<VaultItem | null>(null);
   const [viewItem, setViewItem] = useState<VaultItem | null>(null);
   const [mediaViewItem, setMediaViewItem] = useState<VaultItem | null>(null);
@@ -741,10 +752,10 @@ export default function VaultScreen() {
   const showToast = useCallback((msg: string, error = false) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ msg, error });
-    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: Platform.OS !== 'web' }).start();
+    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: Platform.OS!== 'web' }).start();
     toastTimer.current = setTimeout(() => {
-      Animated.timing(toastOpacity, { toValue: 0, duration: 250, useNativeDriver: Platform.OS !== 'web' })
-        .start(({ finished }) => { if (finished) setToast(null); });
+      Animated.timing(toastOpacity, { toValue: 0, duration: 250, useNativeDriver: Platform.OS!== 'web' })
+       .start(({ finished }) => { if (finished) setToast(null); });
     }, 2200);
   }, [toastOpacity]);
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
@@ -756,12 +767,27 @@ export default function VaultScreen() {
     if (mediaSessionVersion === 0) return;
     setMediaViewItem(null);
   }, [mediaSessionVersion]);
-  const tabBarHeight = 60 + (Platform.OS === 'web' ? 34 : insets.bottom);
+  const tabBarHeight = 60 + (Platform.OS === 'web'? 34 : insets.bottom);
   const weakCount = getWeakItemsCount();
-  const displayItems = selectedCat ? getItemsByCategory(selectedCat) : items;
+  const displayItems = selectedCat? getItemsByCategory(selectedCat) : items;
+
+  // Premium-gated opener for the "add secret" form.
+  // Below the free cap anyone passes; at/above the cap the guard decides.
+  const handleOpenAdd = async () => {
+    if (items.length >= FREE_SECRETS_LIMIT) {
+      const allowed = await checkAndGate('secrets_limit');
+      if (!allowed) return; // Paywall opened (or still loading) — stop here
+    }
+    setShowAdd(true);
+  };
 
   const handleAddMedia = async (kind: MediaKind) => {
-    const picker = kind === 'image' ? pickImage : kind === 'video' ? pickVideo : pickDocument;
+    // Media counts toward the same free cap — gate before opening the picker
+    if (items.length >= FREE_SECRETS_LIMIT) {
+      const allowed = await checkAndGate('secrets_limit');
+      if (!allowed) return;
+    }
+    const picker = kind === 'image'? pickImage : kind === 'video'? pickVideo : pickDocument;
     const res = await picker();
     if (!res.ok) {
       if (res.reason === 'too_large') Alert.alert(t('vault.mediaTooLargeTitle'), t('vault.mediaTooLarge'));
@@ -772,7 +798,7 @@ export default function VaultScreen() {
     setBusy(true);
     try {
       await addMediaItem(res.data, '');
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Alert.alert(t('common.error'), t('vault.mediaAddError'));
     } finally {
@@ -801,10 +827,10 @@ export default function VaultScreen() {
     if (!id) return;
     try {
       await removeItem(id);
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast(t('vault.deleteSuccess'));
     } catch {
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showToast(t('vault.deleteError'), true);
     }
   }, [confirmId, removeItem, showToast, t]);
@@ -815,7 +841,7 @@ export default function VaultScreen() {
     <View style={[styles.container, { backgroundColor: tc.background }]}>
       <ScreenGlow color="#D4AF37" icon="lock" />
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 0) }]}>
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'web'? 67 : 0) }]}>
         <Text style={styles.headerTitle}>{t('vault.title')}</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -823,7 +849,7 @@ export default function VaultScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.headerBtn, { backgroundColor: tc.goldGlass, borderColor: 'rgba(212,175,55,0.30)' }]}
-            onPress={() => setShowAdd(true)}
+            onPress={handleOpenAdd}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Feather name="plus" size={18} color={tc.gold} />
@@ -844,7 +870,7 @@ export default function VaultScreen() {
                 </SvgLinearGradient>
               </Defs>
               <Circle cx={120} cy={120} r={100} fill="none" stroke="url(#orbGrad)" strokeWidth={1} strokeDasharray="4 6" />
-              <Circle cx={120} cy={120} r={60}  fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+              <Circle cx={120} cy={120} r={60} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
             </Svg>
             <View style={styles.orbCenterHex}>
               <Feather name="shield" size={28} color={tc.gold} />
@@ -855,9 +881,9 @@ export default function VaultScreen() {
               <CategoryOrb
                 key={cat.key}
                 config={cat}
-                count={categoryCounts[cat.key] ?? 0}
+                count={categoryCounts[cat.key]?? 0}
                 selected={selectedCat === cat.key}
-                onPress={() => setSelectedCat(selectedCat === cat.key ? null : cat.key)}
+                onPress={() => setSelectedCat(selectedCat === cat.key? null : cat.key)}
               />
             ))}
           </View>
@@ -872,7 +898,7 @@ export default function VaultScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.suggestTitle}>{t('vault.smartSuggestions')}</Text>
-                <Text style={styles.suggestSubtitle}>{weakCount} weak password{weakCount > 1 ? 's' : ''} found — tap to review</Text>
+                <Text style={styles.suggestSubtitle}>{weakCount} weak password{weakCount > 1? 's' : ''} found — tap to review</Text>
               </View>
               <Feather name="chevron-right" size={16} color={tc.gold} />
             </View>
@@ -890,19 +916,19 @@ export default function VaultScreen() {
             </View>
           )}
 
-          {selectedCat === 'media' ? (
+          {selectedCat === 'media'? (
             <MediaSection
               items={displayItems}
               decoyMode={decoyMode}
               busy={busy}
               onAdd={handleAddMedia}
               onOpen={(it) => {
-                if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setMediaViewItem(it);
               }}
               onLongPress={(it) => setLpItem(it)}
             />
-          ) : displayItems.length === 0 ? (
+          ) : displayItems.length === 0? (
             <View style={styles.emptyState}>
               <Feather name="shield-off" size={40} color={tc.textMuted} />
               <Text style={styles.emptyText}>{t('vault.noItems')}</Text>
@@ -920,7 +946,7 @@ export default function VaultScreen() {
                     </View>
                     <View style={styles.itemInfo}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
-                      {item.subtitle ? <Text style={styles.itemSubtitle}>{item.subtitle}</Text> : null}
+                      {item.subtitle? <Text style={styles.itemSubtitle}>{item.subtitle}</Text> : null}
                       {item.strength && (
                         <View style={[styles.strengthDot, { backgroundColor: STRENGTH_COLORS[item.strength] }]} />
                       )}
@@ -930,7 +956,7 @@ export default function VaultScreen() {
                       <TouchableOpacity
                         style={styles.itemActionBtn}
                         onPress={() => {
-                          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                           if (isMedia) setMediaViewItem(item);
                           else setViewItem(item);
                         }}
@@ -942,7 +968,7 @@ export default function VaultScreen() {
                         <TouchableOpacity
                           style={styles.itemActionBtn}
                           onPress={() => {
-                            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             setEditItem(item);
                           }}
                         >
@@ -988,15 +1014,15 @@ export default function VaultScreen() {
             {
               bottom: tabBarHeight + 24,
               opacity: toastOpacity,
-              backgroundColor: toast.error ? 'rgba(60,20,24,0.97)' : 'rgba(16,24,42,0.97)',
-              borderColor: toast.error ? 'rgba(239,68,68,0.5)' : 'rgba(212,175,55,0.45)',
+              backgroundColor: toast.error? 'rgba(60,20,24,0.97)' : 'rgba(16,24,42,0.97)',
+              borderColor: toast.error? 'rgba(239,68,68,0.5)' : 'rgba(212,175,55,0.45)',
             },
           ]}
         >
           <Feather
-            name={toast.error ? 'alert-circle' : 'check-circle'}
+            name={toast.error? 'alert-circle' : 'check-circle'}
             size={16}
-            color={toast.error ? tc.red : tc.gold}
+            color={toast.error? tc.red : tc.gold}
           />
           <Text style={styles.toastText}>{toast.msg}</Text>
         </Animated.View>

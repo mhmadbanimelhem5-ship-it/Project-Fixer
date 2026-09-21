@@ -22,6 +22,7 @@ import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import { inviteGuardian, notifyGuardianRemoved, checkInviteStatus } from '@/utils/emailApi';
 import { sendGuardianNotification } from '@/utils/fcmService';
 import { useNetworkRequired } from '@/contexts/NetworkContext';
+import { usePremiumGuard } from '@/hooks/usePremiumGuard'; // ← أضفنا الاستيراد هنا
 
 /* ─── Helpers ─── */
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -385,12 +386,25 @@ export default function GuardiansScreen() {
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ✅ تفعيل الحارس المركزي للتحقق من الاشتراك
+  const { checkAndGate } = usePremiumGuard(); 
+
   useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
 
   const MAX_GUARDIANS = 3;
   const atLimit = guardians.length >= MAX_GUARDIANS;
 
-  const handleOpenAdd = () => {
+  const handleOpenAdd = async () => {
+    // ✅ افحص أولاً هل المستخدم مشترك Premium؟
+    const isAllowed = await checkAndGate('add_guardian');
+
+    if (!isAllowed) {
+      return; // إذا لم يكن مسموحاً، توقف هنا (شاشة الاشتراك فتحت بالفعل)
+    }
+
+    // ⬇️ إذا وصل لهنا، معناها المستخدم Premium ومسموح له بالمتابعة
+
     if (atLimit) {
       showToast(
         t('guardians.maxGuardiansUpgrade', { max: MAX_GUARDIANS }),

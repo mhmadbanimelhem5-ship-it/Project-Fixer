@@ -100,119 +100,6 @@
   },
   "guardians": {
     "title": "GUARDIANS",
-   يا معلم، **الكود اللي بعتهالي مقطوع من الآخر (نقصت سطور مهمة)، وهيكل الـ JSON معطوب.** 🛑
-
-لازم نصلح الهيكل ونضيف مجموعة `"sub"` كاملة بالإنجليزي عشان التطبيق ما ينهار.
-
----
-
-## ✅ الحل: انسخ هذا الكود الكامل واستبدل به محتوى ملف `en.json`:
-
-هذا هو الملف الصحيح 100%، مع إصلاح الأقواس وإضافة قسم الاشتراكات (`sub`) في النهاية كما فعلنا بالعربي تماماً.
-
-```json
-{
-  "app": {
-    "name": "Auryx",
-    "tagline": "Your world. Secured for life."
-  },
-  "lock": {
-    "title": "Auryx",
-    "subtitle": "Your world. Secured for life.",
-    "enterPin": "Enter your 6-digit PIN",
-    "enterPassword": "Enter your password",
-    "unlockVault": "Unlock Vault",
-    "useFaceId": "Use Face ID",
-    "useBiometrics": "Use Biometrics",
-    "wrongPin": "Incorrect PIN",
-    "attemptsLeft": "{{count}} attempts remaining",
-    "lockedFor": "Locked for {{time}}",
-    "lockedDay": "Locked for 24 hours",
-    "forgotPin": "Forgot PIN?",
-    "pinType": "PIN",
-    "passwordType": "Password",
-    "patternType": "Pattern",
-    "drawPattern": "Draw your unlock pattern",
-    "lockoutWarning": "Too many failed attempts"
-  },
-  "tabs": {
-    "overview": "Overview",
-    "vault": "My Vault",
-    "guardians": "Guardians",
-    "settings": "Settings"
-  },
-  "overview": {
-    "title": "OVERVIEW",
-    "vaultStatus": "Vault Status",
-    "secured": "Secured",
-    "lastSync": "Last sync: {{time}}",
-    "assets": "Assets",
-    "guardians": "Guardians",
-    "alerts": "Alerts",
-    "securityScore": "Security Score",
-    "quickProtect": "QUICK PROTECT",
-    "customizeSecurity": "Customize your security layers",
-    "lockdown": "Lockdown",
-    "decoyVault": "Decoy Vault",
-    "emergency": "Emergency",
-    "backup": "Backup",
-    "backupInfoTitle": "Backup",
-    "backupInfoMsg": "Backup is done through Settings → Backup & Sync.",
-    "goodMorning": "Good Morning",
-    "goodAfternoon": "Good Afternoon",
-    "goodEvening": "Good Evening"
-  },
-  "vault": {
-    "title": "MY VAULT",
-    "logins": "Logins",
-    "media": "Media",
-    "banking": "Banking",
-    "notes": "Notes",
-    "documents": "Documents",
-    "crypto": "Crypto",
-    "smartSuggestions": "Smart Suggestions",
-    "reviewWeakItems": "Review {{count}} weak items",
-    "addNew": "Add New",
-    "search": "Search vault...",
-    "encrypted": "AES-256 Encrypted",
-    "noItems": "No items yet",
-    "addFirstItem": "Add your first item to secure it",
-    "noMedia": "No media saved yet",
-    "noMediaDecoy": "No media saved in the decoy vault",
-    "addImage": "Image",
-    "addVideo": "Video",
-    "addFile": "File",
-    "share": "Secure Share",
-    "exportEncrypted": "Export Encrypted",
-    "encrypting": "Encrypting...",
-    "mediaTooLargeTitle": "File too large",
-    "mediaTooLarge": "The maximum file size is 30 MB.",
-    "permTitle": "Permission required",
-    "permMsg": "Please allow access to continue.",
-    "mediaAddError": "Couldn't add media. Please try again.",
-    "mediaLoadError": "Couldn't decrypt this media.",
-    "fileOpenHint": "Use Secure Share to open this file in another app.",
-    "shareUnavailable": "Sharing isn't available on this device.",
-    "confirmDelete": "Delete Item?",
-    "deleteMessage": "This action cannot be undone.",
-    "deleteConfirmMsg": "Are you sure you want to delete this file?",
-    "deleteSuccess": "File deleted successfully",
-    "deleteError": "Could not delete the file",
-    "delete": "Delete",
-    "cancel": "Cancel",
-    "passwordStrength": "Password Strength",
-    "weak": "Weak",
-    "fair": "Fair",
-    "strong": "Strong",
-    "veryStrong": "Very Strong",
-    "titlePlaceholder": "Title *",
-    "subtitlePlaceholder": "Subtitle / Username",
-    "secretPlaceholder": "Password / Secret",
-    "editItem": "Edit Item",
-    "secretLabel": "Secret / Password"
-  },
-  "guardians": {
-    "title": "GUARDIANS",
     "subtitle": "Your trusted guardians can help you when it matters.",
     "addGuardian": "Add Guardian",
     "name": "Name",
@@ -682,6 +569,21 @@
     "successMessage": "Your subscription has been activated successfully. Enjoy all premium features now.",
     "errorTitle": "Something went wrong",
     "errorMessage": "We couldn't complete the transaction. Please try again later.",
-    "unknownError": "Unknown payment connection error."
+    "unknownError": "Unknown payment connection error.",
+
+    "dynamicTitles": {
+      "secrets": "Expand Your Vault Limitlessly",
+      "guardians": "Protect Your Legacy with a Trusted Team",
+      "legacy": "Advanced Digital Legacy System",
+      "decoy": "Decoy Vault for Maximum Protection",
+      "emergency": "Smart Emergency Protocol"
+    },
+    "dynamicSubtitles": {
+      "secrets": "You've reached the free limit (6 secrets). Subscribe now to add unlimited secrets and maintain complete privacy.",
+      "guardians": "Adding guardians requires a Premium subscription to build a strong trust network around your data.",
+      "legacy": "Triple-layer encryption and secure transfer to beneficiaries require activating the advanced digital legacy system.",
+      "decoy": "Hiding your real data under duress is an exclusive feature for Premium subscribers.",
+      "emergency": "Automatic alerts and guardian voting during absences are part of the smart protection ecosystem."
+    }
   }
 }
