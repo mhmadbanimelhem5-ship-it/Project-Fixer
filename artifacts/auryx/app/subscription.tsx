@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import Purchases from 'react-native-purchases';
+import * as Font from 'expo-font'; // ← استيراد لتحميل الخط
 import { GlassCard } from '@/components/GlassCard';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import colors from '@/constants/colors';
@@ -56,16 +58,34 @@ export default function SubscriptionScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [packages, setPackages] = useState<PackageOffer[]>(MOCK_PACKAGES);
 
+  // 🔤 حالة تحميل الخط
+  const [fontLoaded, setFontLoaded] = useState(false);
+
+  // 📥 تحميل خط Cairo عند بدء التشغيل
+  useEffect(() => {
+    const loadFont = async () => {
+      try {
+        await Font.loadAsync({
+          'Cairo-Bold': require('../assets/fonts/Cairo.ttf'), // ← مسار الخط الجديد
+        });
+        setFontLoaded(true);
+      } catch (error) {
+        console.warn('Failed to load font:', error);
+        setFontLoaded(true); // Continue even if font fails (fallback to system)
+      }
+    };
+    loadFont();
+  }, []);
+
   // Fetch real packages from RevenueCat when component mounts
   useEffect(() => {
     const fetchOffers = async () => {
       try {
         const offerings = await Purchases.getOfferings();
-        // FIX (Ln 64/65): offerings.current may be undefined — bind + guard explicitly
         const current = offerings.current;
         if (current && current.availablePackages.length > 0) {
           const mapped = current.availablePackages.map(pkg => ({
-            id: pkg.packageType === 'ANNUAL' ? 'yearly' :
+            id: pkg.packageType === 'ANNUAL' ? 'yearly' : 
                  pkg.packageType === 'MONTHLY' ? 'monthly' : pkg.identifier,
             title: pkg.packageType === 'ANNUAL' ? 'سنوي' : 'شهري',
             price: pkg.product.priceString,
@@ -90,31 +110,31 @@ export default function SubscriptionScreen() {
     switch (source) {
       case 'secrets_limit':
         return {
-          title: t('sub.dynamicTitles.secrets'),
+          title: t('sub.dynamicTitles.secrets'), 
           subtitle: t('sub.dynamicSubtitles.secrets'),
         };
 
       case 'add_guardian':
         return {
-          title: t('sub.dynamicTitles.guardians'),
+          title: t('sub.dynamicTitles.guardians'), 
           subtitle: t('sub.dynamicSubtitles.guardians'),
         };
 
       case 'legacy_setup':
         return {
-          title: t('sub.dynamicTitles.legacy'),
+          title: t('sub.dynamicTitles.legacy'), 
           subtitle: t('sub.dynamicSubtitles.legacy'),
         };
 
       case 'decoy_vault':
         return {
-          title: t('sub.dynamicTitles.decoy'),
+          title: t('sub.dynamicTitles.decoy'), 
           subtitle: t('sub.dynamicSubtitles.decoy'),
         };
 
       case 'emergency_mode':
         return {
-          title: t('sub.dynamicTitles.emergency'),
+          title: t('sub.dynamicTitles.emergency'), 
           subtitle: t('sub.dynamicSubtitles.emergency'),
         };
 
@@ -133,9 +153,8 @@ export default function SubscriptionScreen() {
     setIsLoading(true);
     try {
       const offering = await Purchases.getOfferings();
-      // FIX (defensive): optional-chain before .find — same root cause as Ln 64/65
       const targetPackage = offering.current?.availablePackages?.find(
-        pkg =>
+        pkg => 
           (pkg.packageType === 'ANNUAL' && selectedPackageId === 'yearly') ||
           (pkg.packageType === 'MONTHLY' && selectedPackageId === 'monthly') ||
           pkg.identifier === selectedPackageId
@@ -161,32 +180,38 @@ export default function SubscriptionScreen() {
     }
   }, [selectedPackageId, t]);
 
+  // ⏳ انتظار تحميل الخط قبل عرض المحتوى الرئيسي
+  if (!fontLoaded) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={tc.gold} />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* FIX (Ln 163): ScreenGlow accepts color/icon, not variant/intensity */}
       <ScreenGlow color="#D4AF37" icon="shield" />
 
-      {/* Header Section */}
-      <View style={styles.headerSection}>
-        <LinearGradient
-          colors={['rgba(212,175,55,0.2)', 'transparent']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={styles.headerBg}
-        >
-          <Feather name="shield" size={48} color={tc.gold} style={styles.logoIcon} />
+      {/* Hero Section with Shield Image */}
+      <View style={styles.heroSection}>
+        <Image 
+          source={require('../assets/images/shield.png')} 
+          style={styles.shieldImage}
+          resizeMode="contain"
+        />
 
-          {/* ✅ استخدام النصوص الديناميكية هنا بدلاً من الثوابت القديمة */}
-          <Text style={[styles.title, { color: tc.text }]}>
-            {dynamicContent.title}
-          </Text>
-          <Text style={[styles.subtitle, { color: tc.textSecondary }]}>
-            {dynamicContent.subtitle}
-          </Text>
-        </LinearGradient>
+        {/* Dynamic Title & Subtitle */}
+        <Text style={[styles.title, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
+          {dynamicContent.title}
+        </Text>
+        <Text style={[styles.subtitle, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
+          {dynamicContent.subtitle}
+        </Text>
       </View>
 
       {/* Features List */}
-      <ScrollView
+      <ScrollView 
         contentContainerStyle={styles.featuresList}
         showsVerticalScrollIndicator={false}
       >
@@ -200,14 +225,14 @@ export default function SubscriptionScreen() {
             <View style={[styles.featureIconWrap, { backgroundColor: `${tc.gold}15` }]}>
               <Feather name={feature.icon as any} size={16} color={tc.gold} />
             </View>
-            <Text style={[styles.featureText, { color: tc.textSecondary }]}>
+            <Text style={[styles.featureText, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
               {feature.text}
             </Text>
           </View>
         ))}
       </ScrollView>
 
-      {/* Pricing Cards */}
+      {/* Pricing Cards - Horizontal Layout */}
       <View style={styles.pricingContainer}>
         {packages.map((pkg) => (
           <TouchableOpacity
@@ -215,10 +240,9 @@ export default function SubscriptionScreen() {
             onPress={() => !isLoading && setSelectedPackageId(pkg.id)}
             activeOpacity={0.8}
             disabled={isLoading}
+            style={styles.cardWrapper}
           >
             <GlassCard
-              // Root fix: GlassCard.style expects ONE ViewStyle object, not an array.
-              // Merge conditionally via spread so the result is always a plain object.
               style={{
                 ...styles.priceCard,
                 ...(selectedPackageId === pkg.id ? styles.selectedPriceCard : {}),
@@ -227,18 +251,18 @@ export default function SubscriptionScreen() {
             >
               {pkg.isBestValue && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{t('sub.bestValue')}</Text>
+                  <Text style={[styles.badgeText, { fontFamily: 'Cairo-Bold' }]}>{t('sub.bestValue')}</Text>
                 </View>
               )}
 
-              <Text style={[styles.pkgTitle, { color: tc.text }]}>
+              <Text style={[styles.pkgTitle, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
                 {pkg.title}
               </Text>
               <View style={styles.priceRow}>
-                <Text style={[styles.priceAmount, { color: tc.gold }]}>
+                <Text style={[styles.priceAmount, { fontFamily: 'Cairo-Bold', color: tc.gold }]}>
                   {pkg.price}
                 </Text>
-                <Text style={[styles.pricePeriod, { color: tc.textMuted }]}>
+                <Text style={[styles.pricePeriod, { fontFamily: 'Cairo-Regular', color: tc.textMuted }]}>
                   {pkg.period}
                 </Text>
               </View>
@@ -270,7 +294,7 @@ export default function SubscriptionScreen() {
             ) : (
               <>
                 <Feather name="credit-card" size={18} color="#0A0F1E" style={{ marginRight: 8 }} />
-                <Text style={styles.btnText}>
+                <Text style={[styles.btnText, { fontFamily: 'Cairo-Bold' }]}>
                   {t('sub.ctaButton')}
                 </Text>
               </>
@@ -278,7 +302,7 @@ export default function SubscriptionScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={[styles.termsText, { color: tc.textMuted }]}>
+        <Text style={[styles.termsText, { fontFamily: 'Cairo-Regular', color: tc.textMuted }]}>
           {t('sub.termsNote')}
         </Text>
       </View>
@@ -286,24 +310,22 @@ export default function SubscriptionScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────────────────────
 const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tc.background,
   },
-  headerSection: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  headerBg: {
-    paddingVertical: 32,
-    paddingHorizontal: 24,
+  heroSection: {
     alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
-  logoIcon: {
+  shieldImage: {
+    width: 180,
+    height: 180,
     marginBottom: 16,
-    opacity: 0.9,
   },
   title: {
     fontSize: 28,
@@ -311,6 +333,7 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.5,
     writingDirection: 'rtl',
+    lineHeight: 36, // ← حل مشكلة القطع
   },
   subtitle: {
     fontSize: 15,
@@ -344,17 +367,22 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     writingDirection: 'rtl',
   },
   pricingContainer: {
+    flexDirection: 'row', // ← التخطيط الأفقي
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 8,
     gap: 12,
   },
+  cardWrapper: {
+    flex: 1, // ← توزيع متساوي للعرض
+  },
   priceCard: {
     padding: 20,
     borderWidth: 1.5,
     borderColor: tc.border,
-    minHeight: 100,
+    minHeight: 140,
     justifyContent: 'center',
+    position: 'relative', // ← مهم للشارة البارزة
   },
   selectedPriceCard: {
     borderColor: tc.gold,
@@ -369,7 +397,7 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -10,
+    top: -12, // ← بروز فوق الحافة
     right: 16,
     backgroundColor: tc.purple,
     paddingHorizontal: 10,
