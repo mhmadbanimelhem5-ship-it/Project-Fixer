@@ -20,7 +20,7 @@ import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocalSearchParams } from 'expo-router';
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
 interface PackageOffer {
   id: string;
   title: string;
@@ -114,27 +114,40 @@ export default function SubscriptionScreen() {
     }
   }, [source, t]);
 
-  const handleSubscribe = useCallback(async () => {
+  // Unified Subscribe Handler (Supports Trial & Buy modes)
+  const handleSubscribe = useCallback(async (mode: 'trial' | 'buy' = 'buy') => {
     if (!selectedPackageId) return;
+
+    // Force yearly plan for trials (standard practice)
+    const targetPlan = mode === 'trial' ? 'yearly' : selectedPackageId;
+
     setIsLoading(true);
     try {
       const offering = await Purchases.getOfferings();
+
       const targetPackage = offering.current?.availablePackages?.find(
         pkg => 
-          (pkg.packageType === 'ANNUAL' && selectedPackageId === 'yearly') ||
-          (pkg.packageType === 'MONTHLY' && selectedPackageId === 'monthly') ||
-          pkg.identifier === selectedPackageId
+          (pkg.packageType === 'ANNUAL' && targetPlan === 'yearly') ||
+          (pkg.packageType === 'MONTHLY' && targetPlan === 'monthly') ||
+          pkg.identifier === targetPlan
       );
+
       if (!targetPackage) throw new Error('Package not found');
 
       const purchaseResult = await Purchases.purchasePackage(targetPackage);
+
       if (purchaseResult.customerInfo.entitlements.active['premium']) {
-        Alert.alert(t('sub.successTitle'), t('sub.successMessage'));
+        Alert.alert(
+          t('sub.successTitle'), 
+          mode === 'trial' ? 'تم تفعيل تجربتك المجانية! استمتع بجميع المزايا.' : t('sub.successMessage')
+        );
       } else {
         Alert.alert(t('sub.errorTitle'), t('sub.errorMessage'));
       }
     } catch (err: any) {
-      if (!err.userCancelled) Alert.alert(t('sub.errorTitle'), err.message || t('sub.unknownError'));
+      if (!err.userCancelled) {
+        Alert.alert(t('sub.errorTitle'), err.message || t('sub.unknownError'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -241,25 +254,36 @@ export default function SubscriptionScreen() {
           ))}
         </View>
 
-        {/* Free Trial Banner */}
-        <View style={styles.trialBanner}>
-           <View style={styles.giftIconWrap}>
-             <Feather name="gift" size={20} color={tc.gold} />
-           </View>
-           <View style={styles.trialTextWrap}>
-             <Text style={[styles.trialTitle, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
-               جربه مجاناً لمدة 7 أيام
-             </Text>
-             <Text style={[styles.trialSubtitle, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
-               استمتع بجميع مزايا Premium قبل الدفع.
-             </Text>
-           </View>
-           <Feather name="arrow-left" size={20} color={tc.gold} />
-        </View>
-
-        {/* CTA Button */}
+        {/* Free Trial Banner - Now Interactive */}
         <TouchableOpacity
-          onPress={handleSubscribe}
+          activeOpacity={0.8}
+          disabled={isLoading}
+          onPress={() => {
+            setSelectedPackageId('yearly'); // إجبار اختيار السنوي للتجربة
+            handleSubscribe('trial');       // استدعاء الدالة بوضع التجربة
+          }}
+          style={styles.trialBannerTouchable}
+        >
+          <View style={styles.trialBanner}>
+             <View style={styles.giftIconWrap}>
+               <Feather name="gift" size={20} color={tc.gold} />
+             </View>
+             <View style={styles.trialTextWrap}>
+               <Text style={[styles.trialTitle, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
+                 جربه مجاناَ لمدة 7 أيام
+               </Text>
+               <Text style={[styles.trialSubtitle, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
+                 استمتع بجميع مزايا Premium قبل الدفع.
+               </Text>
+             </View>
+             {/* سهم يدل على أنه قابل للضغط */}
+             <Feather name="chevron-left" size={24} color={tc.gold} />
+          </View>
+        </TouchableOpacity>
+
+        {/* CTA Button - Direct Purchase Option */}
+        <TouchableOpacity
+          onPress={() => handleSubscribe('buy')} // وضع الشراء العادي
           disabled={isLoading}
           activeOpacity={0.8}
           style={styles.ctaButtonShadow}
@@ -275,7 +299,7 @@ export default function SubscriptionScreen() {
               <>
                 <Feather name="credit-card" size={20} color="#000" style={{ marginRight: 10 }} />
                 <Text style={[styles.ctaText, { fontFamily: 'Cairo-Bold' }]}>
-                  ابدأ الاشتراك الآمن
+                  اشترك الآن مباشرة
                 </Text>
               </>
             )}
@@ -306,7 +330,7 @@ const FeatureItem = ({ icon, label }: { icon: keyof typeof Feather.glyphMap, lab
   );
 };
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+// ── Styles ──────────────────────────────────────────────────────────────────
 const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
@@ -331,8 +355,7 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   mainTitle: {
     fontSize: 26,
     textAlign: 'center',
-    lineHeight: 34,
-    letterSpacing: 0.5,
+    lineHeight: 36, // ← FIX: Increased line-height to prevent top-clipping in Arabic
     writingDirection: 'rtl',
   },
   dividerLine: {
@@ -345,7 +368,7 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   subTitle: {
     fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 24, // ← FIX: Comfortable spacing for readability
     paddingHorizontal: 10,
     writingDirection: 'rtl',
   },
@@ -379,7 +402,7 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   featureLabel: {
     fontSize: 11,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 18, // ← FIX: Prevent clipping in small text too
     writingDirection: 'rtl',
   },
 
@@ -455,7 +478,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   priceAmount: {
     fontSize: 32,
     fontWeight: '800',
-    letterSpacing: -1,
   },
   periodText: {
     fontSize: 13,
@@ -468,8 +490,8 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    borderWidth: 1, // ← FIX: Changed from invalid CSS syntax
-    borderColor: 'rgba(212,175,55,0.3)', // ← FIX: Split into separate properties
+    borderWidth: 1, 
+    borderColor: 'rgba(212,175,55,0.3)', 
   },
   discountText: {
     color: tc.gold,
@@ -478,13 +500,17 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   },
 
   // Trial Banner
+  trialBannerTouchable: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
   trialBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#151B2B',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
