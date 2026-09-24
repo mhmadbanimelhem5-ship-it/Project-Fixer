@@ -13,21 +13,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import Purchases from 'react-native-purchases';
-import * as Font from 'expo-font'; // ← استيراد لتحميل الخط
-import { GlassCard } from '@/components/GlassCard';
-import { ScreenGlow } from '@/components/shared/ScreenGlow';
+import * as Font from 'expo-font';
+import { GlassCard } from '@/components/GlassCard'; 
 import colors from '@/constants/colors';
 import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocalSearchParams } from 'expo-router';
 
-// ── Types for Packages ────────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────────
 interface PackageOffer {
   id: string;
   title: string;
   price: string;
   period: string;
   isBestValue?: boolean;
+  discountLabel?: string;
 }
 
 const MOCK_PACKAGES: PackageOffer[] = [
@@ -43,6 +43,7 @@ const MOCK_PACKAGES: PackageOffer[] = [
     price: '$39.99',
     period: '/ سنوياَ',
     isBestValue: true,
+    discountLabel: 'وفّر ٣٣٪',
   },
 ];
 
@@ -50,34 +51,31 @@ export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const { colors: tc } = useTheme();
   const { t } = useLanguage();
-
-  // ✅ قراءة سبب فتح الشاشة (إذا وجد)
   const { source } = useLocalSearchParams<{ source?: string }>();
 
   const [selectedPackageId, setSelectedPackageId] = useState<string>('yearly');
   const [isLoading, setIsLoading] = useState(false);
   const [packages, setPackages] = useState<PackageOffer[]>(MOCK_PACKAGES);
-
-  // 🔤 حالة تحميل الخط
   const [fontLoaded, setFontLoaded] = useState(false);
 
-  // 📥 تحميل خط Cairo عند بدء التشغيل
+  // Load Font
   useEffect(() => {
     const loadFont = async () => {
       try {
         await Font.loadAsync({
-          'Cairo-Bold': require('../assets/fonts/Cairo.ttf'), // ← مسار الخط الجديد
+          'Cairo-Bold': require('../assets/fonts/Cairo.ttf'),
+          'Cairo-Regular': require('../assets/fonts/Cairo.ttf'),
         });
         setFontLoaded(true);
       } catch (error) {
-        console.warn('Failed to load font:', error);
-        setFontLoaded(true); // Continue even if font fails (fallback to system)
+        console.warn('Font loading failed:', error);
+        setFontLoaded(true);
       }
     };
     loadFont();
   }, []);
 
-  // Fetch real packages from RevenueCat when component mounts
+  // Fetch Offers Logic
   useEffect(() => {
     const fetchOffers = async () => {
       try {
@@ -91,9 +89,9 @@ export default function SubscriptionScreen() {
             price: pkg.product.priceString,
             period: pkg.packageType === 'ANNUAL' ? '/ سنوياَ' : '/ شهرياَ',
             isBestValue: pkg.packageType === 'ANNUAL',
+            discountLabel: pkg.packageType === 'ANNUAL' ? 'وفّر ٣٣٪' : undefined,
           }));
           setPackages(mapped);
-
           const bestVal = mapped.find(p => p.isBestValue);
           if (bestVal) setSelectedPackageId(bestVal.id);
         }
@@ -101,55 +99,23 @@ export default function SubscriptionScreen() {
         console.warn('Failed to load offers:', error);
       }
     };
-
     fetchOffers();
   }, []);
 
-  // ✅ تحديد الرسائل الديناميكية بناءً على المصدر
+  // Dynamic Content Logic
   const dynamicContent = useMemo(() => {
     switch (source) {
-      case 'secrets_limit':
-        return {
-          title: t('sub.dynamicTitles.secrets'), 
-          subtitle: t('sub.dynamicSubtitles.secrets'),
-        };
-
-      case 'add_guardian':
-        return {
-          title: t('sub.dynamicTitles.guardians'), 
-          subtitle: t('sub.dynamicSubtitles.guardians'),
-        };
-
-      case 'legacy_setup':
-        return {
-          title: t('sub.dynamicTitles.legacy'), 
-          subtitle: t('sub.dynamicSubtitles.legacy'),
-        };
-
-      case 'decoy_vault':
-        return {
-          title: t('sub.dynamicTitles.decoy'), 
-          subtitle: t('sub.dynamicSubtitles.decoy'),
-        };
-
-      case 'emergency_mode':
-        return {
-          title: t('sub.dynamicTitles.emergency'), 
-          subtitle: t('sub.dynamicSubtitles.emergency'),
-        };
-
-      default:
-        // الحالة الافتراضية
-        return {
-          title: t('sub.title'),
-          subtitle: t('sub.subtitle'),
-        };
+      case 'secrets_limit': return { title: t('sub.dynamicTitles.secrets'), subtitle: t('sub.dynamicSubtitles.secrets') };
+      case 'add_guardian': return { title: t('sub.dynamicTitles.guardians'), subtitle: t('sub.dynamicSubtitles.guardians') };
+      case 'legacy_setup': return { title: t('sub.dynamicTitles.legacy'), subtitle: t('sub.dynamicSubtitles.legacy') };
+      case 'decoy_vault': return { title: t('sub.dynamicTitles.decoy'), subtitle: t('sub.dynamicSubtitles.decoy') };
+      case 'emergency_mode': return { title: t('sub.dynamicTitles.emergency'), subtitle: t('sub.dynamicSubtitles.emergency') };
+      default: return { title: t('sub.title'), subtitle: t('sub.subtitle') };
     }
   }, [source, t]);
 
   const handleSubscribe = useCallback(async () => {
     if (!selectedPackageId) return;
-
     setIsLoading(true);
     try {
       const offering = await Purchases.getOfferings();
@@ -159,312 +125,420 @@ export default function SubscriptionScreen() {
           (pkg.packageType === 'MONTHLY' && selectedPackageId === 'monthly') ||
           pkg.identifier === selectedPackageId
       );
-
       if (!targetPackage) throw new Error('Package not found');
 
       const purchaseResult = await Purchases.purchasePackage(targetPackage);
-
       if (purchaseResult.customerInfo.entitlements.active['premium']) {
         Alert.alert(t('sub.successTitle'), t('sub.successMessage'));
       } else {
         Alert.alert(t('sub.errorTitle'), t('sub.errorMessage'));
       }
     } catch (err: any) {
-      if (err.userCancelled) {
-        // User closed payment sheet — silent fail
-      } else {
-        Alert.alert(t('sub.errorTitle'), err.message || t('sub.unknownError'));
-      }
+      if (!err.userCancelled) Alert.alert(t('sub.errorTitle'), err.message || t('sub.unknownError'));
     } finally {
       setIsLoading(false);
     }
   }, [selectedPackageId, t]);
 
-  // ⏳ انتظار تحميل الخط قبل عرض المحتوى الرئيسي
   if (!fontLoaded) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={tc.gold} />
-      </View>
-    );
+    return <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}><ActivityIndicator size="large" color={tc.gold} /></View>;
   }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenGlow color="#D4AF37" icon="shield" />
+      {/* Background Glow Effect */}
+      <LinearGradient
+        colors={['rgba(212,175,55,0.1)', 'transparent']}
+        start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
-      {/* Hero Section with Shield Image */}
-      <View style={styles.heroSection}>
-        <Image 
-          source={require('../assets/images/shield.png')} 
-          style={styles.shieldImage}
-          resizeMode="contain"
-        />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Dynamic Title & Subtitle */}
-        <Text style={[styles.title, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
-          {dynamicContent.title}
-        </Text>
-        <Text style={[styles.subtitle, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
-          {dynamicContent.subtitle}
-        </Text>
-      </View>
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <Image 
+            source={require('../assets/images/shield.png')} 
+            style={styles.shieldImage}
+            resizeMode="contain"
+          />
 
-      {/* Features List */}
-      <ScrollView 
-        contentContainerStyle={styles.featuresList}
-        showsVerticalScrollIndicator={false}
-      >
-        {[
-          { icon: 'lock', text: t('sub.feature1') },
-          { icon: 'users', text: t('sub.feature2') },
-          { icon: 'clock', text: t('sub.feature3') },
-          { icon: 'file-text', text: t('sub.feature4') },
-        ].map((feature, idx) => (
-          <View key={idx} style={styles.featureItem}>
-            <View style={[styles.featureIconWrap, { backgroundColor: `${tc.gold}15` }]}>
-              <Feather name={feature.icon as any} size={16} color={tc.gold} />
-            </View>
-            <Text style={[styles.featureText, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
-              {feature.text}
-            </Text>
+          <Text style={[styles.mainTitle, { fontFamily: 'Cairo-Bold', color: '#FFFFFF' }]}>
+            {dynamicContent.title}
+          </Text>
+
+          {/* Gold Divider Line */}
+          <View style={styles.dividerLine} />
+
+          <Text style={[styles.subTitle, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
+            {dynamicContent.subtitle}
+          </Text>
+        </View>
+
+        {/* Features Grid Card */}
+        <GlassCard style={styles.featuresCard}>
+          <View style={styles.featuresRow}>
+            <FeatureItem icon="lock" label="عدد غير محدود من الخزائن المشفرة" />
+            <FeatureItem icon="users" label="إضافة حتى 10 حراس موثوقين للتصويت المشترك" />
+            <FeatureItem icon="clock" label="تنبيهات غياب ذكية وتلقائية (Proof of Life)" />
           </View>
-        ))}
-      </ScrollView>
+        </GlassCard>
 
-      {/* Pricing Cards - Horizontal Layout */}
-      <View style={styles.pricingContainer}>
-        {packages.map((pkg) => (
-          <TouchableOpacity
-            key={pkg.id}
-            onPress={() => !isLoading && setSelectedPackageId(pkg.id)}
-            activeOpacity={0.8}
-            disabled={isLoading}
-            style={styles.cardWrapper}
-          >
-            <GlassCard
-              style={{
-                ...styles.priceCard,
-                ...(selectedPackageId === pkg.id ? styles.selectedPriceCard : {}),
-                ...(pkg.isBestValue ? styles.bestValueBadgeParent : {}),
-              }}
+        {/* Pricing Cards Container */}
+        <View style={styles.pricingContainer}>
+          {packages.map((pkg) => (
+            <TouchableOpacity
+              key={pkg.id}
+              onPress={() => !isLoading && setSelectedPackageId(pkg.id)}
+              activeOpacity={0.9}
+              disabled={isLoading}
+              style={styles.cardTouchWrapper}
             >
-              {pkg.isBestValue && (
-                <View style={styles.badge}>
-                  <Text style={[styles.badgeText, { fontFamily: 'Cairo-Bold' }]}>{t('sub.bestValue')}</Text>
-                </View>
-              )}
+              <View style={[
+                styles.priceCardBase,
+                selectedPackageId === pkg.id ? styles.selectedPriceCardBorder : {},
+                pkg.isBestValue ? styles.bestValueBg : {}
+              ]}>
 
-              <Text style={[styles.pkgTitle, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
-                {pkg.title}
-              </Text>
-              <View style={styles.priceRow}>
-                <Text style={[styles.priceAmount, { fontFamily: 'Cairo-Bold', color: tc.gold }]}>
-                  {pkg.price}
+                {/* Best Value Badge (Inside Top Right) */}
+                {pkg.isBestValue && (
+                  <View style={styles.badgeContainer}>
+                    <Text style={[styles.badgeText, { fontFamily: 'Cairo-Bold' }]}>الأفضل قيمة 👑</Text>
+                  </View>
+                )}
+
+                {/* Selection Checkmark (Top Left) */}
+                {selectedPackageId === pkg.id && (
+                  <View style={styles.checkCircle}>
+                    <Feather name="check" size={16} color="#0A0F1E" />
+                  </View>
+                )}
+
+                <Text style={[styles.pkgName, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
+                  {pkg.title}
                 </Text>
-                <Text style={[styles.pricePeriod, { fontFamily: 'Cairo-Regular', color: tc.textMuted }]}>
-                  {pkg.period}
-                </Text>
+
+                <View style={styles.priceBlock}>
+                  <Text style={[styles.priceAmount, { fontFamily: 'Cairo-Bold', color: tc.gold }]}>
+                    {pkg.price}
+                  </Text>
+                  <Text style={[styles.periodText, { fontFamily: 'Cairo-Regular', color: tc.textMuted }]}>
+                    {pkg.period}
+                  </Text>
+                </View>
+
+                {/* Discount Label */}
+                {pkg.discountLabel && (
+                  <View style={styles.discountPill}>
+                    <Text style={[styles.discountText, { fontFamily: 'Cairo-Regular' }]}>
+                      {pkg.discountLabel}
+                    </Text>
+                  </View>
+                )}
               </View>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-              {selectedPackageId === pkg.id && (
-                <View style={styles.checkmarkWrap}>
-                  <Feather name="check-circle" size={20} color={tc.green} />
-                </View>
-              )}
-            </GlassCard>
-          </TouchableOpacity>
-        ))}
-      </View>
+        {/* Free Trial Banner */}
+        <View style={styles.trialBanner}>
+           <View style={styles.giftIconWrap}>
+             <Feather name="gift" size={20} color={tc.gold} />
+           </View>
+           <View style={styles.trialTextWrap}>
+             <Text style={[styles.trialTitle, { fontFamily: 'Cairo-Bold', color: tc.text }]}>
+               جربه مجاناً لمدة 7 أيام
+             </Text>
+             <Text style={[styles.trialSubtitle, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]}>
+               استمتع بجميع مزايا Premium قبل الدفع.
+             </Text>
+           </View>
+           <Feather name="arrow-left" size={20} color={tc.gold} />
+        </View>
 
-      {/* CTA Button */}
-      <View style={styles.ctaContainer}>
+        {/* CTA Button */}
         <TouchableOpacity
           onPress={handleSubscribe}
           disabled={isLoading}
-          activeOpacity={0.9}
+          activeOpacity={0.8}
+          style={styles.ctaButtonShadow}
         >
           <LinearGradient
-            colors={[tc.gold, '#B8960C']}
+            colors={[tc.gold, '#DAA520']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            style={styles.subscribeBtn}
+            style={styles.ctaButton}
           >
             {isLoading ? (
-              <ActivityIndicator color="#0A0F1E" />
+              <ActivityIndicator color="#000" />
             ) : (
               <>
-                <Feather name="credit-card" size={18} color="#0A0F1E" style={{ marginRight: 8 }} />
-                <Text style={[styles.btnText, { fontFamily: 'Cairo-Bold' }]}>
-                  {t('sub.ctaButton')}
+                <Feather name="credit-card" size={20} color="#000" style={{ marginRight: 10 }} />
+                <Text style={[styles.ctaText, { fontFamily: 'Cairo-Bold' }]}>
+                  ابدأ الاشتراك الآمن
                 </Text>
               </>
             )}
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={[styles.termsText, { fontFamily: 'Cairo-Regular', color: tc.textMuted }]}>
-          {t('sub.termsNote')}
+        <Text style={[styles.footerNote, { fontFamily: 'Cairo-Regular', color: tc.textMuted }]}>
+          يمكنك الإلغاء في أي وقت. سيتم التجديد تلقائياً حسب الخطة المختارة.
         </Text>
-      </View>
+
+      </ScrollView>
     </View>
   );
 }
+
+// Helper Component for Features
+const FeatureItem = ({ icon, label }: { icon: keyof typeof Feather.glyphMap, label: string }) => {
+  const { colors: tc } = useTheme();
+  return (
+    <View style={styles.featureCol}>
+      <View style={styles.featureIconBox}>
+        <Feather name={icon} size={18} color={tc.gold} />
+      </View>
+      <Text style={[styles.featureLabel, { fontFamily: 'Cairo-Regular', color: tc.textSecondary }]} numberOfLines={2}>
+        {label}
+      </Text>
+    </View>
+  );
+};
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tc.background,
+    backgroundColor: '#0B0F19', 
   },
+  scrollContent: {
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+  },
+
+  // Hero
   heroSection: {
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
+    marginTop: 20,
+    marginBottom: 30,
   },
   shieldImage: {
-    width: 180,
-    height: 180,
+    width: 160,
+    height: 160,
     marginBottom: 16,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
+  mainTitle: {
+    fontSize: 26,
     textAlign: 'center',
-    letterSpacing: -0.5,
+    lineHeight: 34,
+    letterSpacing: 0.5,
     writingDirection: 'rtl',
-    lineHeight: 36, // ← حل مشكلة القطع
   },
-  subtitle: {
+  dividerLine: {
+    width: 60,
+    height: 3,
+    backgroundColor: tc.gold,
+    borderRadius: 2,
+    marginVertical: 12,
+  },
+  subTitle: {
     fontSize: 15,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 22,
-    maxWidth: '85%',
-    writingDirection: 'rtl',
-  },
-  featuresList: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  featureIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureText: {
-    fontSize: 14,
-    flex: 1,
-    writingDirection: 'rtl',
-  },
-  pricingContainer: {
-    flexDirection: 'row', // ← التخطيط الأفقي
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  cardWrapper: {
-    flex: 1, // ← توزيع متساوي للعرض
-  },
-  priceCard: {
-    padding: 20,
-    borderWidth: 1.5,
-    borderColor: tc.border,
-    minHeight: 140,
-    justifyContent: 'center',
-    position: 'relative', // ← مهم للشارة البارزة
-  },
-  selectedPriceCard: {
-    borderColor: tc.gold,
-    shadowColor: tc.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  bestValueBadgeParent: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -12, // ← بروز فوق الحافة
-    right: 16,
-    backgroundColor: tc.purple,
+    lineHeight: 24,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    writingDirection: 'rtl',
+  },
+
+  // Features Card
+  featuresCard: {
+    padding: 20,
+    marginBottom: 24,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  featuresRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  featureCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  featureIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(212,175,55,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  featureLabel: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+    writingDirection: 'rtl',
+  },
+
+  // Pricing
+  pricingContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  cardTouchWrapper: {
+    flex: 1,
+  },
+  priceCardBase: {
+    backgroundColor: '#151B2B', 
+    borderRadius: 20,
+    padding: 20,
+    minHeight: 180,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    position: 'relative',
+    overflow: 'hidden', 
+  },
+  selectedPriceCardBorder: {
+    borderColor: tc.gold,
+    borderWidth: 2,
+    shadowColor: tc.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  bestValueBg: {
+    backgroundColor: '#1A2135', 
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: tc.purple, 
+    borderBottomLeftRadius: 12,
+    borderTopRightRadius: 19, 
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     zIndex: 10,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: '#FFF',
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontWeight: 'bold',
   },
-  pkgTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    writingDirection: 'rtl',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  priceAmount: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  pricePeriod: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  checkmarkWrap: {
+  checkCircle: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-  },
-  ctaContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  subscribeBtn: {
-    flexDirection: 'row',
+    top: 15,
+    left: 15,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: tc.green,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
+    zIndex: 10,
+  },
+  pkgName: {
+    fontSize: 18,
+    marginBottom: 10,
+    marginTop: 10, 
+    writingDirection: 'rtl',
+  },
+  priceBlock: {
+    flexDirection: 'column', 
+    alignItems: 'flex-start',
+  },
+  priceAmount: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  periodText: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  discountPill: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(212,175,55,0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1, // ← FIX: Changed from invalid CSS syntax
+    borderColor: 'rgba(212,175,55,0.3)', // ← FIX: Split into separate properties
+  },
+  discountText: {
+    color: tc.gold,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Trial Banner
+  trialBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#151B2B',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  giftIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(212,175,55,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  trialTextWrap: {
+    flex: 1,
+  },
+  trialTitle: {
+    fontSize: 15,
+    marginBottom: 2,
+    writingDirection: 'rtl',
+  },
+  trialSubtitle: {
+    fontSize: 12,
+    writingDirection: 'rtl',
+  },
+
+  // CTA
+  ctaButtonShadow: {
     shadowColor: tc.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 8,
+    borderRadius: 16,
+    marginBottom: 16,
   },
-  btnText: {
-    color: '#0A0F1E',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+  ctaButton: {
+    height: 56,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  termsText: {
+  ctaText: {
+    color: '#000',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  footerNote: {
     fontSize: 11,
     textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 16,
+    marginTop: 8,
+    opacity: 0.6,
     writingDirection: 'rtl',
   },
 });
 
-const styles = makeStyles(colors.dark); // Default theme fallback
+const styles = makeStyles(colors.dark);
