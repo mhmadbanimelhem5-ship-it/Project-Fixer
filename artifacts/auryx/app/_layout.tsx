@@ -35,6 +35,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkLoaded, ClerkProvider, useAuth as useClerkAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { setAuthTokenGetter, setBaseUrl } from '@workspace/api-client-react';
+import Purchases from 'react-native-purchases'; // ← [NEW] Import RevenueCat SDK
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { OfflineScreen } from '@/components/OfflineScreen';
@@ -534,6 +535,26 @@ export default function RootLayout() {
   // web preview render the actual auth screen immediately.
   const [showSplash, setShowSplash] = useState(Platform.OS !== 'web');
   const [fontsReady, setFontsReady] = useState(false);
+
+  // 🔥 [NEW] Initialize RevenueCat SDK 🔥
+  useEffect(() => {
+    const initRevenueCat = async () => {
+      try {
+        
+        const REVENUECAT_ANDROID_KEY = 'goog_wajUnLGEWgHKKevsbPZauLuQGeo'; 
+
+         Purchases.configure({
+          apiKey: REVENUECAT_ANDROID_KEY,
+        });
+
+        console.log('✅ RevenueCat Initialized Successfully');
+      } catch (error) {
+        console.error('❌ Failed to initialize RevenueCat:', error);
+      }
+    };
+
+    initRevenueCat();
+  }, []); // Runs only once on mount
 
   useEffect(() => {
     const timer = setTimeout(() => setTimedOut(true), 4000);
