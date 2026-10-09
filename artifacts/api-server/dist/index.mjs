@@ -33946,7 +33946,7 @@ var require_timing_safe_equal = __commonJS({
         throw new Error(msg);
       }
     }
-    function timingSafeEqual(a, b) {
+    function timingSafeEqual2(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
@@ -33966,7 +33966,7 @@ var require_timing_safe_equal = __commonJS({
       }
       return out === 0;
     }
-    exports.timingSafeEqual = timingSafeEqual;
+    exports.timingSafeEqual = timingSafeEqual2;
   }
 });
 
@@ -70011,34 +70011,125 @@ router8.get(
   }
 );
 var waitlist_default = router8;
-async function cleanupWaitlistVerifications() {
-  const deleted = await db.delete(waitlistVerificationsTable).where(lt(waitlistVerificationsTable.expiresAt, Date.now())).returning({ token: waitlistVerificationsTable.token });
-  if (deleted.length > 0) {
-    console.info("Expired waitlist verification tokens cleaned up", {
-      deleted: deleted.length
-    });
-  }
-}
-setInterval(() => {
-  cleanupWaitlistVerifications().catch((error) => {
-    console.error("Waitlist verification cleanup failed", error);
-  });
-}, 24 * 60 * 60 * 1e3);
-cleanupWaitlistVerifications().catch((error) => {
-  console.error("Initial waitlist verification cleanup failed", error);
-});
 
 // src/routes/subscriptions.ts
 var import_express10 = __toESM(require_express2(), 1);
+import { createHmac, timingSafeEqual } from "node:crypto";
 var router9 = (0, import_express10.Router)();
+var SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
+function parseSignatureHeader(header) {
+  const parts = new Map(
+    header.split(",").map((part) => {
+      const separator = part.indexOf("=");
+      return separator < 0 ? [part.trim(), ""] : [part.slice(0, separator).trim(), part.slice(separator + 1).trim()];
+    })
+  );
+  const timestampText = parts.get("t");
+  const signature = parts.get("v1");
+  if (!timestampText || !/^\d+$/.test(timestampText) || !signature || !/^[a-f\d]{64}$/i.test(signature)) {
+    return null;
+  }
+  const timestamp2 = Number(timestampText);
+  if (!Number.isSafeInteger(timestamp2)) return null;
+  return { timestamp: timestamp2, signature };
+}
+function isValidSignature(rawBody, header, secret) {
+  if (!header) return false;
+  const parsed = parseSignatureHeader(header);
+  if (!parsed) return false;
+  if (Math.abs(Math.floor(Date.now() / 1e3) - parsed.timestamp) > SIGNATURE_TOLERANCE_SECONDS) {
+    return false;
+  }
+  const signedBody = Buffer.concat([Buffer.from(`${parsed.timestamp}.`, "utf8"), rawBody]);
+  const expected = createHmac("sha256", secret).update(signedBody).digest();
+  const received = Buffer.from(parsed.signature, "hex");
+  return received.length === expected.length && timingSafeEqual(expected, received);
+}
+function asRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function eventFromPayload(payload) {
+  const root = asRecord(payload);
+  if (!root) return null;
+  const nestedPayload = asRecord(root.payload);
+  const data = asRecord(root.data);
+  const candidates = [
+    asRecord(root.event),
+    asRecord(nestedPayload?.event),
+    asRecord(data?.event),
+    nestedPayload,
+    data,
+    root
+  ].filter((candidate) => candidate !== null);
+  const event = candidates.find(
+    (candidate) => typeof candidate.type === "string" || typeof candidate.event_type === "string"
+  );
+  return event ?? null;
+}
+function firstString(...values) {
+  return values.find((value) => typeof value === "string" && value.trim().length > 0)?.trim() ?? null;
+}
+function productName(event) {
+  if (typeof event.product_id === "string") return event.product_id;
+  if (Array.isArray(event.product_ids) && typeof event.product_ids[0] === "string") {
+    return event.product_ids[0];
+  }
+  return null;
+}
 router9.post("/webhook", async (req, res) => {
   try {
-    const event = req.body;
-    if (!event || !event.event_type || !event.user_id) {
+    const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
+    if (!secret) {
+      logger.error("REVENUECAT_WEBHOOK_SECRET is not configured");
+      return res.status(503).json({ error: "Webhook authentication is not configured" });
+    }
+    const rawBody = Buffer.isBuffer(req.body) ? req.body : null;
+    const signature = req.get("x-revenuecat-webhook-signature");
+    if (!rawBody || !isValidSignature(rawBody, signature, secret)) {
+      logger.warn(
+        { hasRawBody: Boolean(rawBody), hasSignature: Boolean(signature) },
+        "RevenueCat webhook signature rejected"
+      );
+      return res.status(401).json({ error: "Invalid webhook signature" });
+    }
+    let payload;
+    try {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      logger.warn({ bodyBytes: rawBody.length }, "RevenueCat webhook JSON parsing failed");
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
-    const userId = event.user_id;
-    const eventType = event.event_type;
+    const eventData = eventFromPayload(payload);
+    const root = asRecord(payload);
+    const nestedPayload = asRecord(root?.payload);
+    const data = asRecord(root?.data);
+    const userId = firstString(
+      eventData?.app_user_id,
+      eventData?.user_id,
+      root?.app_user_id,
+      root?.user_id,
+      nestedPayload?.app_user_id,
+      nestedPayload?.user_id,
+      data?.app_user_id,
+      data?.user_id
+    );
+    const eventType = firstString(eventData?.type, eventData?.event_type)?.toUpperCase() ?? null;
+    if (eventType === "TEST") {
+      logger.info("RevenueCat test webhook acknowledged");
+      return res.status(200).json({ received: true });
+    }
+    if (!eventData || !userId || !eventType) {
+      logger.warn(
+        {
+          payloadParsed: true,
+          hasEvent: Boolean(eventData),
+          hasUserId: Boolean(userId),
+          hasEventType: Boolean(eventType)
+        },
+        "RevenueCat webhook payload rejected"
+      );
+      return res.status(400).json({ error: "Invalid webhook payload" });
+    }
     let plan = null;
     let status = null;
     let providerToken = null;
@@ -70046,10 +70137,10 @@ router9.post("/webhook", async (req, res) => {
     switch (eventType) {
       case "INITIAL_PURCHASE":
       case "RENEWAL":
-        plan = event.product_ids?.[0]?.includes("yearly") ? "yearly" : "monthly";
+        plan = productName(eventData)?.toLowerCase().match(/year|annual/) ? "yearly" : "monthly";
         status = "active";
-        providerToken = event.purchase_token ?? null;
-        currentPeriodEnd = event.expiration_at_ms ? Math.floor(event.expiration_at_ms / 1e3) : null;
+        providerToken = firstString(eventData.purchase_token, eventData.transaction_id);
+        currentPeriodEnd = typeof eventData.expiration_at_ms === "number" ? Math.floor(eventData.expiration_at_ms / 1e3) : null;
         break;
       case "CANCELLATION":
         status = "canceled";
@@ -70058,38 +70149,41 @@ router9.post("/webhook", async (req, res) => {
         status = "expired";
         break;
       case "NON_RENEWING_PURCHASE":
-        plan = event.product_ids?.[0]?.includes("yearly") ? "yearly" : "monthly";
+        plan = productName(eventData)?.toLowerCase().match(/year|annual/) ? "yearly" : "monthly";
         status = "grace_period";
         break;
       default:
         logger.info({ eventType }, "Unhandled RevenueCat event type");
-        return res.json({ received: true });
+        return res.status(200).json({ received: true });
     }
-    const existing = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.userId, userId)).limit(1);
     const now = Math.floor(Date.now() / 1e3);
-    if (existing.length > 0) {
-      await db.update(subscriptionsTable).set({
-        ...plan && { plan },
-        ...status && { status },
-        ...providerToken !== void 0 && { providerToken },
-        ...currentPeriodEnd !== void 0 && { currentPeriodEnd },
+    if (plan && status) {
+      await db.insert(subscriptionsTable).values({
+        userId,
+        plan,
+        status,
+        providerToken,
+        currentPeriodEnd,
+        createdAt: now,
         updatedAt: now
-      }).where(eq(subscriptionsTable.userId, userId));
-    } else {
-      if (plan && status) {
-        await db.insert(subscriptionsTable).values({
-          userId,
+      }).onConflictDoUpdate({
+        target: subscriptionsTable.userId,
+        set: {
           plan,
           status,
           providerToken,
           currentPeriodEnd,
-          createdAt: now,
           updatedAt: now
-        });
-      }
+        }
+      });
+    } else {
+      await db.update(subscriptionsTable).set({
+        ...status && { status },
+        updatedAt: now
+      }).where(eq(subscriptionsTable.userId, userId));
     }
-    logger.info({ userId, eventType, status }, "Subscription webhook processed");
-    return res.json({ received: true });
+    logger.info({ eventType, status }, "Subscription webhook processed");
+    return res.status(200).json({ received: true });
   } catch (error) {
     logger.error({ error }, "Failed to process subscription webhook");
     return res.status(500).json({ error: "Internal server error" });
@@ -71421,6 +71515,10 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
+app.use(
+  "/api/subscriptions/webhook",
+  import_express12.default.raw({ type: "application/json", limit: "1mb", inflate: false })
+);
 app.use(import_express12.default.json());
 app.use(import_express12.default.urlencoded({ extended: true }));
 app.use("/api/", generalLimiter);

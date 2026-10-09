@@ -1,6 +1,6 @@
 ---
 name: API Security Guards
-description: Durable rules for API rate limiting and multi-instance absence scheduler coordination.
+description: Durable API security rules for proxy rate limits, scheduler coordination, and Vercel webhook signatures.
 ---
 
 # API Security Guards
@@ -16,3 +16,15 @@ The API runs behind one Replit reverse-proxy hop, so rate limiting must use `tru
 - Use stricter, failed-attempt-only limits on OTP and invitation endpoints.
 - Use `tryAcquire` so overlapping local ticks skip immediately.
 - Acquire and release the same PostgreSQL advisory lock around the scheduler work, and keep only one scheduler definition.
+
+## Vercel webhook signatures
+
+For HMAC webhooks hosted as Vercel Functions, disable Vercel's automatic body parser at the function entry point, then use route-scoped `express.raw()` before the general `express.json()` middleware. The signature must be checked against the original request bytes; never log the raw payload because it may contain user data.
+
+**Why:** Vercel's parser can consume or transform the request before Express middleware sees it, invalidating an HMAC over the original body. Logging the full body can expose personal or subscription data.
+
+**How to apply:**
+- Set the function's `api.bodyParser` configuration to `false`.
+- Install `express.raw()` only on the webhook path, before `express.json()`.
+- Compute the provider's HMAC from the exact raw bytes and its documented timestamp format.
+- Log only safe diagnostics such as content length and whether required fields are present.

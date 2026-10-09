@@ -66,6 +66,13 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
+// RevenueCat HMAC verification needs the exact request bytes. Mount this
+// route-specific parser before express.json() so the webhook handler receives
+// a Buffer instead of a parsed object.
+app.use(
+  "/api/subscriptions/webhook",
+  express.raw({ type: "application/json", limit: "1mb", inflate: false }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
