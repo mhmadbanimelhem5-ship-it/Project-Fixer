@@ -20,6 +20,7 @@ const CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000;
 const LAUNCH_DISCOUNT_PERCENT = 50;
 const LAUNCH_LIMIT = 500;
 const WAITLIST_LOCK_ID = 43;
+
 const waitlistRegistrationSchema = RegisterWaitlistBody.refine(
   (value) => value.privacyAccepted === true,
   { message: "privacyAccepted must be true", path: ["privacyAccepted"] },
@@ -272,24 +273,8 @@ router.get(
 
 export default router;
 
-async function cleanupWaitlistVerifications(): Promise<void> {
-  const deleted = await db
-    .delete(waitlistVerificationsTable)
-    .where(lt(waitlistVerificationsTable.expiresAt, Date.now()))
-    .returning({ token: waitlistVerificationsTable.token });
-  if (deleted.length > 0) {
-    console.info("Expired waitlist verification tokens cleaned up", {
-      deleted: deleted.length,
-    });
-  }
-}
-
-setInterval(() => {
-  cleanupWaitlistVerifications().catch((error) => {
-    console.error("Waitlist verification cleanup failed", error);
-  });
-}, 24 * 60 * 60 * 1000);
-
-cleanupWaitlistVerifications().catch((error) => {
-  console.error("Initial waitlist verification cleanup failed", error);
-});
+// ⚠️ ملاحظة هامة:
+// تم إزالة دالة cleanupWaitlistVerifications و setInterval من هنا.
+// في بيئة Vercel Serverless، محاولة الاتصال بقاعدة البيانات عند تحميل الملف 
+// تسبب انهيار الاتصال (Connection terminated) وتمنع وصول طلبات الـ Webhook.
+// يمكن تنفيذ مهام التنظيف لاحقاً بأمان عبر Vercel Cron Jobs منفصلة.
