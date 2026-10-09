@@ -12,16 +12,23 @@ const router: IRouter = Router();
  */
 router.post("/webhook", async (req, res) => {
   try {
-    // RevenueCat يرسل البيانات أحياناً مباشرة، وأحياناً داخل كائن 'event'
-    const payload = req.body;
-    const eventData = payload.event || payload;
+    // 1. طباعة ما وصل بالضبط عشان نعرف شو المشكلة
+    console.log("🔔 Webhook RAW Body:", JSON.stringify(req.body, null, 2));
 
-    // نقرأ المعرف والنوع من المكان الصح (ندعم الحالتين)
-    const userId = eventData.app_user_id || eventData.user_id;
-    const eventType = eventData.type || eventData.event_type;
+    const payload = req.body;
+    const eventData = payload?.event || payload;
+
+    console.log("🔍 Extracted eventData:", JSON.stringify(eventData, null, 2));
+
+    const userId = eventData?.app_user_id || eventData?.user_id;
+    const eventType = eventData?.type || eventData?.event_type;
+
+    console.log("👤 Extracted userId:", userId);
+    console.log("🏷️ Extracted eventType:", eventType);
 
     // نتأكد إنه حدث اشتراك صالح من RevenueCat
     if (!userId || !eventType) {
+      console.error("❌ فشل التحقق: userId أو eventType مفقود أو غير معرف!");
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
 
