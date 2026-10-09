@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { subscriptionsTable } from "@workspace/db"; // ← صح
+import { subscriptionsTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -12,15 +12,18 @@ const router: IRouter = Router();
  */
 router.post("/webhook", async (req, res) => {
   try {
-    const event = req.body;
+    // RevenueCat يرسل البيانات أحياناً مباشرة، وأحياناً داخل كائن 'event'
+    const payload = req.body;
+    const eventData = payload.event || payload;
+
+    // نقرأ المعرف والنوع من المكان الصح (ندعم الحالتين)
+    const userId = eventData.app_user_id || eventData.user_id;
+    const eventType = eventData.type || eventData.event_type;
 
     // نتأكد إنه حدث اشتراك صالح من RevenueCat
-    if (!event || !event.event_type || !event.user_id) {
+    if (!userId || !eventType) {
       return res.status(400).json({ error: "Invalid webhook payload" });
     }
-
-    const userId = event.user_id;
-    const eventType = event.event_type;
 
     let plan: string | null = null;
     let status: string | null = null;
@@ -30,11 +33,11 @@ router.post("/webhook", async (req, res) => {
     switch (eventType) {
       case "INITIAL_PURCHASE":
       case "RENEWAL":
-        plan = event.product_ids?.[0]?.includes("yearly") ? "yearly" : "monthly";
+        plan = eventData.product_ids?.[0]?.includes("yearly") ? "yearly" : "monthly";
         status = "active";
-        providerToken = event.purchase_token ?? null;
-        currentPeriodEnd = event.expiration_at_ms
-          ? Math.floor(event.expiration_at_ms / 1000)
+        providerToken = eventData.purchase_token ?? null;
+        currentPeriodEnd = eventData.expiration_at_ms
+          ? Math.floor(eventData.expiration_at_ms / 1000)
           : null;
         break;
 
@@ -47,7 +50,7 @@ router.post("/webhook", async (req, res) => {
         break;
 
       case "NON_RENEWING_PURCHASE":
-        plan = event.product_ids?.[0]?.includes("yearly") ? "yearly" : "monthly";
+        plan = eventData.product_ids?.[0]?.includes("yearly") ? "yearly" : "monthly";
         status = "grace_period";
         break;
 
