@@ -32,10 +32,10 @@ import { ActivityIndicator, Animated, Platform, Text, TouchableOpacity, View } f
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ClerkLoaded, ClerkProvider, useAuth as useClerkAuth } from '@clerk/expo';
+import { ClerkLoaded, ClerkProvider, useAuth as useClerkAuth, useUser } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { setAuthTokenGetter, setBaseUrl } from '@workspace/api-client-react';
-import Purchases from 'react-native-purchases'; // ← [NEW] Import RevenueCat SDK
+import Purchases from 'react-native-purchases';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { OfflineScreen } from '@/components/OfflineScreen';
@@ -316,10 +316,38 @@ function KeyGeneratingOverlay() {
 function RootLayoutNav() {
   const { isLocked, isSetup, vaultKey, isDecoyMode } = useAuth();
   const { isLoaded: clerkLoaded, isSignedIn, getToken } = useClerkAuth();
+  const { user } = useUser(); // Get current Clerk user
   const { loadVault, loadDecoyVault, lockVaultSession, isVaultReady, legacy } = useVault();
   const { colors: c } = useTheme();
   const router = useRouter();
   const segments = useSegments();
+
+  // ── RevenueCat Identity Sync ────────────────────────────────────────────────
+  // Syncs Clerk authentication state with RevenueCat to ensure subscriptions
+  // are tied to the user's permanent identity (not anonymous device ID).
+  // This enables subscription recovery across devices and after reinstallation.
+  useEffect(() => {
+    if (!clerkLoaded) return;
+
+    const syncRevenueCatIdentity = async () => {
+      try {
+        if (isSignedIn && user?.id) {
+          // User is signed in — link RevenueCat to Clerk user ID
+          await Purchases.logIn(user.id);
+          console.log('[Auryx][RevenueCat] Identity synced:', user.id);
+        } else {
+          // User signed out — revert to anonymous mode (security for shared devices)
+          await Purchases.logOut();
+          console.log('[Auryx][RevenueCat] Logged out (anonymous mode)');
+        }
+      } catch (error) {
+        console.error('[Auryx][RevenueCat] Identity sync failed:', error);
+        // Don't throw — auth flow should continue even if RC sync fails
+      }
+    };
+
+    syncRevenueCatIdentity();
+  }, [clerkLoaded, isSignedIn, user?.id]);
 
   useEffect(() => {
     if (!clerkLoaded) return;
@@ -426,7 +454,7 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   const handleSafetyFired = React.useCallback(() => {
     console.warn('[Auryx] AnimatedSplash completed via safety timer — possible frame-drop or native animation interruption on this device.');
     setTouchWarn(true);
-    if (touchWarnTimerRef.current) clearTimeout(touchWarnTimerRef.current);
+    if (touchWarnTimerRef.current) clearTimeout(touchWarnTimer.current);
     touchWarnTimerRef.current = setTimeout(() => setTouchWarn(false), 4000);
   }, []);
 
@@ -536,14 +564,13 @@ export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(Platform.OS !== 'web');
   const [fontsReady, setFontsReady] = useState(false);
 
-  // 🔥 [NEW] Initialize RevenueCat SDK 🔥
+  // 🔥 [NEW] Initialize RevenueCat SDK
   useEffect(() => {
     const initRevenueCat = async () => {
       try {
-        
         const REVENUECAT_ANDROID_KEY = 'goog_wajUnLGEWgHKKevsbPZauLuQGeo'; 
 
-         Purchases.configure({
+        Purchases.configure({
           apiKey: REVENUECAT_ANDROID_KEY,
         });
 

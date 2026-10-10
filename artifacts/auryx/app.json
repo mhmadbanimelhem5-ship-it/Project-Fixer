@@ -2,7 +2,7 @@
   "expo": {
     "name": "Auryx",
     "slug": "auryx-1",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "auryx",
@@ -26,7 +26,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "package": "app.auryx.mobile",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0F1E"

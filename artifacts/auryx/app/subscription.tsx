@@ -118,7 +118,6 @@ export default function SubscriptionScreen() {
   const handleSubscribe = useCallback(async (mode: 'trial' | 'buy' = 'buy') => {
     if (!selectedPackageId) return;
 
-    // Force yearly plan for trials (standard practice)
     const targetPlan = mode === 'trial' ? 'yearly' : selectedPackageId;
 
     setIsLoading(true);
@@ -152,6 +151,30 @@ export default function SubscriptionScreen() {
       setIsLoading(false);
     }
   }, [selectedPackageId, t]);
+
+  // ✅ إضافة جديدة: دالة استعادة المشتريات
+  const handleRestorePurchases = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+
+      // التحقق من وجود اشتراك فعال
+      const hasActiveEntitlement = customerInfo.entitlements.active['premium'] !== undefined;
+
+      if (hasActiveEntitlement) {
+        Alert.alert("تم بنجاح ✅", "تم استعادة اشتراكك، استمتع بالمزايا!");
+      } else {
+        Alert.alert("عذراً", "لم يتم العثور على مشتريات سابقة مرتبطة بهذا الحساب.");
+      }
+    } catch (error: any) {
+      if (!error.userCancelled) {
+        Alert.alert("خطأ", "حدث خطأ أثناء محاولة الاستعادة.");
+        console.error("Restore error:", error);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   if (!fontLoaded) {
     return <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}><ActivityIndicator size="large" color={tc.gold} /></View>;
@@ -259,8 +282,8 @@ export default function SubscriptionScreen() {
           activeOpacity={0.8}
           disabled={isLoading}
           onPress={() => {
-            setSelectedPackageId('yearly'); // إجبار اختيار السنوي للتجربة
-            handleSubscribe('trial');       // استدعاء الدالة بوضع التجربة
+            setSelectedPackageId('yearly'); 
+            handleSubscribe('trial');       
           }}
           style={styles.trialBannerTouchable}
         >
@@ -276,14 +299,13 @@ export default function SubscriptionScreen() {
                  استمتع بجميع مزايا Premium قبل الدفع.
                </Text>
              </View>
-             {/* سهم يدل على أنه قابل للضغط */}
              <Feather name="chevron-left" size={24} color={tc.gold} />
           </View>
         </TouchableOpacity>
 
         {/* CTA Button - Direct Purchase Option */}
         <TouchableOpacity
-          onPress={() => handleSubscribe('buy')} // وضع الشراء العادي
+          onPress={() => handleSubscribe('buy')}
           disabled={isLoading}
           activeOpacity={0.8}
           style={styles.ctaButtonShadow}
@@ -304,6 +326,18 @@ export default function SubscriptionScreen() {
               </>
             )}
           </LinearGradient>
+        </TouchableOpacity>
+
+        {/* ✅ إضافة جديدة: زر استعادة المشتريات */}
+        <TouchableOpacity
+          onPress={handleRestorePurchases}
+          disabled={isLoading}
+          activeOpacity={0.7}
+          style={{ marginTop: 8, marginBottom: 16, alignItems: 'center' }}
+        >
+          <Text style={{ fontFamily: 'Cairo-Regular', color: tc.textMuted, fontSize: 14, textDecorationLine: 'underline' }}>
+            استعادة المشتريات
+          </Text>
         </TouchableOpacity>
 
         <Text style={[styles.footerNote, { fontFamily: 'Cairo-Regular', color: tc.textMuted }]}>
@@ -340,8 +374,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
-
-  // Hero
   heroSection: {
     alignItems: 'center',
     marginTop: 20,
@@ -355,7 +387,7 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   mainTitle: {
     fontSize: 26,
     textAlign: 'center',
-    lineHeight: 36, // ← FIX: Increased line-height to prevent top-clipping in Arabic
+    lineHeight: 36,
     writingDirection: 'rtl',
   },
   dividerLine: {
@@ -368,12 +400,10 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   subTitle: {
     fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24, // ← FIX: Comfortable spacing for readability
+    lineHeight: 24,
     paddingHorizontal: 10,
     writingDirection: 'rtl',
   },
-
-  // Features Card
   featuresCard: {
     padding: 20,
     marginBottom: 24,
@@ -402,11 +432,9 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   featureLabel: {
     fontSize: 11,
     textAlign: 'center',
-    lineHeight: 18, // ← FIX: Prevent clipping in small text too
+    lineHeight: 18,
     writingDirection: 'rtl',
   },
-
-  // Pricing
   pricingContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -498,8 +526,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-
-  // Trial Banner
   trialBannerTouchable: {
     marginBottom: 16,
     borderRadius: 16,
@@ -535,8 +561,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     writingDirection: 'rtl',
   },
-
-  // CTA
   ctaButtonShadow: {
     shadowColor: tc.gold,
     shadowOffset: { width: 0, height: 4 },

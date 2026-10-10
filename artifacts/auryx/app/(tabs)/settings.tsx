@@ -13,11 +13,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import Purchases from 'react-native-purchases'; // ✅ تمت الإضافة
 import { GlassCard } from '@/components/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVault } from '@/contexts/VaultContext';
@@ -28,8 +30,6 @@ import { getStealthMode, saveStealthMode } from '@/utils/stealthStore';
 import { usePremiumGuard } from '@/hooks/usePremiumGuard';
 
 /* ─── Setting row ─── */
-// React.memo: settings list is long; memo prevents each row from re-rendering
-// whenever an unrelated toggle changes elsewhere on the screen.
 const SettingRow = React.memo(function SettingRow({
   icon, iconColor = '#D4AF37', title, subtitle,
   value, onPress, onToggle, isToggle = false, isDanger = false, showArrow = true,
@@ -44,8 +44,8 @@ const SettingRow = React.memo(function SettingRow({
     <TouchableOpacity
       style={styles.settingRow}
       onPress={onPress}
-      activeOpacity={isToggle? 1 : 0.7}
-      disabled={isToggle &&!onPress}
+      activeOpacity={isToggle ? 1 : 0.7}
+      disabled={isToggle && !onPress}
     >
       <View style={[styles.settingIcon, { backgroundColor: `${iconColor}20` }]}>
         <Feather name={icon as any} size={18} color={iconColor} />
@@ -54,14 +54,14 @@ const SettingRow = React.memo(function SettingRow({
         <Text style={[styles.settingTitle, isDanger && { color: tc.red }]}>{title}</Text>
         {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
       </View>
-      {isToggle? (
+      {isToggle ? (
         <Switch
           value={value}
           onValueChange={onToggle}
           trackColor={{ false: tc.glass, true: `${iconColor}60` }}
-          thumbColor={value? iconColor : tc.textSecondary}
+          thumbColor={value ? iconColor : tc.textSecondary}
         />
-      ) : showArrow? (
+      ) : showArrow ? (
         <Feather name="chevron-right" size={16} color={tc.textMuted} />
       ) : null}
     </TouchableOpacity>
@@ -88,7 +88,7 @@ function PinSetupModal({
 
   const handleDone = () => {
     if (pin.length < minLen) { setError(t('settings.pinMinLengthError', { n: minLen })); return; }
-    if (pin!== confirm) { setError(t('settings.pinMismatchError')); return; }
+    if (pin !== confirm) { setError(t('settings.pinMismatchError')); return; }
     setError('');
     onConfirm(pin);
     setPin(''); setConfirm('');
@@ -103,7 +103,7 @@ function PinSetupModal({
   const styles = useMemo(() => makeStyles(tc), [tc]);
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onCancel}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
@@ -135,7 +135,7 @@ function PinSetupModal({
             autoComplete="off"
             spellCheck={false}
           />
-          {error? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalCancel} onPress={handleCancel}>
               <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
@@ -191,7 +191,7 @@ function ChangePinModal({
       if (newPin === currentPin) { setError(t('settings.changePinErrSame')); return; }
       setStep('confirm');
     } else {
-      if (confirmPin!== newPin) { setError(t('settings.changePinErrMismatch')); setConfirmPin(''); return; }
+      if (confirmPin !== newPin) { setError(t('settings.changePinErrMismatch')); setConfirmPin(''); return; }
       setLoading(true);
       const ok = await changePin(currentPin, newPin);
       setLoading(false);
@@ -199,7 +199,7 @@ function ChangePinModal({
         setError(t('settings.changePinErrGeneric'));
         reset();
       } else {
-        if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         handleClose();
         Alert.alert(t('settings.changePinSuccessTitle'), t('settings.changePinSuccessMsg'));
       }
@@ -224,14 +224,14 @@ function ChangePinModal({
     },
   };
   const { title, subtitle, placeholder } = stepLabels[step];
-  const currentValue = step === 'current'? currentPin : step === 'new'? newPin : confirmPin;
-  const currentSetter = step === 'current'? setCurrentPin : step === 'new'? setNewPin : setConfirmPin;
+  const currentValue = step === 'current' ? currentPin : step === 'new' ? newPin : confirmPin;
+  const currentSetter = step === 'current' ? setCurrentPin : step === 'new' ? setNewPin : setConfirmPin;
 
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
@@ -265,7 +265,7 @@ function ChangePinModal({
             spellCheck={false}
           />
 
-          {error? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalCancel} onPress={handleClose}>
@@ -322,7 +322,7 @@ function AuditLogModal({ visible, onClose, auditLog }: {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
-            {auditLog.length === 0? (
+            {auditLog.length === 0 ? (
               <View style={styles.auditEmpty}>
                 <Feather name="check-circle" size={32} color={tc.textMuted} />
                 <Text style={styles.auditEmptyText}>{t('settings.auditLogEmpty')}</Text>
@@ -381,7 +381,7 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
       setCopied(true);
       if (copiedTimer.current) clearTimeout(copiedTimer.current);
       copiedTimer.current = setTimeout(() => setCopied(false), 2500);
-      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Alert.alert(t('settings.copyFailedTitle'), t('settings.copyFailedMsg'));
     }
@@ -427,7 +427,6 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
             </TouchableOpacity>
           </View>
 
-          {/* Stats */}
           <View style={styles.backupStats}>
             {[
               { label: t('settings.backupStatItems'), value: items.length, color: tc.blue },
@@ -441,7 +440,6 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
             ))}
           </View>
 
-          {/* Encrypted preview */}
           <View style={styles.backupPreview}>
             <Text style={styles.backupPreviewLabel}>{t('settings.backupPreviewLabel')}</Text>
             <Text style={styles.backupPreviewText} numberOfLines={3}>{shortKey}</Text>
@@ -449,9 +447,9 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
 
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalCancel} onPress={handleCopy}>
-              <Feather name={copied? 'check' : 'copy'} size={14} color={copied? tc.green : tc.textSecondary} style={{ marginRight: 6 }} />
+              <Feather name={copied ? 'check' : 'copy'} size={14} color={copied ? tc.green : tc.textSecondary} style={{ marginRight: 6 }} />
               <Text style={[styles.modalCancelText, copied && { color: tc.green }]}>
-                {copied? t('common.copied') : t('common.copy')}
+                {copied ? t('common.copied') : t('common.copy')}
               </Text>
             </TouchableOpacity>
             {Platform.OS === 'web' && (
@@ -492,7 +490,7 @@ function EditProfileModal({
     const n = name.trim();
     const e = email.trim().toLowerCase();
     if (!n) { setNameErr(t('onboarding.nameRequired')); return; }
-    if (!e ||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setEmailErr(t('guardians.invalidEmail')); return; }
+    if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setEmailErr(t('guardians.invalidEmail')); return; }
     onConfirm(n, e);
   };
 
@@ -503,20 +501,19 @@ function EditProfileModal({
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]}
           onPress={onCancel}
         />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios'? 'padding' : undefined}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{t('settings.editProfileTitle')}</Text>
             <Text style={styles.modalSubtitle}>{t('settings.editProfileSub')}</Text>
 
-            {/* Name field */}
             <View style={styles.profileInputGroup}>
               <View style={styles.profileInputLabel}>
                 <Feather name="user" size={13} color={tc.gold} />
                 <Text style={styles.profileLabelText}>{t('settings.profileNameLabel')}</Text>
               </View>
               <TextInput
-                style={[styles.pinInput, nameErr? { borderColor: tc.red } : null]}
+                style={[styles.pinInput, nameErr ? { borderColor: tc.red } : null]}
                 placeholder={t('onboarding.namePlaceholder')}
                 placeholderTextColor={tc.textMuted}
                 value={name}
@@ -525,17 +522,16 @@ function EditProfileModal({
                 autoCorrect={false}
                 returnKeyType="next"
               />
-              {nameErr? <Text style={styles.errorText}>{nameErr}</Text> : null}
+              {nameErr ? <Text style={styles.errorText}>{nameErr}</Text> : null}
             </View>
 
-            {/* Email field */}
             <View style={styles.profileInputGroup}>
               <View style={styles.profileInputLabel}>
                 <Feather name="mail" size={13} color={tc.purple} />
                 <Text style={styles.profileLabelText}>{t('settings.profileEmailLabel')}</Text>
               </View>
               <TextInput
-                style={[styles.pinInput, emailErr? { borderColor: tc.red } : null]}
+                style={[styles.pinInput, emailErr ? { borderColor: tc.red } : null]}
                 placeholder={t('onboarding.emailPlaceholder')}
                 placeholderTextColor={tc.textMuted}
                 value={email}
@@ -546,7 +542,7 @@ function EditProfileModal({
                 returnKeyType="done"
                 onSubmitEditing={handleSave}
               />
-              {emailErr? <Text style={styles.errorText}>{emailErr}</Text> : null}
+              {emailErr ? <Text style={styles.errorText}>{emailErr}</Text> : null}
             </View>
 
             <View style={styles.modalActions}>
@@ -613,11 +609,12 @@ export default function SettingsScreen() {
 
   const [decoyVaultEnabled, setDecoyVaultEnabled] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false); // ✅ حالة التحميل للاستعادة
 
-  // Load persisted stealth mode on mount
   useEffect(() => {
     getStealthMode().then(val => setStealthMode(val));
   }, []);
+
   const [showDecoyModal, setShowDecoyModal] = useState(false);
   const [showChangePinModal, setShowChangePinModal] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
@@ -626,7 +623,29 @@ export default function SettingsScreen() {
   const [showWipeConfirm, setShowWipeConfirm] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
 
-  const tabBarHeight = 60 + (Platform.OS === 'web'? 34 : insets.bottom);
+  const tabBarHeight = 60 + (Platform.OS === 'web' ? 34 : insets.bottom);
+
+  // ✅ دالة استعادة المشتريات
+  const handleRestorePurchases = async () => {
+    setIsRestoring(true);
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+      const hasActiveEntitlement = customerInfo.entitlements.active['premium'] !== undefined;
+
+      if (hasActiveEntitlement) {
+        Alert.alert(t('sub.successTitle') || 'تم بنجاح ✅', 'تم استعادة اشتراكك، استمتع بالمزايا!');
+      } else {
+        Alert.alert('عذراً', 'لم يتم العثور على مشتريات سابقة مرتبطة بهذا الحساب.');
+      }
+    } catch (error: any) {
+      if (!error.userCancelled) {
+        Alert.alert('خطأ', 'حدث خطأ أثناء محاولة الاستعادة.');
+        console.error('Restore error:', error);
+      }
+    } finally {
+      setIsRestoring(false);
+    }
+  };
 
   const handleBiometricsToggle = async (val: boolean) => {
     if (val) {
@@ -655,9 +674,8 @@ export default function SettingsScreen() {
 
   const handleDecoyToggle = async (val: boolean) => {
     if (val) {
-      // Decoy Vault is a Premium-only feature — gate before opening setup
       const allowed = await checkAndGate('decoy_vault');
-      if (!allowed) return; // Paywall opened — do not show setup modal
+      if (!allowed) return;
       setShowDecoyModal(true);
     } else {
       Alert.alert(t('settings.disableDecoyTitle'), t('settings.disableDecoyMsg'), [
@@ -672,7 +690,7 @@ export default function SettingsScreen() {
       await setupDecoyPin(pin);
       setDecoyVaultEnabled(true);
       setShowDecoyModal(false);
-      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(t('settings.decoyActiveTitle'), t('settings.decoyActiveMsg'));
     } catch (err) {
       console.warn('[auryx][settings] handleDecoyPinSet error:', err);
@@ -683,7 +701,7 @@ export default function SettingsScreen() {
   const handleLogoutConfirmed = () => {
     try {
       setShowLogoutConfirm(false);
-      if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       lock();
     } catch (err) {
       console.warn('[auryx][settings] handleLogoutConfirmed error:', err);
@@ -695,7 +713,7 @@ export default function SettingsScreen() {
     try {
       setShowWipeConfirm(false);
       await wipeAll();
-      if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } catch (err) {
       console.warn('[auryx][settings] handleWipeConfirmed error:', err);
       Alert.alert(t('settings.genericErrorTitle'), t('settings.genericErrorMsg'));
@@ -703,9 +721,9 @@ export default function SettingsScreen() {
   };
 
   const toggleLanguage = () => {
-    const newLang = language === 'en'? 'ar' : 'en';
+    const newLang = language === 'en' ? 'ar' : 'en';
     setLanguage(newLang);
-    if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   const { colors: tc, mode: themeMode, setMode: setThemeMode } = useTheme();
@@ -720,7 +738,7 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: tc.background }]}>
       <ScreenGlow color="#3B82F6" icon="settings" />
-      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'web'? 67 : 0) }]}>
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 0) }]}>
         <Text style={styles.headerTitle}>{t('settings.title')}</Text>
       </View>
 
@@ -729,7 +747,6 @@ export default function SettingsScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 20 }]}
       >
-        {/* My Profile — owner role */}
         {legacy.userRole === 'owner' && (
           <>
             <SectionHeader title={t('settings.myProfile')} />
@@ -738,15 +755,15 @@ export default function SettingsScreen() {
                 <View style={styles.profileAvatarRow}>
                   <View style={styles.profileAvatar}>
                     <Text style={styles.profileAvatarText}>
-                      {(legacy.ownerName?? '?').charAt(0).toUpperCase()}
+                      {(legacy.ownerName ?? '?').charAt(0).toUpperCase()}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.profileName} numberOfLines={1}>
-                      {legacy.ownerName?? '—'}
+                      {legacy.ownerName ?? '—'}
                     </Text>
                     <Text style={styles.profileEmail} numberOfLines={1}>
-                      {legacy.ownerEmail?? '—'}
+                      {legacy.ownerEmail ?? '—'}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -763,7 +780,6 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {/* Connected Vault Info — beneficiary role */}
         {legacy.userRole === 'beneficiary' && (
           <>
             <SectionHeader title={t('settings.connectedVault')} />
@@ -772,7 +788,7 @@ export default function SettingsScreen() {
                 <View style={styles.profileAvatarRow}>
                   <View style={[styles.profileAvatar, { backgroundColor: 'rgba(212,175,55,0.15)', borderColor: 'rgba(212,175,55,0.35)' }]}>
                     <Text style={styles.profileAvatarText}>
-                      {(legacy.beneficiaryOwnerName?? legacy.ownerEmail?? '?').charAt(0).toUpperCase()}
+                      {(legacy.beneficiaryOwnerName ?? legacy.ownerEmail ?? '?').charAt(0).toUpperCase()}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -793,7 +809,6 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {/* Security */}
         <SectionHeader title={t('settings.security')} />
         <GlassCard style={styles.sectionCard} padding={0}>
           <SettingRow
@@ -845,7 +860,7 @@ export default function SettingsScreen() {
             onToggle={async (val: boolean) => {
               setStealthMode(val);
               await saveStealthMode(val);
-              if (Platform.OS!== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }}
           />
           <View style={styles.rowDivider} />
@@ -858,7 +873,6 @@ export default function SettingsScreen() {
           />
         </GlassCard>
 
-        {/* Language */}
         <SectionHeader title={t('settings.language')} />
         <GlassCard style={styles.sectionCard} padding={0}>
           <TouchableOpacity style={styles.settingRow} onPress={toggleLanguage} activeOpacity={0.7}>
@@ -867,15 +881,14 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingTitle}>{t('settings.changeLanguage')}</Text>
-              <Text style={styles.settingSubtitle}>{language === 'en'? 'English → العربية' : 'العربية → English'}</Text>
+              <Text style={styles.settingSubtitle}>{language === 'en' ? 'English → العربية' : 'العربية → English'}</Text>
             </View>
             <View style={styles.langBadge}>
-              <Text style={styles.langBadgeText}>{language === 'en'? 'EN' : 'AR'}</Text>
+              <Text style={styles.langBadgeText}>{language === 'en' ? 'EN' : 'AR'}</Text>
             </View>
           </TouchableOpacity>
         </GlassCard>
 
-        {/* Appearance */}
         <SectionHeader title={t('settings.appearance')} />
         <GlassCard style={styles.sectionCard} padding={0}>
           {(['dark', 'light', 'system'] as ThemeMode[]).map((m, idx, arr) => {
@@ -886,12 +899,12 @@ export default function SettingsScreen() {
                   style={styles.settingRow}
                   onPress={() => {
                     setThemeMode(m);
-                    if (Platform.OS!== 'web') Haptics.selectionAsync();
+                    if (Platform.OS !== 'web') Haptics.selectionAsync();
                   }}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.settingIcon, { backgroundColor: isSelected? `${tc.gold}20` : `${tc.textMuted}15` }]}>
-                    <Feather name={m === 'dark'? 'moon' : m === 'light'? 'sun' : 'smartphone'} size={18} color={isSelected? tc.gold : tc.textMuted} />
+                  <View style={[styles.settingIcon, { backgroundColor: isSelected ? `${tc.gold}20` : `${tc.textMuted}15` }]}>
+                    <Feather name={m === 'dark' ? 'moon' : m === 'light' ? 'sun' : 'smartphone'} size={18} color={isSelected ? tc.gold : tc.textMuted} />
                   </View>
                   <View style={styles.settingContent}>
                     <Text style={[styles.settingTitle, isSelected && { color: tc.gold }]}>{modeLabels[m]}</Text>
@@ -904,7 +917,6 @@ export default function SettingsScreen() {
           })}
         </GlassCard>
 
-        {/* Backup */}
         <SectionHeader title={t('settings.backup')} />
         <GlassCard style={styles.sectionCard} padding={0}>
           <SettingRow
@@ -913,7 +925,7 @@ export default function SettingsScreen() {
             title={t('settings.encryptedBackup')}
             subtitle={t('settings.backupSubExport', { count: items.length })}
             onPress={() => {
-              if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowBackupModal(true);
             }}
           />
@@ -924,13 +936,37 @@ export default function SettingsScreen() {
             title={t('settings.backup_now')}
             subtitle={t('settings.backupNowSub')}
             onPress={() => {
-              if (Platform.OS!== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowBackupModal(true);
             }}
           />
         </GlassCard>
 
-        {/* Vault Owner Info — only visible to beneficiary-role users */}
+        {/* ✅ قسم الاشتراك واستعادة المشتريات (محدث ليدعم اللغات) */}
+        <SectionHeader title={t('settings.subscription') || 'الاشتراك'} />
+        <GlassCard style={styles.sectionCard} padding={0}>
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={handleRestorePurchases}
+            disabled={isRestoring}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.settingIcon, { backgroundColor: 'rgba(212,175,55,0.15)' }]}>
+              {isRestoring ? (
+                <ActivityIndicator size="small" color={tc.gold} />
+              ) : (
+                <Feather name="refresh-cw" size={18} color={tc.gold} />
+              )}
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('settings.restorePurchases') || 'استعادة المشتريات'}</Text>
+              <Text style={styles.settingSubtitle}>
+                {t('settings.restorePurchasesSubtitle') || 'استرجع اشتراكك إذا قمت بتغيير الجهاز'}
+              </Text>
+            </View>
+            {isRestoring && <ActivityIndicator size="small" color={tc.gold} style={{ marginLeft: 8 }} />}
+          </TouchableOpacity>
+        </GlassCard>
         {legacy.userRole === 'beneficiary' && (legacy.beneficiaryOwnerName || legacy.ownerEmail) && (
           <>
             <SectionHeader title={t('settings.ownerInfo')} />
@@ -945,13 +981,13 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <View style={styles.rowDivider} />
-                {legacy.beneficiaryOwnerName? (
+                {legacy.beneficiaryOwnerName ? (
                   <View style={styles.ownerInfoRow}>
                     <Text style={styles.ownerInfoLabel}>{t('settings.ownerInfoNameLabel')}</Text>
                     <Text style={styles.ownerInfoValue}>{legacy.beneficiaryOwnerName}</Text>
                   </View>
                 ) : null}
-                {legacy.ownerEmail? (
+                {legacy.ownerEmail ? (
                   <>
                     <View style={styles.rowDivider} />
                     <View style={styles.ownerInfoRow}>
@@ -965,7 +1001,6 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {/* Danger Zone */}
         <SectionHeader title={t('settings.danger')} />
         <GlassCard variant="red" style={styles.sectionCard} padding={0}>
           <SettingRow
@@ -990,7 +1025,6 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* ── Modals ── */}
-
       <PinSetupModal
         visible={showDecoyModal}
         title={t('settings.decoyPinTitle')}
@@ -1023,8 +1057,8 @@ export default function SettingsScreen() {
 
       <EditProfileModal
         visible={showEditProfile}
-        currentName={legacy.ownerName?? ''}
-        currentEmail={legacy.ownerEmail?? ''}
+        currentName={legacy.ownerName ?? ''}
+        currentEmail={legacy.ownerEmail ?? ''}
         onConfirm={(name, email) => {
           updateLegacy({ ownerName: name, ownerEmail: email });
           setShowEditProfile(false);
@@ -1090,7 +1124,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     textAlign: 'center', fontSize: 12, color: tc.textMuted,
     fontFamily: 'Poppins_400Regular', marginTop: 24, marginBottom: 8,
   },
-  // Modal shared
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: '#0D1428', borderTopLeftRadius: 28, borderTopRightRadius: 28,
@@ -1121,7 +1154,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   modalConfirmGrad: { paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
   modalConfirmText: { color: '#fff', fontWeight: '700', fontFamily: 'Poppins_700Bold', fontSize: 14 },
   closeBtn: { padding: 4 },
-  // Change PIN header
   changePinHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
   changePinSteps: { flexDirection: 'row', gap: 6, paddingTop: 6 },
   changePinDot: {
@@ -1130,7 +1162,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   },
   changePinDotActive: { backgroundColor: tc.gold, borderColor: tc.gold },
   changePinDotDone: { backgroundColor: tc.green, borderColor: tc.green },
-  // Audit log
   auditHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   auditHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   auditEmpty: { alignItems: 'center', gap: 12, paddingVertical: 32 },
@@ -1140,7 +1171,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   auditAction: { fontSize: 12, color: tc.text, fontFamily: 'Poppins_400Regular', lineHeight: 18 },
   auditTime: { fontSize: 10, color: tc.textSecondary, fontFamily: 'Poppins_400Regular', marginTop: 2 },
   auditHash: { fontSize: 9, color: tc.textMuted, fontFamily: 'Poppins_400Regular', marginTop: 1 },
-  // Backup
   backupStats: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   backupStatCell: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: tc.glass, borderRadius: 12, borderWidth: 1, borderColor: tc.glassBorder },
   backupStatVal: { fontSize: 18, fontWeight: '700', fontFamily: 'Poppins_700Bold' },
@@ -1148,7 +1178,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   backupPreview: { backgroundColor: tc.glass, borderRadius: 12, borderWidth: 1, borderColor: tc.glassBorder, padding: 12, marginBottom: 16 },
   backupPreviewLabel: { fontSize: 9, letterSpacing: 1.5, color: tc.textMuted, fontFamily: 'Poppins_700Bold', textTransform: 'uppercase', marginBottom: 6 },
   backupPreviewText: { fontSize: 11, color: tc.textSecondary, fontFamily: 'Poppins_400Regular', lineHeight: 16 },
-  // My Profile (owner view)
   profileCard: { padding: 16 },
   profileAvatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   profileAvatar: {
@@ -1170,7 +1199,6 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   profileInputGroup: { marginBottom: 14 },
   profileInputLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   profileLabelText: { fontSize: 12, color: tc.textSecondary, fontFamily: 'Poppins_600SemiBold' },
-  // Vault owner info (beneficiary view)
   ownerInfoCard: { overflow: 'hidden' },
   ownerInfoIconRow: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
