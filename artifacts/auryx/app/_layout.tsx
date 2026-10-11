@@ -4,10 +4,6 @@
 import '@/setup/polyfill';
 
 // ── Production console suppression ────────────────────────────────────────────
-// console.log/warn/info are synchronous on Hermes and measurably slow the JS
-// thread in production APKs. Suppress them completely in release builds.
-// console.error is kept so crash reporters / error boundaries can still surface
-// critical failures.
 if (!__DEV__) {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   const noop = () => {};
@@ -55,9 +51,6 @@ SplashScreen.preventAutoHideAsync();
 
 let clerkDiagnosticsLogged = false;
 
-// ─── Crypto engine diagnostic (runs once on cold start) ───────────────────────
-// Logs which RSA engine is active so post-build issues are immediately visible.
-// Safe: no secrets, no side effects — read-only availability check.
 (function checkCryptoEngine() {
   try {
     const subtle = isSubtleAvailable();
@@ -77,19 +70,12 @@ let clerkDiagnosticsLogged = false;
 
 const queryClient = new QueryClient();
 
-// ─── Offline gate ─────────────────────────────────────────────────────────────
 function OfflineGate() {
   const { isConnected, isChecking, offlineMode } = useNetwork();
-  // Pass through if: still checking, already connected, or user chose offline mode
   if (isChecking || isConnected || offlineMode) return null;
   return <OfflineScreen />;
 }
 
-// ─── Navigation stack ─────────────────────────────────────────────────────────
-
-// ─── Vault loading overlay ─────────────────────────────────────────────────────
-// Shown briefly after PIN unlock while the vault loads from storage.
-// Prevents blank-screen flash during the 200–500 ms loadVault awaits.
 function VaultLoadingOverlay() {
   const { isVaultReady, vaultLoadPhase } = useVault();
   const { isLocked } = useAuth();
@@ -104,13 +90,11 @@ function VaultLoadingOverlay() {
   }, [vaultLoadPhase]);
 
   useEffect(() => {
-    // Show overlay when unlocked but vault not ready yet
     if (!isLocked && !isVaultReady) {
       setDisplayPhase('جارٍ تحميل الخزنة…');
       setVisible(true);
       Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     } else if (isVaultReady) {
-      // Fade out once vault is ready
       Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
         setVisible(false);
       });
@@ -139,10 +123,6 @@ function VaultLoadingOverlay() {
   );
 }
 
-// ─── Key generation overlay ────────────────────────────────────────────────────
-// Shown when RSA keys are being generated on first install only.
-// Shows a real animated progress bar (0–100 %) sourced from the actual key-gen
-// callback so the user always knows exactly how far along the process is.
 function KeyGeneratingOverlay() {
   const { isKeyGenerating, keyError, keyErrorMsg, retryKeyGeneration, keyGenProgress, keyGenPhase } = useVault();
   useTheme();
@@ -152,7 +132,6 @@ function KeyGeneratingOverlay() {
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const usingNative = isSubtleAvailable();
 
-  // Animate the progress bar width smoothly whenever keyGenProgress changes
   useEffect(() => {
     Animated.timing(barAnim, {
       toValue: keyGenProgress,
@@ -193,7 +172,6 @@ function KeyGeneratingOverlay() {
       }}
     >
       {keyError ? (
-        /* ── Error state ──────────────────────────────────────────────────── */
         <View style={{ alignItems: 'center', gap: 16, width: '100%' }}>
           <View style={{
             width: 64, height: 64, borderRadius: 32,
@@ -224,10 +202,7 @@ function KeyGeneratingOverlay() {
           </TouchableOpacity>
         </View>
       ) : (
-        /* ── Progress state ───────────────────────────────────────────────── */
         <View style={{ alignItems: 'center', gap: 24, width: '100%' }}>
-
-          {/* Lock icon */}
           <View style={{
             width: 72, height: 72, borderRadius: 36,
             backgroundColor: 'rgba(212,175,55,0.08)',
@@ -236,8 +211,6 @@ function KeyGeneratingOverlay() {
           }}>
             <Text style={{ fontSize: 30 }}>🔐</Text>
           </View>
-
-          {/* Title */}
           <View style={{ alignItems: 'center', gap: 6 }}>
             <Text style={{ color: '#D4AF37', fontSize: 18, fontFamily: 'Poppins_700Bold', textAlign: 'center' }}>
               جارٍ تهيئة مفاتيح التشفير
@@ -246,10 +219,7 @@ function KeyGeneratingOverlay() {
               يتم إنشاء مفاتيح RSA لحماية خزنتك{'\n'}يحدث هذا مرةً واحدة فقط عند التثبيت
             </Text>
           </View>
-
-          {/* Progress percentage + bar */}
           <View style={{ width: '100%', gap: 10 }}>
-            {/* Percentage row */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ color: '#94A3B8', fontSize: 12, fontFamily: 'Poppins_400Regular' }}>
                 {keyGenPhase || 'جارٍ التوليد…'}
@@ -258,14 +228,11 @@ function KeyGeneratingOverlay() {
                 {keyGenProgress}%
               </Text>
             </View>
-
-            {/* Progress bar track */}
             <View style={{
               width: '100%', height: 8, borderRadius: 4,
               backgroundColor: 'rgba(255,255,255,0.06)',
               overflow: 'hidden',
             }}>
-              {/* Animated fill */}
               <Animated.View style={{
                 height: '100%',
                 borderRadius: 4,
@@ -282,8 +249,6 @@ function KeyGeneratingOverlay() {
               }} />
             </View>
           </View>
-
-          {/* Elapsed time + engine badge */}
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
             <View style={{
               backgroundColor: usingNative ? 'rgba(34,197,94,0.1)' : 'rgba(212,175,55,0.1)',
@@ -302,8 +267,6 @@ function KeyGeneratingOverlay() {
               {elapsedStr} مضت
             </Text>
           </View>
-
-          {/* Reassurance note */}
           <Text style={{ color: '#334155', fontSize: 11, fontFamily: 'Poppins_400Regular', textAlign: 'center', lineHeight: 18 }}>
             لا تغلق التطبيق — العملية جارية في الخلفية
           </Text>
@@ -316,56 +279,42 @@ function KeyGeneratingOverlay() {
 function RootLayoutNav() {
   const { isLocked, isSetup, vaultKey, isDecoyMode } = useAuth();
   const { isLoaded: clerkLoaded, isSignedIn, getToken } = useClerkAuth();
-  const { user } = useUser(); // Get current Clerk user
+  const { user } = useUser();
   const { loadVault, loadDecoyVault, lockVaultSession, isVaultReady, legacy } = useVault();
   const { colors: c } = useTheme();
   const router = useRouter();
   const segments = useSegments();
 
-  // ── RevenueCat Identity Sync ────────────────────────────────────────────────
-  // Syncs Clerk authentication state with RevenueCat to ensure subscriptions
-  // are tied to the user's permanent identity (not anonymous device ID).
-  // This enables subscription recovery across devices and after reinstallation.
   useEffect(() => {
     if (!clerkLoaded) return;
-
     const syncRevenueCatIdentity = async () => {
       try {
         if (isSignedIn && user?.id) {
-          // User is signed in — link RevenueCat to Clerk user ID
           await Purchases.logIn(user.id);
           console.log('[Auryx][RevenueCat] Identity synced:', user.id);
         } else {
-          // User signed out — revert to anonymous mode (security for shared devices)
           await Purchases.logOut();
           console.log('[Auryx][RevenueCat] Logged out (anonymous mode)');
         }
       } catch (error) {
         console.error('[Auryx][RevenueCat] Identity sync failed:', error);
-        // Don't throw — auth flow should continue even if RC sync fails
       }
     };
-
     syncRevenueCatIdentity();
   }, [clerkLoaded, isSignedIn, user?.id]);
 
   useEffect(() => {
     if (!clerkLoaded) return;
-
     const getApiAuthToken = async () => {
       try {
         const token = await getToken();
-        console.log(
-          `[Auryx][Auth] getToken=${token ? `present(length=${token.length})` : 'null'} ` +
-            `signedIn=${isSignedIn}`,
-        );
+        console.log(`[Auryx][Auth] getToken=${token ? `present(length=${token.length})` : 'null'} signedIn=${isSignedIn}`);
         return token;
       } catch (error) {
         console.warn('[Auryx][Auth] getToken failed:', error instanceof Error ? error.message : 'unknown_error');
         throw error;
       }
     };
-
     setAuthenticatedTokenGetter(getApiAuthToken);
     setAuthTokenGetter(getApiAuthToken);
     console.log(`[Auryx][Auth] token bridge ready signedIn=${isSignedIn}`);
@@ -375,7 +324,6 @@ function RootLayoutNav() {
     };
   }, [clerkLoaded, getToken, isSignedIn]);
 
-  // Unified effect: sync auth state → vault content
   useEffect(() => {
     if (isLocked) {
       lockVaultSession();
@@ -388,7 +336,6 @@ function RootLayoutNav() {
     }
   }, [isLocked, isDecoyMode, vaultKey]);
 
-  // Navigation guard
   useEffect(() => {
     if (!clerkLoaded) return;
     const inAuth = segments[0] === '(auth)';
@@ -415,10 +362,6 @@ function RootLayoutNav() {
       if (!inOnboarding) router.replace('/onboarding');
       return;
     }
-    // Onboarding navigates itself to /(tabs) via its own useEffect once
-    // ownerName is set.  Do NOT also navigate here — two simultaneous
-    // router.replace calls in the same React commit cause undefined behavior
-    // in Expo Router on Android/Hermes.
     if (inLock) router.replace('/(tabs)');
   }, [clerkLoaded, isSignedIn, isLocked, isSetup, isVaultReady, isDecoyMode, legacy.ownerName, segments]);
 
@@ -433,11 +376,12 @@ function RootLayoutNav() {
       <Stack.Screen name="emergency"     options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="legacy"        options={{ headerShown: false, presentation: 'card' }} />
       <Stack.Screen name="received-vault" options={{ headerShown: false, presentation: 'card' }} />
+      {/* ✅ إضافة شاشة استعادة رمز الدخول لضمان عمل التنقل بشكل صحيح */}
+      <Stack.Screen name="pin-reset"     options={{ headerShown: false, presentation: 'card' }} />
     </Stack>
   );
 }
 
-// ─── Themed container — reads theme and applies background ────────────────────
 function ThemedContainer({ children, showSplash, onSplashComplete }: {
   children: React.ReactNode;
   showSplash: boolean;
@@ -448,9 +392,6 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   const touchWarnTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => () => { if (touchWarnTimerRef.current) clearTimeout(touchWarnTimerRef.current); }, []);
 
-  // Show a brief diagnostic banner when the safety timer fires instead of the
-  // normal animation path. This indicates a background layer may have delayed
-  // completion on this device (logged as a warning, auto-dismissed after 4 s).
   const handleSafetyFired = React.useCallback(() => {
     console.warn('[Auryx] AnimatedSplash completed via safety timer — possible frame-drop or native animation interruption on this device.');
     setTouchWarn(true);
@@ -463,25 +404,13 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
       <KeyboardProvider statusBarTranslucent>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         {children}
-
-        {/* Layer 0 (zIndex 9990): offline mode banner — visible when browsing offline */}
         <OfflineBanner />
-
-        {/* Layer 1 (zIndex 9998): offline wall */}
         <OfflineGate />
-
-        {/* Layer 1.5 (zIndex 9996): vault loading overlay — brief after PIN unlock */}
         <VaultLoadingOverlay />
-
-        {/* Layer 2 (zIndex 9997): key generation progress toast */}
         <KeyGeneratingOverlay />
-
-        {/* Layer 3 (zIndex 9999): animated splash */}
         {showSplash && (
           <AnimatedSplash onComplete={onSplashComplete} onSafetyTimerFired={handleSafetyFired} />
         )}
-
-        {/* Diagnostic banner — shown briefly if safety timer fired (layer blocking suspected) */}
         {touchWarn && (
           <View
             pointerEvents="none"
@@ -503,53 +432,21 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   );
 }
 
-/**
- * Render a useful message when a release build is missing a public runtime
- * setting. This must stay outside the provider tree: throwing here would
- * terminate Android before ErrorBoundary can render anything.
- */
 function StartupConfigurationError({ message }: { message: string }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: '#0A0F1E',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 28,
-      }}
-    >
-      <Text
-        style={{
-          color: '#D4AF37',
-          fontSize: 24,
-          fontWeight: '700',
-          textAlign: 'center',
-          marginBottom: 16,
-        }}
-      >
+    <View style={{ flex: 1, backgroundColor: '#0A0F1E', alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+      <Text style={{ color: '#D4AF37', fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 16 }}>
         تعذر تشغيل Auryx
       </Text>
       <Text style={{ color: '#CBD5E1', fontSize: 15, lineHeight: 25, textAlign: 'center' }}>
         نسخة التطبيق لا تحتوي على إعداد Clerk العام المطلوب.
       </Text>
-      <Text
-        selectable
-        style={{
-          color: '#64748B',
-          fontSize: 12,
-          lineHeight: 19,
-          textAlign: 'center',
-          marginTop: 18,
-        }}
-      >
+      <Text selectable style={{ color: '#64748B', fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 18 }}>
         {message}
       </Text>
     </View>
   );
 }
-
-// ─── Root layout ──────────────────────────────────────────────────────────────
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -558,30 +455,21 @@ export default function RootLayout() {
     Poppins_700Bold,
   });
   const [timedOut, setTimedOut]   = useState(false);
-  // The animated native splash uses native-driver timing and can remain as a
-  // blank overlay in Expo web previews. Keep it for iOS/Android, but let the
-  // web preview render the actual auth screen immediately.
   const [showSplash, setShowSplash] = useState(Platform.OS !== 'web');
   const [fontsReady, setFontsReady] = useState(false);
 
-  // 🔥 [NEW] Initialize RevenueCat SDK
   useEffect(() => {
     const initRevenueCat = async () => {
       try {
         const REVENUECAT_ANDROID_KEY = 'goog_wajUnLGEWgHKKevsbPZauLuQGeo'; 
-
-        Purchases.configure({
-          apiKey: REVENUECAT_ANDROID_KEY,
-        });
-
+        Purchases.configure({ apiKey: REVENUECAT_ANDROID_KEY });
         console.log('✅ RevenueCat Initialized Successfully');
       } catch (error) {
         console.error('❌ Failed to initialize RevenueCat:', error);
       }
     };
-
     initRevenueCat();
-  }, []); // Runs only once on mount
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setTimedOut(true), 4000);
@@ -597,9 +485,6 @@ export default function RootLayout() {
 
   if (!fontsReady) return null;
 
-  // Expo must receive only the public Clerk key. Build/dev scripts may map
-  // other environment names into this EXPO_PUBLIC variable before bundling,
-  // but the app runtime never reads a backend secret or a non-public fallback.
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() || '';
   if (!clerkDiagnosticsLogged) {
     const clerkKeyMode = publishableKey.startsWith('pk_live_')
@@ -607,27 +492,18 @@ export default function RootLayout() {
       : publishableKey.startsWith('pk_test_')
         ? 'test'
         : 'unknown';
-    console.log('[Auryx][Clerk] configuration', {
-      clerkKeyMode,
-      clerkConfigured: Boolean(publishableKey),
-    });
+    console.log('[Auryx][Clerk] configuration', { clerkKeyMode, clerkConfigured: Boolean(publishableKey) });
     clerkDiagnosticsLogged = true;
   }
   if (!publishableKey) {
-    return (
-      <StartupConfigurationError message="Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" />
-    );
+    return <StartupConfigurationError message="Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" />;
   }
   setBaseUrl(getApiBase());
 
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <ClerkProvider
-          publishableKey={publishableKey}
-          tokenCache={tokenCache}
-          proxyUrl={process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined}
-        >
+        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} proxyUrl={process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined}>
           <ClerkLoaded>
             <QueryClientProvider client={queryClient}>
               <NetworkProvider>
@@ -636,10 +512,7 @@ export default function RootLayout() {
                     <AuthProvider>
                       <VaultProvider>
                         <NotificationProvider>
-                          <ThemedContainer
-                            showSplash={showSplash}
-                            onSplashComplete={() => setShowSplash(false)}
-                          >
+                          <ThemedContainer showSplash={showSplash} onSplashComplete={() => setShowSplash(false)}>
                             <RootLayoutNav />
                           </ThemedContainer>
                         </NotificationProvider>

@@ -58,100 +58,57 @@ async function post(path: string, body: object): Promise<ApiResult> {
 
 // ── Guardian ──────────────────────────────────────────────────────────────────
 
-/** Send an invitation email to a new guardian. Returns the invite token. */
 export async function inviteGuardian(
-  ownerEmail: string,
-  ownerName: string,
-  guardianName: string,
-  guardianEmail: string,
+  ownerEmail: string, ownerName: string, guardianName: string, guardianEmail: string,
 ): Promise<ApiResult> {
   return post('/invite-guardian', { ownerEmail, ownerName, guardianName, guardianEmail });
 }
 
-/** Notify a guardian that their role has been removed. */
 export async function notifyGuardianRemoved(
-  ownerEmail: string,
-  ownerName: string,
-  guardianEmail: string,
+  ownerEmail: string, ownerName: string, guardianEmail: string,
 ): Promise<ApiResult> {
   return post('/remove-guardian', { ownerEmail, ownerName, guardianEmail });
 }
 
 // ── Beneficiary ───────────────────────────────────────────────────────────────
 
-/** Send an invitation email to the final beneficiary. Returns the invite token. */
 export async function inviteBeneficiary(
-  ownerEmail: string,
-  ownerName: string,
-  beneficiaryName: string,
-  beneficiaryEmail: string,
-  relationship: string,
+  ownerEmail: string, ownerName: string, beneficiaryName: string, beneficiaryEmail: string, relationship: string,
 ): Promise<ApiResult> {
   return post('/invite-beneficiary', { ownerEmail, ownerName, beneficiaryName, beneficiaryEmail, relationship });
 }
 
-/** Notify the previous beneficiary that their role has been removed. */
 export async function notifyBeneficiaryRemoved(
-  ownerEmail: string,
-  ownerName: string,
-  beneficiaryEmail: string,
+  ownerEmail: string, ownerName: string, beneficiaryEmail: string,
 ): Promise<ApiResult> {
   return post('/remove-beneficiary', { ownerEmail, ownerName, beneficiaryEmail });
 }
 
 // ── Emergency Protocol ────────────────────────────────────────────────────────
 
-/** Notify all guardians that the emergency protocol has been triggered. */
 export async function triggerEmergencyEmail(
-  ownerEmail: string,
-  ownerName: string,
-  beneficiaryName: string,
-  beneficiaryRelation: string,
-  guardianEmails: string[],
+  ownerEmail: string, ownerName: string, beneficiaryName: string, beneficiaryRelation: string, guardianEmails: string[],
 ): Promise<ApiResult> {
   return post('/emergency', { ownerEmail, ownerName, beneficiaryName, beneficiaryRelation, guardianEmails });
 }
 
-/** Send the 48-hour vote request to all guardians. */
 export async function triggerVoteRequest(
-  ownerEmail: string,
-  ownerName: string,
-  guardianEmails: string[],
+  ownerEmail: string, ownerName: string, guardianEmails: string[],
 ): Promise<ApiResult> {
   return post('/vote-request', { ownerEmail, ownerName, guardianEmails });
 }
 
-// ── Owner notification (every 3h during 48h wait) ─────────────────────────────
-
-/** Notify the vault owner that their beneficiary has triggered emergency access. */
 export async function notifyOwner(
-  ownerEmail: string,
-  ownerName: string,
-  beneficiaryName: string,
-  notifCount: number,
+  ownerEmail: string, ownerName: string, beneficiaryName: string, notifCount: number,
 ): Promise<ApiResult> {
   return post('/notify-owner', { ownerEmail, ownerName, beneficiaryName, notifCount });
 }
 
 // ── Absence protocol (server-side) ─────────────────────────────────────────────
 
-/**
- * Start the server-side absence protocol.
- * The server will handle all 3-hourly owner reminders and guardian voting
- * — even when the app is closed.
- */
 export async function initiateServerAbsenceProtocol(
-  ownerEmail: string,
-  beneficiaryName: string,
-  ownerName: string,
-): Promise<{
-  success: boolean;
-  requestId?: number;
-  status?: string;
-  requestedAt?: number;
-  ownerNotifCount?: number;
-  error?: string;
-}> {
+  ownerEmail: string, beneficiaryName: string, ownerName: string,
+): Promise<{ success: boolean; requestId?: number; status?: string; requestedAt?: number; ownerNotifCount?: number; error?: string }> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
   try {
@@ -177,16 +134,13 @@ export async function initiateServerAbsenceProtocol(
   }
 }
 
-/** Poll the absence protocol status for an owner. */
 export async function fetchServerAbsenceStatus(
   ownerEmail: string,
 ): Promise<{ status: string; ownerNotifCount: number; requestedAt?: number; guardianVoteStartedAt?: number | null } | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 10_000);
   try {
-    const res = await authenticatedFetch(`${getApiBase()}/api/absence/status/${encodeURIComponent(ownerEmail)}`, {
-      signal: ctrl.signal,
-    });
+    const res = await authenticatedFetch(`${getApiBase()}/api/absence/status/${encodeURIComponent(ownerEmail)}`, { signal: ctrl.signal });
     if (res.status === 404) return null;
     const json = await res.json().catch(() => null) as Record<string, unknown> | null;
     if (!json) return null;
@@ -203,12 +157,6 @@ export async function fetchServerAbsenceStatus(
   }
 }
 
-// ── Absence: formal guardian vote (with individual token links) ───────────────
-
-/**
- * Called by the beneficiary after the 48h owner-absent confirmation.
- * Triggers guardian vote emails from the server.
- */
 export async function confirmAndStartGuardianVote(
   ownerEmail: string,
 ): Promise<{ success: boolean; guardianCount?: number; error?: string }> {
@@ -231,15 +179,8 @@ export async function confirmAndStartGuardianVote(
   }
 }
 
-/**
- * Starts the formal guardian voting phase on the server.
- * The server creates per-guardian decision tokens and sends
- * individual approve/reject email links to each guardian.
- */
 export async function triggerStartVote(
-  ownerEmail: string,
-  beneficiaryName: string,
-  beneficiaryEmail: string,
+  ownerEmail: string, beneficiaryName: string, beneficiaryEmail: string,
 ): Promise<{ success: boolean; guardianCount?: number; error?: string }> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
@@ -277,16 +218,13 @@ export interface GuardianVoteStatus {
   decisions: GuardianVoteDecision[];
 }
 
-/** Poll per-guardian vote status from the server. */
 export async function fetchGuardianVoteStatus(
   ownerEmail: string,
 ): Promise<GuardianVoteStatus | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 10_000);
   try {
-    const res = await authenticatedFetch(`${getApiBase()}/api/absence/vote-status/${encodeURIComponent(ownerEmail)}`, {
-      signal: ctrl.signal,
-    });
+    const res = await authenticatedFetch(`${getApiBase()}/api/absence/vote-status/${encodeURIComponent(ownerEmail)}`, { signal: ctrl.signal });
     if (!res.ok) return null;
     return (await res.json()) as GuardianVoteStatus;
   } catch {
@@ -296,9 +234,6 @@ export async function fetchGuardianVoteStatus(
   }
 }
 
-// ── Token status ──────────────────────────────────────────────────────────────
-
-/** Poll the API to check if an invite token has been accepted/rejected. */
 export async function checkInviteStatus(
   token: string,
 ): Promise<{ status: 'pending' | 'accepted' | 'rejected' | 'expired' }> {
@@ -319,13 +254,7 @@ export async function checkInviteStatus(
 
 export interface PinResetStatus {
   requestId: number;
-  status:
-    | 'pending_guardian_vote'
-    | 'approved'
-    | 'rejected'
-    | 'expired'
-    | 'completed'
-    | 'none';
+  status: 'pending_guardian_vote' | 'approved' | 'rejected' | 'expired' | 'completed' | 'none';
   threshold: number;
   approvals: number;
   rejections: number;
@@ -335,10 +264,8 @@ export interface PinResetStatus {
   decisions: GuardianVoteDecision[];
 }
 
-/** Start a PIN-reset request — server sends vote links to all guardians. */
 export async function initiatePinResetRequest(
-  ownerEmail: string,
-  ownerName: string,
+  ownerEmail: string, ownerName: string,
 ): Promise<{ success: boolean; requestId?: number; guardianCount?: number; error?: string }> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
@@ -351,11 +278,7 @@ export async function initiatePinResetRequest(
     });
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
-    return {
-      success: true,
-      requestId: json.requestId as number | undefined,
-      guardianCount: json.guardianCount as number | undefined,
-    };
+    return { success: true, requestId: json.requestId as number | undefined, guardianCount: json.guardianCount as number | undefined };
   } catch (e: unknown) {
     return { success: false, error: (e as Error)?.message ?? 'Network error' };
   } finally {
@@ -363,17 +286,13 @@ export async function initiatePinResetRequest(
   }
 }
 
-/** Poll the PIN-reset voting status (guardian approvals). */
 export async function fetchPinResetStatus(
   ownerEmail: string,
 ): Promise<PinResetStatus | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 10_000);
   try {
-    const res = await authenticatedFetch(
-      `${getApiBase()}/api/pin-reset/status/${encodeURIComponent(ownerEmail)}`,
-      { signal: ctrl.signal },
-    );
+    const res = await authenticatedFetch(`${getApiBase()}/api/pin-reset/status/${encodeURIComponent(ownerEmail)}`, { signal: ctrl.signal });
     if (res.status === 404) return null;
     if (!res.ok) return null;
     return (await res.json()) as PinResetStatus;
@@ -384,10 +303,8 @@ export async function fetchPinResetStatus(
   }
 }
 
-/** Verify the OTP emailed to the owner after guardian quorum — returns a one-time reset token. */
 export async function verifyPinResetOtp(
-  ownerEmail: string,
-  code: string,
+  ownerEmail: string, code: string,
 ): Promise<{ success: boolean; resetToken?: string; error?: string }> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
@@ -408,10 +325,8 @@ export async function verifyPinResetOtp(
   }
 }
 
-/** Mark the PIN-reset request completed (server audit + one-time token invalidation). */
 export async function completePinReset(
-  ownerEmail: string,
-  resetToken: string,
+  ownerEmail: string, resetToken: string,
 ): Promise<{ success: boolean; error?: string }> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
@@ -432,34 +347,79 @@ export async function completePinReset(
   }
 }
 
-// ── Recovery Email (PIN Reset Alternative) ────────────────────────────────────
+// ── Recovery Email (PIN Reset Alternative) WITH DIAGNOSTICS ───────────────────
 
 /** Set or update the recovery email. Triggers an OTP to be sent to that email. */
 export async function setRecoveryEmail(
   email: string,
 ): Promise<{ success: boolean; error?: string }> {
-  return post('/recovery-email/set', { email });
+  const apiUrl = `${getApiBase()}/api/recovery-email/set`;
+  console.log('[DIAGNOSTIC][RecoveryEmail] Attempting to set recovery email. URL:', apiUrl);
+
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+
+  try {
+    const res = await authenticatedFetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+      signal: ctrl.signal,
+    });
+
+    console.log('[DIAGNOSTIC][RecoveryEmail] Response status:', res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[DIAGNOSTIC][RecoveryEmail] Server error response:', errorText);
+      return { success: false, error: `HTTP ${res.status}: ${errorText}` };
+    }
+
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    console.log('[DIAGNOSTIC][RecoveryEmail] Success response:', json);
+    return { success: true };
+  } catch (e: unknown) {
+    const msg = (e as Error)?.message ?? 'Network error';
+    console.error('[DIAGNOSTIC][RecoveryEmail] Network/Fetch error:', msg);
+    return { success: false, error: msg };
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 /** Verify the OTP sent to the recovery email. Returns a short-lived recoveryToken. */
 export async function verifyRecoveryOtp(
-  email: string,
-  otp: string,
+  email: string, otp: string,
 ): Promise<{ success: boolean; recoveryToken?: string; error?: string }> {
+  const apiUrl = `${getApiBase()}/api/recovery-email/verify`;
+  console.log('[DIAGNOSTIC][RecoveryEmail] Attempting to verify OTP. URL:', apiUrl);
+
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+
   try {
-    const res = await authenticatedFetch(`${getApiBase()}/api/recovery-email/verify`, {
+    const res = await authenticatedFetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp }),
       signal: ctrl.signal,
     });
+
+    console.log('[DIAGNOSTIC][RecoveryEmail] Response status:', res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[DIAGNOSTIC][RecoveryEmail] Server error response:', errorText);
+      return { success: false, error: `HTTP ${res.status}: ${errorText}` };
+    }
+
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
+    console.log('[DIAGNOSTIC][RecoveryEmail] Success response:', json);
     return { success: true, recoveryToken: json.recoveryToken as string | undefined };
   } catch (e: unknown) {
-    return { success: false, error: (e as Error)?.message ?? 'Network error' };
+    const msg = (e as Error)?.message ?? 'Network error';
+    console.error('[DIAGNOSTIC][RecoveryEmail] Network/Fetch error:', msg);
+    return { success: false, error: msg };
   } finally {
     clearTimeout(t);
   }
@@ -469,20 +429,35 @@ export async function verifyRecoveryOtp(
 export async function completeRecovery(
   recoveryToken: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const apiUrl = `${getApiBase()}/api/recovery-email/complete`;
+  console.log('[DIAGNOSTIC][RecoveryEmail] Attempting to complete recovery. URL:', apiUrl);
+
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+
   try {
-    const res = await authenticatedFetch(`${getApiBase()}/api/recovery-email/complete`, {
+    const res = await authenticatedFetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ recoveryToken }),
       signal: ctrl.signal,
     });
+
+    console.log('[DIAGNOSTIC][RecoveryEmail] Response status:', res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[DIAGNOSTIC][RecoveryEmail] Server error response:', errorText);
+      return { success: false, error: `HTTP ${res.status}: ${errorText}` };
+    }
+
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
+    console.log('[DIAGNOSTIC][RecoveryEmail] Success response:', json);
     return { success: true };
   } catch (e: unknown) {
-    return { success: false, error: (e as Error)?.message ?? 'Network error' };
+    const msg = (e as Error)?.message ?? 'Network error';
+    console.error('[DIAGNOSTIC][RecoveryEmail] Network/Fetch error:', msg);
+    return { success: false, error: msg };
   } finally {
     clearTimeout(t);
   }

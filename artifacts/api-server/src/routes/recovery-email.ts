@@ -41,97 +41,108 @@ setInterval(() => {
 
 // ── 1. Set / Update Recovery Email & Send OTP ───────────────────────────────
 router.post('/set', requireAuth, validateBody(recoveryEmailBody), async (req, res) => {
+  logger.info({ userId: req.authUser?.id, email: req.body.email }, '[DIAGNOSTIC] POST /recovery-email/set received');
   try {
     const { email } = req.body;
     const userId = req.authUser!.id;
     const mainEmail = req.authUser!.email;
 
-    // Prevent using the main Clerk email as recovery email (optional but recommended for security)
     if (email.toLowerCase() === mainEmail.toLowerCase()) {
+      logger.warn({ userId, email, mainEmail }, '[DIAGNOSTIC] Recovery email matches main email - rejected');
       return res.status(400).json({ error: 'Recovery email must be different from your main account email' });
     }
 
+    logger.debug({ userId }, '[DIAGNOSTIC] Attempting upsertRecoveryEmail...');
     const result = await upsertRecoveryEmail(userId, email);
     if (!result.success) {
-      logger.error({ userId, error: result.error }, 'Failed to upsert recovery email');
+      logger.error({ userId, error: result.error }, '[DIAGNOSTIC] Failed to upsert recovery email');
       return res.status(500).json({ error: 'Failed to save recovery email' });
     }
 
-    // Generate a 6-digit OTP specifically for recovery verification
-    // We use mainEmail as owner, and 'recovery-verify' as the beneficiary marker
+    logger.debug({ userId, email }, '[DIAGNOSTIC] Generating OTP...');
     const otp = await generateOtp(mainEmail, 'recovery-verify');
 
-    // Send the OTP via the robust retry mechanism
+    logger.debug({ userId, email }, '[DIAGNOSTIC] Sending OTP via emailService...');
     await sendWithRetry('recovery-otp', email, { otp });
 
-    logger.info({ userId, email }, 'Recovery email set and OTP sent');
+    logger.info({ userId, email }, '[DIAGNOSTIC] Recovery email set and OTP sent successfully');
     res.json({ success: true, message: 'OTP sent to verify email' });
   } catch (err) {
-    logger.error({ err }, 'Error in /recovery-email/set');
+    logger.error({ 
+      err, 
+      stack: err instanceof Error ? err.stack : undefined 
+    }, '[DIAGNOSTIC] Unhandled error in /recovery-email/set');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // ── 2. Verify OTP and Issue Recovery Token ──────────────────────────────────
 router.post('/verify', requireAuth, validateBody(recoveryOtpVerifyBody), async (req, res) => {
+  logger.info({ userId: req.authUser?.id, email: req.body.email }, '[DIAGNOSTIC] POST /recovery-email/verify received');
   try {
     const { email, otp } = req.body;
     const userId = req.authUser!.id;
     const mainEmail = req.authUser!.email;
 
-    // 1. Check if this email matches the stored hash for this user
+    logger.debug({ userId, email }, '[DIAGNOSTIC] Checking recovery email match...');
     const isMatch = await verifyRecoveryEmailMatch(userId, email);
     if (!isMatch) {
+      logger.warn({ userId, email }, '[DIAGNOSTIC] Recovery email mismatch');
       return res.status(400).json({ error: 'Invalid recovery email' });
     }
 
-    // 2. Verify the OTP
+    logger.debug({ userId }, '[DIAGNOSTIC] Verifying OTP...');
     const otpResult = await verifyOtp(mainEmail, 'recovery-verify', otp);
     if (!otpResult.ok) {
+      logger.warn({ userId, reason: otpResult.reason }, '[DIAGNOSTIC] OTP verification failed');
       return res.status(400).json({ error: otpResult.reason === 'max_attempts' ? 'Max attempts exceeded' : 'Invalid or expired OTP' });
     }
 
-    // 3. Mark the recovery email as verified in the database
+    logger.debug({ userId }, '[DIAGNOSTIC] Marking recovery email as verified...');
     await markRecoveryEmailVerified(userId);
 
-    // 4. Generate a short-lived, one-time recovery token for the frontend
     const recoveryToken = crypto.randomBytes(32).toString('hex');
     recoveryTokens.set(recoveryToken, { 
       userId, 
       expiresAt: Date.now() + 15 * 60 * 1000 // 15 minutes
     });
 
-    logger.info({ userId }, 'Recovery email verified, token issued');
+    logger.info({ userId }, '[DIAGNOSTIC] Recovery email verified, token issued successfully');
     res.json({ success: true, recoveryToken });
   } catch (err) {
-    logger.error({ err }, 'Error in /recovery-email/verify');
+    logger.error({ 
+      err, 
+      stack: err instanceof Error ? err.stack : undefined 
+    }, '[DIAGNOSTIC] Unhandled error in /recovery-email/verify');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // ── 3. Complete PIN Reset (Consume Token) ───────────────────────────────────
 router.post('/complete', requireAuth, validateBody(recoveryCompleteBody), async (req, res) => {
+  logger.info({ userId: req.authUser?.id }, '[DIAGNOSTIC] POST /recovery-email/complete received');
   try {
     const { recoveryToken } = req.body;
     const userId = req.authUser!.id;
 
     const tokenData = recoveryTokens.get(recoveryToken);
 
-    // Validate token: exists, belongs to this user, and not expired
     if (!tokenData || tokenData.userId !== userId || Date.now() > tokenData.expiresAt) {
+      logger.warn({ userId, tokenExists: !!tokenData }, '[DIAGNOSTIC] Invalid or expired recovery token');
       return res.status(403).json({ error: 'Invalid or expired recovery token' });
     }
 
-    // Invalidate the token immediately (one-time use)
     recoveryTokens.delete(recoveryToken);
 
-    // Optional: Fetch record for logging purposes
     const record = await getRecoveryEmailRecord(userId);
-    logger.info({ userId, recordId: record?.id }, 'Recovery PIN reset completed successfully');
+    logger.info({ userId, recordId: record?.id }, '[DIAGNOSTIC] Recovery PIN reset completed successfully');
 
     res.json({ success: true });
   } catch (err) {
-    logger.error({ err }, 'Error in /recovery-email/complete');
+    logger.error({ 
+      err, 
+      stack: err instanceof Error ? err.stack : undefined 
+    }, '[DIAGNOSTIC] Unhandled error in /recovery-email/complete');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
