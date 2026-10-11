@@ -70797,7 +70797,7 @@ async function getRecoveryEmailRecord(userId) {
 }
 async function verifyRecoveryEmailMatch(userId, email2) {
   const record = await getRecoveryEmailByUser(userId);
-  if (!record || !record.verified) return false;
+  if (!record) return false;
   const normalizedEmail = email2.toLowerCase().trim();
   const inputHash = crypto7.pbkdf2Sync(normalizedEmail, record.emailSalt, 1e4, 64, "sha256").toString("hex");
   return inputHash === record.emailHash;

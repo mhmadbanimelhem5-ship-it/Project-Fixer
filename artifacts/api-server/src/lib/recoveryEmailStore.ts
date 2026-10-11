@@ -124,13 +124,14 @@ export async function getRecoveryEmailRecord(userId: string): Promise<RecoveryEm
 }
 
 // ── Verify email match (by hashing input and comparing) ──────────────────────
+// ✅ التعديل: شفطنا شرط !record.verified لأن التفعيل يصير بعد نجاح الرمز، مو قبله
 
 export async function verifyRecoveryEmailMatch(
   userId: string,
   email: string,
 ): Promise<boolean> {
   const record = await getRecoveryEmailByUser(userId);
-  if (!record || !record.verified) return false;
+  if (!record) return false; // ← فقط نتحقق من وجود السجل، ليس من حالة التفعيل
 
   const normalizedEmail = email.toLowerCase().trim();
   const inputHash = crypto
