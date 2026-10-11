@@ -70773,6 +70773,20 @@ async function markRecoveryEmailVerified(userId) {
     return false;
   }
 }
+async function getRecoveryEmailByUser(userId) {
+  try {
+    const rows = await db.select({
+      userId: recoveryEmailsTable.userId,
+      emailHash: recoveryEmailsTable.emailHash,
+      emailSalt: recoveryEmailsTable.emailSalt,
+      verified: recoveryEmailsTable.verified,
+      updatedAt: recoveryEmailsTable.updatedAt
+    }).from(recoveryEmailsTable).where(eq(recoveryEmailsTable.userId, userId)).limit(1);
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
 async function getRecoveryEmailRecord(userId) {
   try {
     const rows = await db.select().from(recoveryEmailsTable).where(eq(recoveryEmailsTable.userId, userId)).limit(1);
@@ -70780,6 +70794,13 @@ async function getRecoveryEmailRecord(userId) {
   } catch {
     return null;
   }
+}
+async function verifyRecoveryEmailMatch(userId, email2) {
+  const record = await getRecoveryEmailByUser(userId);
+  if (!record || !record.verified) return false;
+  const normalizedEmail = email2.toLowerCase().trim();
+  const inputHash = crypto7.pbkdf2Sync(normalizedEmail, record.emailSalt, 1e4, 64, "sha256").toString("hex");
+  return inputHash === record.emailHash;
 }
 
 // src/routes/recovery-email.ts

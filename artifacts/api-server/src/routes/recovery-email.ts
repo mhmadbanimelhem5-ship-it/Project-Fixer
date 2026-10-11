@@ -19,7 +19,8 @@ import {
 import { 
   upsertRecoveryEmail, 
   markRecoveryEmailVerified, 
-  getRecoveryEmailRecord 
+  getRecoveryEmailRecord,
+  verifyRecoveryEmailMatch // ← السطر المنقذ
 } from '../lib/recoveryEmailStore';
 import { generateOtp, verifyOtp } from '../lib/otpStore';
 import { sendWithRetry } from '../lib/emailService';
