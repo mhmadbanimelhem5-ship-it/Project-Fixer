@@ -349,9 +349,11 @@ function RootLayoutNav() {
     }
     const inLock       = segments[0] === 'lock';
     const inOnboarding = segments[0] === 'onboarding';
+    const inPinReset   = segments[0] === 'pin-reset'; // ← السماح بالوصول لشاشة الاستعادة أثناء القفل
 
     if (isLocked || !isSetup) {
-      if (!inLock) router.replace('/lock');
+      // ✅ التعديل: السماح بالبقاء في lock أو pin-reset
+      if (!inLock && !inPinReset) router.replace('/lock');
       return;
     }
     if (!isVaultReady) {
@@ -376,7 +378,6 @@ function RootLayoutNav() {
       <Stack.Screen name="emergency"     options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="legacy"        options={{ headerShown: false, presentation: 'card' }} />
       <Stack.Screen name="received-vault" options={{ headerShown: false, presentation: 'card' }} />
-      {/* ✅ إضافة شاشة استعادة رمز الدخول لضمان عمل التنقل بشكل صحيح */}
       <Stack.Screen name="pin-reset"     options={{ headerShown: false, presentation: 'card' }} />
     </Stack>
   );

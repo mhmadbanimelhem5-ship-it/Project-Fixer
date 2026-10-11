@@ -19091,14 +19091,14 @@ var require_etag = __commonJS({
   "../../node_modules/.pnpm/etag@1.8.1/node_modules/etag/index.js"(exports, module) {
     "use strict";
     module.exports = etag;
-    var crypto6 = __require("crypto");
+    var crypto10 = __require("crypto");
     var Stats = __require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash = crypto6.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash = crypto10.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash + '"';
     }
@@ -20821,27 +20821,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router11;
+    module.exports = Router13;
     module.exports.Route = Route;
-    function Router11(options) {
-      if (!(this instanceof Router11)) {
-        return new Router11(options);
+    function Router13(options) {
+      if (!(this instanceof Router13)) {
+        return new Router13(options);
       }
       const opts = options || {};
-      function router11(req, res, next) {
-        router11.handle(req, res, next);
+      function router13(req, res, next) {
+        router13.handle(req, res, next);
       }
-      Object.setPrototypeOf(router11, this);
-      router11.caseSensitive = opts.caseSensitive;
-      router11.mergeParams = opts.mergeParams;
-      router11.params = {};
-      router11.strict = opts.strict;
-      router11.stack = [];
-      return router11;
+      Object.setPrototypeOf(router13, this);
+      router13.caseSensitive = opts.caseSensitive;
+      router13.mergeParams = opts.mergeParams;
+      router13.params = {};
+      router13.strict = opts.strict;
+      router13.stack = [];
+      return router13;
     }
-    Router11.prototype = function() {
+    Router13.prototype = function() {
     };
-    Router11.prototype.param = function param(name, fn) {
+    Router13.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20861,7 +20861,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router11.prototype.handle = function handle(req, res, callback) {
+    Router13.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20988,7 +20988,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router11.prototype.use = function use(handler) {
+    Router13.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -21021,7 +21021,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router11.prototype.route = function route(path) {
+    Router13.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -21036,7 +21036,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router11.prototype[method] = function(path) {
+      Router13.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21219,13 +21219,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router11 = require_router();
+    var Router13 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router11 = null;
+      var router13 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21234,13 +21234,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router11 === null) {
-            router11 = new Router11({
+          if (router13 === null) {
+            router13 = new Router13({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router11;
+          return router13;
         }
       });
     };
@@ -21311,15 +21311,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router11 = this.router;
+      var router13 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router11.use(path, fn2);
+          return router13.use(path, fn2);
         }
         debug7(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router11.use(path, function mounted_app(req, res, next) {
+        router13.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -21409,7 +21409,7 @@ var require_application = __commonJS({
       return this;
     };
     app2.render = function render2(name, options, callback) {
-      var cache2 = this.cache;
+      var cache = this.cache;
       var done = callback;
       var engines = this.engines;
       var opts = options;
@@ -21423,7 +21423,7 @@ var require_application = __commonJS({
         renderOptions.cache = this.enabled("view cache");
       }
       if (renderOptions.cache) {
-        view = cache2[name];
+        view = cache[name];
       }
       if (!view) {
         var View3 = this.get("view");
@@ -21439,7 +21439,7 @@ var require_application = __commonJS({
           return done(err);
         }
         if (renderOptions.cache) {
-          cache2[name] = view;
+          cache[name] = view;
         }
       }
       tryRender(view, renderOptions, done);
@@ -22585,17 +22585,17 @@ var require_content_disposition = __commonJS({
 // ../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js"(exports) {
-    var crypto6 = __require("crypto");
+    var crypto10 = __require("crypto");
     exports.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto6.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto10.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports.unsign = function(input, secret) {
       if ("string" != typeof input) throw new TypeError("Signed cookie string must be provided.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
       var tentativeValue = input.slice(0, input.lastIndexOf(".")), expectedInput = exports.sign(tentativeValue, secret), expectedBuffer = Buffer.from(expectedInput), inputBuffer = Buffer.from(input);
-      return expectedBuffer.length === inputBuffer.length && crypto6.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
+      return expectedBuffer.length === inputBuffer.length && crypto10.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
     };
   }
 });
@@ -23904,7 +23904,7 @@ var require_express = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router11 = require_router();
+    var Router13 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23926,8 +23926,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router11.Route;
-    exports.Router = Router11;
+    exports.Route = Router13.Route;
+    exports.Router = Router13;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -27167,12 +27167,12 @@ var require_levels = __commonJS({
     function genLsCache(instance) {
       const formatter = instance[formattersSym].level;
       const { labels } = instance.levels;
-      const cache2 = {};
+      const cache = {};
       for (const label in labels) {
         const level = formatter(labels[label], Number(label));
-        cache2[label] = JSON.stringify(level).slice(0, -1);
+        cache[label] = JSON.stringify(level).slice(0, -1);
       }
-      instance[lsCacheSym] = cache2;
+      instance[lsCacheSym] = cache;
       return instance;
     }
     function isStandardLevel(level, useOnlyCustomLevels) {
@@ -30102,7 +30102,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/crypto/sasl.js"(exports, module) {
     "use strict";
-    var crypto6 = require_utils5();
+    var crypto10 = require_utils5();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function saslprep(password) {
       const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
@@ -30120,7 +30120,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto6.randomBytes(18).toString("base64");
+      const clientNonce = crypto10.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -30162,20 +30162,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto6.hashByName(hashName, peerCert);
+        const certHash = await crypto10.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto6.deriveKey(saslprep(password), saltBytes, sv.iteration);
-      const clientKey = await crypto6.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto6.sha256(clientKey);
-      const clientSignature = await crypto6.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto10.deriveKey(saslprep(password), saltBytes, sv.iteration);
+      const clientKey = await crypto10.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto10.sha256(clientKey);
+      const clientSignature = await crypto10.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto6.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto6.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto10.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto10.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -32405,7 +32405,7 @@ var require_client = __commonJS({
     var Query2 = require_query();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
-    var crypto6 = require_utils5();
+    var crypto10 = require_utils5();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -32656,7 +32656,7 @@ var require_client = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto6.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto10.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e) {
             this.emit("error", e);
@@ -39874,7 +39874,7 @@ var require_micromatch = __commonJS({
 });
 
 // src/app.ts
-var import_express12 = __toESM(require_express2(), 1);
+var import_express14 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 
 // ../../node_modules/.pnpm/helmet@8.3.0/node_modules/helmet/index.mjs
@@ -40448,7 +40448,7 @@ var helmet = Object.assign(
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express11 = __toESM(require_express2(), 1);
+var import_express13 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -51172,12 +51172,12 @@ async function hashQuery(sql2, params) {
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/session.js
 var PgPreparedQuery = class {
-  constructor(query, cache2, queryMetadata, cacheConfig) {
+  constructor(query, cache, queryMetadata, cacheConfig) {
     this.query = query;
-    this.cache = cache2;
+    this.cache = cache;
     this.queryMetadata = queryMetadata;
     this.cacheConfig = cacheConfig;
-    if (cache2 && cache2.strategy() === "all" && cacheConfig === void 0) {
+    if (cache && cache.strategy() === "all" && cacheConfig === void 0) {
       this.cacheConfig = { enable: true, autoInvalidate: true };
     }
     if (!this.cacheConfig?.enable) {
@@ -51333,8 +51333,8 @@ var PgTransaction = class extends PgDatabase {
 // ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/node-postgres/session.js
 var { Pool: Pool2, types: types2 } = esm_default;
 var NodePgPreparedQuery = class extends PgPreparedQuery {
-  constructor(client, queryString, params, logger3, cache2, queryMetadata, cacheConfig, fields, name, _isResponseInArrayMode, customResultMapper) {
-    super({ sql: queryString, params }, cache2, queryMetadata, cacheConfig);
+  constructor(client, queryString, params, logger3, cache, queryMetadata, cacheConfig, fields, name, _isResponseInArrayMode, customResultMapper) {
+    super({ sql: queryString, params }, cache, queryMetadata, cacheConfig);
     this.client = client;
     this.queryString = queryString;
     this.params = params;
@@ -51628,6 +51628,7 @@ __export(schema_exports, {
   inviteTokensTable: () => inviteTokensTable,
   otpsTable: () => otpsTable,
   publicKeysTable: () => publicKeysTable,
+  recoveryEmailsTable: () => recoveryEmailsTable,
   retryQueueTable: () => retryQueueTable,
   sealedVaultsTable: () => sealedVaultsTable,
   subscriptionsTable: () => subscriptionsTable,
@@ -51765,6 +51766,22 @@ var subscriptionsTable = pgTable(
   (table) => ({
     userIdIdx: index("subscriptions_user_id_idx").on(table.userId),
     statusIdx: index("subscriptions_status_idx").on(table.status)
+  })
+);
+var recoveryEmailsTable = pgTable(
+  "recovery_emails",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull().unique(),
+    // Clerk user ID (one recovery email per user)
+    emailHash: text("email_hash").notNull(),
+    emailSalt: text("email_salt").notNull(),
+    verified: boolean("verified").notNull().default(false),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull()
+  },
+  (table) => ({
+    userIdIdx: index("recovery_emails_user_id_idx").on(table.userId)
   })
 );
 
@@ -57141,6 +57158,21 @@ ${body}
 <div class="footer">\u0647\u0630\u0627 \u0628\u0631\u064A\u062F \u062A\u0644\u0642\u0627\u0626\u064A \u0645\u0646 \u0646\u0638\u0627\u0645 Auryx \u2014 \u0644\u0627 \u062A\u0631\u062F \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0645\u0628\u0627\u0634\u0631\u0629\u064B.</div>
 </div></body></html>`;
 }
+async function sendRecoveryOtp(email2, otp) {
+  const html = wrap(`
+    <p>\u0637\u0644\u0628\u062A\u0645 \u0631\u0645\u0632\u0627\u064B \u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0631\u0645\u0632 \u0627\u0644\u062F\u062E\u0648\u0644 (PIN) \u0644\u062D\u0633\u0627\u0628\u0643\u0645 \u0641\u064A Auryx.</p>
+    <p>\u0627\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0631\u0645\u0632 \u0627\u0644\u062A\u0627\u0644\u064A \u0644\u0625\u062A\u0645\u0627\u0645 \u0627\u0644\u0639\u0645\u0644\u064A\u0629:</p>
+    <div style="text-align:center;margin:28px 0">
+      <div style="display:inline-block;background:linear-gradient(135deg,rgba(212,175,55,0.15),rgba(139,92,246,0.15));border:2px solid rgba(212,175,55,0.4);border-radius:16px;padding:20px 36px">
+        <span style="font-size:42px;font-weight:700;letter-spacing:16px;color:#D4AF37;font-family:monospace">${otp}</span>
+      </div>
+    </div>
+    <p style="text-align:center;color:#94A3B8;font-size:13px">\u23F3 \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632 \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 <strong style="color:#F59E0B">15 \u062F\u0642\u064A\u0642\u0629</strong> \u0641\u0642\u0637</p>
+    <hr class="divider">
+    <p class="hint">\u0625\u0630\u0627 \u0644\u0645 \u062A\u0637\u0644\u0628 \u0647\u0630\u0627 \u0627\u0644\u0631\u0645\u0632\u060C \u064A\u0631\u062C\u0649 \u062A\u062C\u0627\u0647\u0644 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0648\u062A\u063A\u064A\u064A\u0631 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0641\u0648\u0631\u0627\u064B.</p>
+  `);
+  await sendMail(email2, "\u{1F511} \u0631\u0645\u0632 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628 Auryx", html);
+}
 async function sendGuardianInvite(ownerName, guardianEmail, token2) {
   const base = getBaseUrl();
   const acceptUrl = `${base}/api/invite/accept/${token2}`;
@@ -57315,6 +57347,11 @@ async function sendEmailByType(type, email2, data) {
       const otp = String(data.otp ?? "");
       const ownerName = String(data.ownerName ?? email2);
       await sendVaultAccessOtp(email2, ownerName, otp);
+      return;
+    }
+    case "recovery-otp": {
+      const otp = String(data.otp ?? "");
+      await sendRecoveryOtp(email2, otp);
       return;
     }
     case "guardian-invite": {
@@ -58475,7 +58512,7 @@ var waitlistLimiter = rate_limit_default({
   }
 });
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/underscore.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/underscore.mjs
 function snakeToCamel(str2) {
   return str2 ? str2.replace(/([-_][a-z])/g, (match2) => match2.toUpperCase().replace(/-|_/, "")) : "";
 }
@@ -58518,7 +58555,7 @@ function isTruthy(value) {
   return false;
 }
 
-// ../../node_modules/.pnpm/@clerk+express@2.1.47_express@5.2.1/node_modules/@clerk/express/dist/utils-DGuD2i81.mjs
+// ../../node_modules/.pnpm/@clerk+express@2.1.77_express@5.2.1/node_modules/@clerk/express/dist/utils-CvHFXZw4.mjs
 import { Readable } from "stream";
 var clerkAuthBrand = /* @__PURE__ */ Symbol.for("@clerk/express.auth");
 var brandRequestAuth = (authHandler) => Object.assign(authHandler, { [clerkAuthBrand]: true });
@@ -58549,7 +58586,7 @@ var loadApiEnv = () => {
     jwtKey: process.env.CLERK_JWT_KEY || "",
     sdkMetadata: {
       name: "@clerk/express",
-      version: "2.1.47",
+      version: "2.1.77",
       environment: process.env.NODE_ENV
     },
     telemetry: {
@@ -58588,7 +58625,7 @@ var requestToProxyRequest = (req) => {
   });
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/runtimeEnvironment-CTVGzENl.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/runtimeEnvironment-CTVGzENl.mjs
 var automatedEnvironmentVariables = [
   "CI",
   "CONTINUOUS_INTEGRATION",
@@ -58622,7 +58659,7 @@ var isProductionEnvironment = () => {
   return false;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/deprecated.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/deprecated.mjs
 var displayedWarnings = /* @__PURE__ */ new Set();
 var deprecated = (fnName, warning, key) => {
   const hideWarning = isTestEnvironment() || isProductionEnvironment();
@@ -58633,7 +58670,7 @@ var deprecated = (fnName, warning, key) => {
 ${warning}`);
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/constants.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/constants.mjs
 var LEGACY_DEV_INSTANCE_SUFFIXES = [
   ".lcl.dev",
   ".lclstage.dev",
@@ -58667,21 +58704,41 @@ var STAGING_FAPI_URL = "https://frontend-api.clerkstage.dev";
 var PROD_FAPI_URL = "https://frontend-api.clerk.dev";
 var DEFAULT_PROXY_PATH = "/__clerk";
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicAtob.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/keySetupGuidance-NjzfRCzi.mjs
+var existingAppSteps = `To use an existing Clerk app, run:
+npx clerk@latest link
+npx clerk@latest env pull
+
+For production keys, run:
+npx clerk@latest env pull --instance prod`;
+var dashboardFallback = `Or copy keys from https://dashboard.clerk.com/~/api-keys into your .env file.`;
+var keySetupGuidance = `To create a new Clerk app, run:
+npx clerk@latest init
+
+'npx clerk@latest init' does not need a Clerk account and writes temporary dev keys.
+
+${existingAppSteps}
+
+${dashboardFallback}`;
+var existingAppKeyGuidance = `${existingAppSteps}
+
+${dashboardFallback}`;
+
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicAtob.mjs
 var isomorphicAtob = (data) => {
   if (typeof atob !== "undefined" && typeof atob === "function") return atob(data);
   else if (typeof globalThis.Buffer !== "undefined") return globalThis.Buffer.from(data, "base64").toString();
   return data;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicBtoa.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicBtoa.mjs
 var isomorphicBtoa = (data) => {
   if (typeof btoa !== "undefined" && typeof btoa === "function") return btoa(data);
   else if (typeof globalThis.Buffer !== "undefined") return globalThis.Buffer.from(data).toString("base64");
   return data;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/keys.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/keys.mjs
 var PUBLISHABLE_KEY_LIVE_PREFIX = "pk_live_";
 var PUBLISHABLE_KEY_TEST_PREFIX = "pk_test_";
 function isValidDecodedPublishableKey(decoded) {
@@ -58693,8 +58750,12 @@ function isValidDecodedPublishableKey(decoded) {
 function parsePublishableKey(key, options = {}) {
   key = key || "";
   if (!key || !isPublishableKey(key)) {
-    if (options.fatal && !key) throw new Error("Publishable key is missing. Ensure that your publishable key is correctly configured. Double-check your environment configuration for your keys, or access them here: https://dashboard.clerk.com/last-active?path=api-keys");
-    if (options.fatal && !isPublishableKey(key)) throw new Error("Publishable key not valid.");
+    if (options.fatal && !key) throw new Error(`Publishable key is missing.
+
+${keySetupGuidance}`);
+    if (options.fatal && !isPublishableKey(key)) throw new Error(`Publishable key not valid (expected format: pk_test_... or pk_live_...).
+
+${keySetupGuidance}`);
     return null;
   }
   const instanceType = key.startsWith(PUBLISHABLE_KEY_LIVE_PREFIX) ? "production" : "development";
@@ -58702,11 +58763,15 @@ function parsePublishableKey(key, options = {}) {
   try {
     decodedFrontendApi = isomorphicAtob(key.split("_")[2]);
   } catch {
-    if (options.fatal) throw new Error("Publishable key not valid: Failed to decode key.");
+    if (options.fatal) throw new Error(`Publishable key not valid: Failed to decode key.
+
+${keySetupGuidance}`);
     return null;
   }
   if (!isValidDecodedPublishableKey(decodedFrontendApi)) {
-    if (options.fatal) throw new Error("Publishable key not valid: Decoded key has invalid format.");
+    if (options.fatal) throw new Error(`Publishable key not valid: Decoded key has invalid format.
+
+${keySetupGuidance}`);
     return null;
   }
   let frontendApi = decodedFrontendApi.slice(0, -1);
@@ -58765,7 +58830,7 @@ var getSuffixedCookieName = (cookieName, cookieSuffix) => {
   return `${cookieName}_${cookieSuffix}`;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/retry.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/retry.mjs
 var defaultOptions = {
   initialDelay: 125,
   maxDelayBetweenRetries: 0,
@@ -58816,7 +58881,7 @@ var retry = async (callback, options = {}) => {
   }
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/url.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/url.mjs
 function isLegacyDevAccountPortalOrigin(host) {
   return LEGACY_DEV_INSTANCE_SUFFIXES.some((legacyDevSuffix) => {
     return host.startsWith("accounts.") && host.endsWith(legacyDevSuffix);
@@ -58827,8 +58892,20 @@ function isCurrentDevAccountPortalOrigin(host) {
     return host.endsWith(currentDevSuffix) && !host.endsWith(".clerk" + currentDevSuffix);
   });
 }
+var createDynamicParamParser = ({ regex }) => ({ urlWithParam, entity }) => {
+  const match2 = regex.exec(urlWithParam);
+  if (match2) {
+    const key = match2[1];
+    if (key in entity) {
+      const value = entity[key];
+      return urlWithParam.replace(match2[0], value);
+    }
+  }
+  return urlWithParam;
+};
+var populateParamFromObject = createDynamicParamParser({ regex: /:(\w+)/ });
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/clerkRuntimeError-DlesLWqO.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/clerkRuntimeError-DlesLWqO.mjs
 function createErrorTypeGuard(ErrorClass) {
   function typeGuard(error) {
     const target = error ?? this;
@@ -58893,7 +58970,7 @@ var ClerkRuntimeError = class ClerkRuntimeError2 extends ClerkError {
 };
 var isClerkRuntimeError = createErrorTypeGuard(ClerkRuntimeError);
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/error-uYOdvTDm.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/error-DXioMHds.mjs
 var ClerkAPIError = class {
   static kind = "ClerkAPIError";
   code;
@@ -58914,7 +58991,14 @@ var ClerkAPIError = class {
         plan: json2.meta?.plan,
         isPlanUpgradePossible: json2.meta?.is_plan_upgrade_possible,
         seatsQuantityToAdd: json2.meta?.seats_quantity_to_add,
-        seatsQuantity: json2.meta?.seats_quantity
+        seatsQuantity: json2.meta?.seats_quantity,
+        traceId: json2.meta?.trace_id,
+        kind: json2.meta?.kind,
+        title: json2.meta?.title,
+        description: json2.meta?.description,
+        linkUrl: json2.meta?.link_url,
+        linkText: json2.meta?.link_text,
+        data: json2.meta?.data
       }
     };
     this.code = parsedError.code;
@@ -58962,9 +59046,15 @@ Clerk Trace ID: ${this.clerkTraceId}`;
 var isClerkAPIResponseError = createErrorTypeGuard(ClerkAPIResponseError);
 var DefaultMessages = Object.freeze({
   InvalidProxyUrlErrorMessage: `The proxyUrl passed to Clerk is invalid. The expected value for proxyUrl is an absolute URL or a relative path with a leading '/'. (key={{url}})`,
-  InvalidPublishableKeyErrorMessage: `The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key={{key}})`,
-  MissingPublishableKeyErrorMessage: `Missing publishableKey. You can get your key at https://dashboard.clerk.com/last-active?path=api-keys.`,
-  MissingSecretKeyErrorMessage: `Missing secretKey. You can get your key at https://dashboard.clerk.com/last-active?path=api-keys.`,
+  InvalidPublishableKeyErrorMessage: `The publishableKey passed to Clerk is invalid (key={{key}}, expected format: pk_test_... or pk_live_...).
+
+${keySetupGuidance}`,
+  MissingPublishableKeyErrorMessage: `Clerk keys are missing from your environment.
+
+${keySetupGuidance}`,
+  MissingSecretKeyErrorMessage: `Missing secretKey.
+
+${existingAppKeyGuidance}`,
   MissingClerkProvider: `{{source}} can only be used within the <ClerkProvider /> component. Learn more: https://clerk.com/docs/components/clerk-provider`
 });
 function buildErrorThrower({ packageName, customMessages }) {
@@ -59013,11 +59103,11 @@ function buildErrorThrower({ packageName, customMessages }) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
 var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
 var { isDevOrStagingUrl } = createDevOrStagingUrlCache();
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-RZ7A7F6X.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-RZ7A7F6X.mjs
 var TokenVerificationErrorCode = {
   InvalidSecretKey: "clerk_key_invalid"
 };
@@ -59090,10 +59180,10 @@ var _MachineTokenVerificationError = class _MachineTokenVerificationError2 exten
 _MachineTokenVerificationError.kind = "MachineTokenVerificationError";
 var MachineTokenVerificationError = _MachineTokenVerificationError;
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/runtime/node/crypto.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/runtime/node/crypto.mjs
 import { webcrypto } from "node:crypto";
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-7MALS3EJ.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-OBKCLPTQ.mjs
 var globalFetch = fetch.bind(globalThis);
 var runtime = {
   crypto: webcrypto,
@@ -59234,6 +59324,27 @@ var assertAudienceClaim = (aud, audience) => {
         )}".`
       });
     }
+  }
+};
+var assertOAuthAudienceClaim = (aud, audience) => {
+  const audienceList = [audience].flat().filter((a) => !!a);
+  if (audienceList.length === 0) {
+    return;
+  }
+  const audFromToken = aud ? [aud].flat() : void 0;
+  if (!isArrayString(audFromToken) || audFromToken.some((a) => a.length === 0)) {
+    throw new TokenVerificationError({
+      reason: TokenVerificationErrorReason.TokenVerificationFailed,
+      message: `Invalid OAuth audience claim (aud) ${JSON.stringify(aud)}. Expected a non-empty string or a non-empty array of non-empty strings.`
+    });
+  }
+  if (!audFromToken.some((a) => audienceList.includes(a))) {
+    throw new TokenVerificationError({
+      reason: TokenVerificationErrorReason.TokenVerificationFailed,
+      message: `OAuth audience mismatch. Verification expected audience ${JSON.stringify(
+        audienceList
+      )}, but incoming token has aud ${JSON.stringify(aud)}.`
+    });
   }
 };
 var assertHeaderType = (typ, allowedTypes) => {
@@ -59400,9 +59511,21 @@ function decodeJwt(token2) {
   }
   const [rawHeader, rawPayload, rawSignature] = tokenParts;
   const decoder = new TextDecoder();
-  const header = JSON.parse(decoder.decode(base64url.parse(rawHeader, { loose: true })));
-  const payload = JSON.parse(decoder.decode(base64url.parse(rawPayload, { loose: true })));
-  const signature = base64url.parse(rawSignature, { loose: true });
+  let header, payload, signature;
+  try {
+    header = JSON.parse(decoder.decode(base64url.parse(rawHeader, { loose: true })));
+    payload = JSON.parse(decoder.decode(base64url.parse(rawPayload, { loose: true })));
+    signature = base64url.parse(rawSignature, { loose: true });
+  } catch {
+    return {
+      errors: [
+        new TokenVerificationError({
+          reason: TokenVerificationErrorReason.TokenInvalid,
+          message: `Invalid JWT form. The header, payload, or signature could not be decoded.`
+        })
+      ]
+    };
+  }
   const data = {
     header,
     payload,
@@ -59467,7 +59590,7 @@ async function verifyJwt(token2, options) {
   return { data: payload };
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-TOROEX6P.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-TOROEX6P.mjs
 var __create2 = Object.create;
 var __defProp2 = Object.defineProperty;
 var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
@@ -59502,13 +59625,13 @@ var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/buildAccountsBaseUrl.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/buildAccountsBaseUrl.mjs
 function buildAccountsBaseUrl(frontendApi) {
   if (!frontendApi) return "";
   return `https://${frontendApi.replace(/clerk\.accountsstage\./, "accountsstage.").replace(/clerk\.accounts\.|clerk\./, "accounts.")}`;
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/logger.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/logger.mjs
 var loggedMessages = /* @__PURE__ */ new Set();
 var logger2 = {
   /**
@@ -59527,7 +59650,7 @@ var logger2 = {
   }
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/proxy.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/proxy.mjs
 function isValidProxyUrl(key) {
   if (!key) return true;
   return isHttpOrHttps(key) || isProxyUrlRelative(key);
@@ -59566,7 +59689,7 @@ function getAutoProxyUrlFromEnvironment({ publishableKey, hasDomain = false, has
   return AUTO_PROXY_PATH;
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/authorization.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/authorization.mjs
 var TYPES_TO_OBJECTS = {
   strict_mfa: {
     afterMinutes: 10,
@@ -59736,7 +59859,27 @@ var createCheckAuthorization = (options) => {
   };
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/jwtPayloadParser.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/jwtPayloadParser.mjs
+var decimalToBinaryBits = (decimal, minimumLength) => {
+  if (!/^\d+$/.test(decimal)) return;
+  let remaining = decimal.replace(/^0+/, "") || "0";
+  const bits = [];
+  while (remaining !== "0") {
+    let quotient = "";
+    let remainder = 0;
+    for (let i = 0; i < remaining.length; i++) {
+      const value = remainder * 10 + remaining.charCodeAt(i) - 48;
+      const quotientDigit = Math.floor(value / 2);
+      if (quotient || quotientDigit !== 0) quotient += quotientDigit;
+      remainder = value % 2;
+    }
+    bits.push(remainder);
+    remaining = quotient || "0";
+  }
+  if (bits.length === 0) bits.push(0);
+  while (bits.length < minimumLength) bits.push(0);
+  return bits;
+};
 var parsePermissions = ({ per, fpm }) => {
   if (!per || !fpm) return {
     permissions: [],
@@ -59745,7 +59888,7 @@ var parsePermissions = ({ per, fpm }) => {
   const permissions = per.split(",").map((p) => p.trim());
   return {
     permissions,
-    featurePermissionMap: fpm.split(",").map((permission) => Number.parseInt(permission.trim(), 10)).map((permission) => permission.toString(2).padStart(permissions.length, "0").split("").map((bit2) => Number.parseInt(bit2, 10)).reverse()).filter(Boolean)
+    featurePermissionMap: fpm.split(",").map((permission) => decimalToBinaryBits(permission.trim(), permissions.length) ?? [])
   };
 };
 function buildOrgPermissions({ features, permissions, featurePermissionMap }) {
@@ -59756,7 +59899,7 @@ function buildOrgPermissions({ features, permissions, featurePermissionMap }) {
     if (featureIndex >= featurePermissionMap.length) continue;
     const permissionBits = featurePermissionMap[featureIndex];
     if (!permissionBits) continue;
-    for (let permIndex = 0; permIndex < permissionBits.length; permIndex++) if (permissionBits[permIndex] === 1) orgPermissions.push(`org:${feature}:${permissions[permIndex]}`);
+    for (let permIndex = 0; permIndex < permissionBits.length && permIndex < permissions.length; permIndex++) if (permissionBits[permIndex] === 1) orgPermissions.push(`org:${feature}:${permissions[permIndex]}`);
   }
   return orgPermissions;
 }
@@ -59806,7 +59949,7 @@ var __experimental_JWTPayloadToAuthObjectProperties = (claims) => {
   };
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/pathToRegexp-C-7qTA7_.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/pathToRegexp-C-7qTA7_.mjs
 function _(r) {
   for (var n = [], e = 0; e < r.length; ) {
     var a = r[e];
@@ -60043,7 +60186,7 @@ ${e.message}`);
   }
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-NOLGLCE3.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-KO7J5H4N.mjs
 var require_dist5 = __commonJS2({
   "../../node_modules/.pnpm/cookie@1.1.1/node_modules/cookie/dist/index.js"(exports) {
     "use strict";
@@ -60293,7 +60436,7 @@ var require_dist5 = __commonJS2({
 });
 var API_URL = "https://api.clerk.com";
 var API_VERSION = "v1";
-var USER_AGENT = `${"@clerk/backend"}@${"3.13.2"}`;
+var USER_AGENT = `${"@clerk/backend"}@${"3.23.1"}`;
 var MAX_CACHE_LAST_UPDATED_AT_SECONDS = 5 * 60;
 var SUPPORTED_BAPI_VERSION = "2026-05-12";
 var Attributes = {
@@ -60607,6 +60750,9 @@ var AuthenticateContext = class {
     }
     const { data, errors } = decodeJwt(token2);
     if (errors) {
+      return false;
+    }
+    if (typeof data.payload.iss !== "string") {
       return false;
     }
     const tokenIssuer = data.payload.iss.replace(/https?:\/\//gi, "");
@@ -61002,24 +61148,24 @@ var DomainAPI = class extends AbstractAPI {
     });
   }
   /**
-   * Deletes a satellite domain for the instance. It is currently not possible to delete the instance's primary domain.
-   * @param satelliteDomainId - The ID of the satellite domain to delete.
+   * Deletes a domain for the instance. The active domain cannot be deleted.
+   * @param domainId - The ID of the domain to delete.
    * @returns The [`DeletedObject`](https://clerk.com/docs/reference/backend/types/deleted-object).
    */
-  async delete(satelliteDomainId) {
-    return this.deleteDomain(satelliteDomainId);
+  async delete(domainId) {
+    return this.deleteDomain(domainId);
   }
   /**
-   * Deletes a satellite domain for the instance.
-   * @param satelliteDomainId - The ID of the satellite domain to delete.
+   * Deletes a domain for the instance. The active domain cannot be deleted.
+   * @param domainId - The ID of the domain to delete.
    * @returns The [`DeletedObject`](https://clerk.com/docs/reference/backend/types/deleted-object).
    * @deprecated Use `delete()` instead.
    */
-  async deleteDomain(satelliteDomainId) {
-    this.requireId(satelliteDomainId);
+  async deleteDomain(domainId) {
+    this.requireId(domainId);
     return this.request({
       method: "DELETE",
-      path: joinPaths(basePath9, satelliteDomainId)
+      path: joinPaths(basePath9, domainId)
     });
   }
 };
@@ -61074,7 +61220,58 @@ var EmailAddressAPI = class extends AbstractAPI {
     });
   }
 };
+var Email = class _Email {
+  constructor(id, fromEmailName, emailAddressId, toEmailAddress, subject, body, bodyPlain, status, slug, data, deliveredByClerk, userId, suppressionReason) {
+    this.id = id;
+    this.fromEmailName = fromEmailName;
+    this.emailAddressId = emailAddressId;
+    this.toEmailAddress = toEmailAddress;
+    this.subject = subject;
+    this.body = body;
+    this.bodyPlain = bodyPlain;
+    this.status = status;
+    this.slug = slug;
+    this.data = data;
+    this.deliveredByClerk = deliveredByClerk;
+    this.userId = userId;
+    this.suppressionReason = suppressionReason;
+  }
+  static fromJSON(data) {
+    return new _Email(
+      data.id,
+      data.from_email_name,
+      data.email_address_id,
+      data.to_email_address,
+      data.subject,
+      data.body,
+      data.body_plain,
+      data.status,
+      data.slug,
+      data.data,
+      data.delivered_by_clerk,
+      data.user_id,
+      data.suppression_reason
+    );
+  }
+};
 var basePath11 = "/email";
+var idempotencyKeyPattern = /^[a-zA-Z0-9_-]{1,255}$/;
+function validateIdempotencyKey(idempotencyKey) {
+  if (idempotencyKey !== void 0 && (typeof idempotencyKey !== "string" || !idempotencyKeyPattern.test(idempotencyKey))) {
+    throw new Error(
+      "Idempotency key must contain only ASCII letters, digits, underscores, and hyphens and cannot exceed 255 characters."
+    );
+  }
+}
+function emailBody(params) {
+  const { to, replyTo, ...rest } = params;
+  const { userId, ...recipient } = to;
+  return {
+    ...rest,
+    to: { ...recipient, ...userId !== void 0 ? { user_id: userId } : {} },
+    ...replyTo !== void 0 ? { reply_to: replyTo } : {}
+  };
+}
 var EmailApi = class extends AbstractAPI {
   /**
    * @experimental This method calls an internal, not-yet-public endpoint and is
@@ -61082,18 +61279,108 @@ var EmailApi = class extends AbstractAPI {
    * the SDK version to avoid breaking changes.
    *
    * Sends a transactional email.
+   *
+   * @param params - The recipient, sender, subject, and content of the email.
+   * @param options - Optional request settings, including an idempotency key.
+   * @returns The stored email and its current send status.
+   * @throws If the idempotency key does not match the supported format.
+   * @example
+   * ```ts
+   * const email = await clerkClient.emails.create(
+   *   {
+   *     to: { address: 'customer@example.com' },
+   *     from: { address: 'support@example.com' },
+   *     subject: 'Your receipt',
+   *     html: '<p>Thanks for your order.</p>',
+   *   },
+   *   { idempotencyKey: 'order_123_receipt' },
+   * );
+   * ```
    */
-  async create(params) {
+  async create(params, options = {}) {
+    const { idempotencyKey } = options;
+    validateIdempotencyKey(idempotencyKey);
     return this.request({
       method: "POST",
       path: basePath11,
-      bodyParams: params,
-      options: {
-        // Snakecase nested keys too, so a `to: { userId }` recipient is sent as
-        // `to: { user_id }` on the wire (the default only snakecases top-level
-        // keys, which would leave the nested `userId` untouched).
-        deepSnakecaseBodyParamKeys: true
+      bodyParams: emailBody(params),
+      ...idempotencyKey !== void 0 ? { headerParams: { "Idempotency-Key": idempotencyKey } } : {}
+    });
+  }
+  /**
+   * @experimental Submit 1–100 emails, returning one result per input in order.
+   * Each message commits independently. Use a stable `idempotencyKey` on each
+   * item to safely retry an interrupted batch or retry through `emails.create`.
+   * Reuse a key only with identical message parameters. The SDK does not retry
+   * the batch automatically.
+   * Item errors are returned alongside successes; request-level errors throw.
+   *
+   * @param messages - The emails to send, each with an optional idempotency key.
+   * @returns One success or error result per input, in input order.
+   * @throws If the batch size or an idempotency key is invalid, or the request fails.
+   * @example
+   * ```ts
+   * const results = await clerkClient.emails.createBatch([
+   *   {
+   *     to: { address: 'customer@example.com' },
+   *     from: { address: 'support@example.com' },
+   *     subject: 'Your receipt',
+   *     text: 'Thanks for your order.',
+   *     idempotencyKey: 'order_123_receipt',
+   *   },
+   * ]);
+   * for (const result of results) {
+   *   if (result.email) {
+   *     console.log(result.index, result.email.id);
+   *   } else {
+   *     console.error(result.index, result.statusCode, result.errors);
+   *   }
+   * }
+   * ```
+   */
+  async createBatch(messages) {
+    if (messages.length < 1 || messages.length > 100) {
+      throw new Error("A batch must contain between 1 and 100 messages.");
+    }
+    for (const message of messages) {
+      validateIdempotencyKey(message.idempotencyKey);
+    }
+    const results = await this.request({
+      method: "POST",
+      path: `${basePath11}/batch`,
+      bodyParams: {
+        messages: messages.map(({ idempotencyKey, ...params }) => ({
+          ...emailBody(params),
+          ...idempotencyKey !== void 0 ? { idempotency_key: idempotencyKey } : {}
+        }))
       }
+    });
+    return results.map(
+      (result) => result.email ? { index: result.index, email: Email.fromJSON(result.email), statusCode: result.status_code } : {
+        index: result.index,
+        errors: (result.errors || []).map(parseError),
+        statusCode: result.status_code,
+        retryAfterSeconds: result.retry_after_seconds
+      }
+    );
+  }
+  /**
+   * Returns Clerk's stored send state for a transactional email. `accepted`
+   * means the provider accepted the request; it does not prove delivery.
+   *
+   * @param emailId - The ID returned when the email was created.
+   * @returns The stored email and its current send status.
+   * @throws If `emailId` is empty.
+   * @example
+   * ```ts
+   * const email = await clerkClient.emails.get('ema_123');
+   * ```
+   */
+  async get(emailId) {
+    this.requireId(emailId);
+    return this.request({
+      method: "GET",
+      path: `${basePath11}/${emailId}`
     });
   }
 };
@@ -61168,12 +61455,32 @@ var EnterpriseConnectionAPI = class extends AbstractAPI {
 };
 var basePath13 = "/oauth_applications/access_tokens";
 var IdPOAuthAccessTokenApi = class extends AbstractAPI {
-  async verify(accessToken) {
-    return this.request({
+  /**
+   * Verifies an OAuth access token with the Clerk Backend API. If an audience is provided, at least one expected audience must match the token's `aud` claim. Without an audience, the SDK does not check the `aud` claim.
+   *
+   * @param accessToken - The OAuth access token to verify.
+   * @param options - Optional verification options. `audience` can be one expected audience or an array of acceptable audiences.
+   * @returns The verified `IdPOAuthAccessToken` resource, including its audience when present.
+   * @throws `ClerkAPIResponseError` if the Backend API rejects the token or request.
+   * @throws `TokenVerificationError` if an expected audience is provided but the token has no `aud` claim or none of its audiences match.
+   *
+   * @example
+   * ### Verify a token for an API
+   *
+   * ```ts
+   * const token = await clerkClient.idPOAuthAccessToken.verify(accessToken, {
+   *   audience: 'https://api.example.com',
+   * });
+   * ```
+   */
+  async verify(accessToken, options = {}) {
+    const verifiedToken = await this.request({
       method: "POST",
       path: joinPaths(basePath13, "verify"),
       bodyParams: { access_token: accessToken }
     });
+    assertOAuthAudienceClaim(verifiedToken.aud, options.audience);
+    return verifiedToken;
   }
 };
 var basePath14 = "/instance";
@@ -61283,6 +61590,22 @@ var InvitationAPI = class extends AbstractAPI {
     return this.request({
       method: "POST",
       path: joinPaths(basePath15, invitationId, "revoke")
+    });
+  }
+  /**
+   * Permanently deletes the given invitation and the copies of the invitation email Clerk stored for its recipient.
+   *
+   * Unlike revoking, deleting removes the invitation record itself, which helps honor a data erasure request from someone who was invited but never signed up. Other records that contain the same email address, such as users or organization invitations, are not affected.
+   *
+   * Invitations of any status can be deleted.
+   * @param invitationId - The ID of the invitation to delete.
+   * @returns The [`DeletedObject`](https://clerk.com/docs/reference/backend/types/deleted-object) object.
+   */
+  async deleteInvitation(invitationId) {
+    this.requireId(invitationId);
+    return this.request({
+      method: "DELETE",
+      path: joinPaths(basePath15, invitationId)
     });
   }
 };
@@ -61406,8 +61729,23 @@ var MachineApi = class extends AbstractAPI {
     });
   }
 };
+function toActor(value, nestedLevels) {
+  if (typeof value !== "object" || value === null) {
+    return void 0;
+  }
+  const { iss, sub, act } = value;
+  if (typeof sub !== "string") {
+    return void 0;
+  }
+  const nested = nestedLevels > 0 ? toActor(act, nestedLevels - 1) : void 0;
+  return {
+    ...typeof iss === "string" ? { iss } : {},
+    sub,
+    ...nested ? { act: nested } : {}
+  };
+}
 var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
-  constructor(id, clientId, type, subject, scopes, revoked, revocationReason, expired, expiration, createdAt, updatedAt) {
+  constructor(id, clientId, type, subject, scopes, revoked, revocationReason, expired, expiration, createdAt, updatedAt, aud, act) {
     this.id = id;
     this.clientId = clientId;
     this.type = type;
@@ -61419,6 +61757,8 @@ var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
     this.expiration = expiration;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
+    this.aud = aud;
+    this.act = act;
   }
   static fromJSON(data) {
     return new _IdPOAuthAccessToken(
@@ -61432,12 +61772,15 @@ var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
       data.expired,
       data.expiration,
       data.created_at,
-      data.updated_at
+      data.updated_at,
+      data.aud,
+      toActor(data.act, 1)
     );
   }
   /**
    * Creates an IdPOAuthAccessToken from a JWT payload.
    * Maps standard JWT claims and OAuth-specific fields to token properties.
+   * The raw JWT `aud` claim can be a string, string[], or undefined. It is normalized to string[].
    */
   static fromJwtPayload(payload, clockSkewInMs = 5e3) {
     const oauthPayload = payload;
@@ -61454,8 +61797,10 @@ var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
       // milliseconds: expiration, converted from JWT exp claim
       payload.iat * 1e3,
       // milliseconds: createdAt, converted from JWT iat claim
-      payload.iat * 1e3
+      payload.iat * 1e3,
       // milliseconds: updatedAt, no JWT equivalent, defaults to iat
+      oauthPayload.aud === void 0 ? void 0 : [oauthPayload.aud].flat(),
+      toActor(oauthPayload.act, 1)
     );
   }
 };
@@ -61517,17 +61862,29 @@ var M2MToken = class _M2MToken {
     );
   }
 };
-var cache = {};
-var lastUpdatedAt = 0;
-function getFromCache(kid) {
-  return cache[kid];
+var JWT_CATEGORY_SESSION_TOKEN = "cl_B7d4PD111AAA";
+var JWT_CATEGORY_M2M_TOKEN = "cl_B7d4PD333AAA";
+var JWT_CATEGORY_IGNORE = "cl_I7d4PD111III";
+function isNonSessionJwtCategory(cat) {
+  return cat !== void 0 && cat !== JWT_CATEGORY_SESSION_TOKEN && cat !== JWT_CATEGORY_IGNORE;
 }
-function getCacheValues() {
-  return Object.values(cache);
+function hasNonSessionJwtCategory(token2) {
+  const { data, errors } = decodeJwt(token2);
+  return !errors && isNonSessionJwtCategory(data?.header?.cat);
 }
-function setInCache(cacheKey, jwk, shouldExpire = true) {
-  cache[cacheKey] = jwk;
-  lastUpdatedAt = shouldExpire ? Date.now() : -1;
+var remoteCaches = /* @__PURE__ */ new Map();
+function getRemoteCache(scope) {
+  let cache = remoteCaches.get(scope);
+  if (!cache) {
+    for (const [key, entry] of remoteCaches) {
+      if (cacheHasExpired(entry)) {
+        remoteCaches.delete(key);
+      }
+    }
+    cache = { keys: {}, lastUpdatedAt: 0 };
+    remoteCaches.set(scope, cache);
+  }
+  return cache;
 }
 var PEM_HEADER = "-----BEGIN PUBLIC KEY-----";
 var PEM_TRAILER = "-----END PUBLIC KEY-----";
@@ -61535,11 +61892,6 @@ var RSA_PREFIX = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA";
 var RSA_SUFFIX = "IDAQAB";
 function loadClerkJwkFromPem(params) {
   const { kid, pem } = params;
-  const prefixedKid = `local-${kid}`;
-  const cachedJwk = getFromCache(prefixedKid);
-  if (cachedJwk) {
-    return cachedJwk;
-  }
   if (!pem) {
     throw new TokenVerificationError({
       action: TokenVerificationErrorAction.SetClerkJWTKey,
@@ -61548,13 +61900,13 @@ function loadClerkJwkFromPem(params) {
     });
   }
   const modulus = pem.replace(/\r\n|\n|\r/g, "").replace(PEM_HEADER, "").replace(PEM_TRAILER, "").replace(RSA_PREFIX, "").replace(RSA_SUFFIX, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const jwk = { kid: prefixedKid, kty: "RSA", alg: "RS256", n: modulus, e: "AQAB" };
-  setInCache(prefixedKid, jwk, false);
+  const jwk = { kid: `local-${kid}`, kty: "RSA", alg: "RS256", n: modulus, e: "AQAB" };
   return jwk;
 }
 async function loadClerkJWKFromRemote(params) {
   const { secretKey, apiUrl = API_URL, apiVersion = API_VERSION, kid, skipJwksCache } = params;
-  if (skipJwksCache || cacheHasExpired() || !getFromCache(kid)) {
+  const cache = getRemoteCache(`${apiUrl}|${apiVersion}|${secretKey ?? ""}`);
+  if (skipJwksCache || cacheHasExpired(cache) || !cache.keys[kid]) {
     if (!secretKey) {
       throw new TokenVerificationError({
         action: TokenVerificationErrorAction.ContactSupport,
@@ -61571,15 +61923,16 @@ async function loadClerkJWKFromRemote(params) {
         reason: TokenVerificationErrorReason.RemoteJWKFailedToLoad
       });
     }
-    keys.forEach((key) => setInCache(key.kid, key));
+    keys.forEach((key) => {
+      cache.keys[key.kid] = key;
+    });
+    cache.lastUpdatedAt = Date.now();
   }
-  const jwk = getFromCache(kid);
+  const jwk = cache.keys[kid];
   if (!jwk) {
-    const cacheValues = getCacheValues();
-    const jwkKeys = cacheValues.map((jwk2) => jwk2.kid).sort().join(", ");
     throw new TokenVerificationError({
       action: `Go to your Dashboard and validate your secret and public keys are correct. ${TokenVerificationErrorAction.ContactSupport} if the issue persists.`,
-      message: `Unable to find a signing key in JWKS that matches the kid='${kid}' of the provided session token. Please make sure that the __session cookie or the HTTP authorization header contain a Clerk-generated session JWT. The following kid is available: ${jwkKeys}`,
+      message: `Unable to find a signing key in JWKS that matches the kid='${kid}' of the provided session token. Please make sure that the __session cookie or the HTTP authorization header contain a Clerk-generated session JWT.`,
       reason: TokenVerificationErrorReason.JWKKidMismatch
     });
   }
@@ -61622,13 +61975,10 @@ async function fetchJWKSFromBAPI(apiUrl, key, apiVersion) {
   }
   return response.json();
 }
-function cacheHasExpired() {
-  if (lastUpdatedAt === -1) {
-    return false;
-  }
-  const isExpired = Date.now() - lastUpdatedAt >= MAX_CACHE_LAST_UPDATED_AT_SECONDS * 1e3;
+function cacheHasExpired(cache) {
+  const isExpired = Date.now() - cache.lastUpdatedAt >= MAX_CACHE_LAST_UPDATED_AT_SECONDS * 1e3;
   if (isExpired) {
-    cache = {};
+    cache.keys = {};
   }
   return isExpired;
 }
@@ -61642,7 +61992,6 @@ var M2M_TOKEN_PREFIX = "mt_";
 var M2M_SUBJECT_PREFIX = "mch_";
 var OAUTH_TOKEN_PREFIX = "oat_";
 var API_KEY_PREFIX = "ak_";
-var JWT_CATEGORY_M2M_TOKEN = "cl_B7d4PD333AAA";
 var MACHINE_TOKEN_PREFIXES = [M2M_TOKEN_PREFIX, OAUTH_TOKEN_PREFIX, API_KEY_PREFIX];
 var JwtFormatRegExp = /^[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+$/;
 function isJwtFormat(token2) {
@@ -61705,6 +62054,17 @@ var isTokenTypeAccepted = (tokenType, acceptsToken) => {
 var MACHINE_TOKEN_TYPES = /* @__PURE__ */ new Set([TokenType.ApiKey, TokenType.M2MToken, TokenType.OAuthToken]);
 function isMachineTokenType(type) {
   return MACHINE_TOKEN_TYPES.has(type);
+}
+function getOAuthAudienceVerificationError(aud, audience) {
+  try {
+    assertOAuthAudienceClaim(aud, audience);
+  } catch (error) {
+    return new MachineTokenVerificationError({
+      code: MachineTokenVerificationErrorCode.TokenVerificationFailed,
+      message: error.message
+    });
+  }
+  return void 0;
 }
 async function resolveKeyAndVerifyJwt(token2, kid, options, headerType) {
   try {
@@ -61770,9 +62130,18 @@ async function verifyM2MJwt(token2, decoded, options) {
   };
 }
 async function verifyOAuthJwt(token2, decoded, options) {
-  const result = await resolveKeyAndVerifyJwt(token2, decoded.header.kid, options, OAUTH_ACCESS_TOKEN_TYPES);
+  const { audience, ...jwtOptions } = options;
+  const result = await resolveKeyAndVerifyJwt(token2, decoded.header.kid, jwtOptions, OAUTH_ACCESS_TOKEN_TYPES);
   if ("error" in result) {
     return { data: void 0, tokenType: TokenType.OAuthToken, errors: [result.error] };
+  }
+  const audienceError = getOAuthAudienceVerificationError(result.payload.aud, audience);
+  if (audienceError) {
+    return {
+      data: void 0,
+      tokenType: TokenType.OAuthToken,
+      errors: [audienceError]
+    };
   }
   return {
     data: IdPOAuthAccessToken.fromJwtPayload(result.payload, options.clockSkewInMs),
@@ -62894,7 +63263,7 @@ var UserAPI = class extends AbstractAPI {
    *
    * Your settings in the [Clerk Dashboard](https://dashboard.clerk.com) determine how you should setup your user model. Anything **Required** will need to be provided when creating a user. Trying to add a field that isn't enabled will result in an error.
    *
-   * Any email address and phone number created using this method will be automatically verified.
+   * By default, email addresses and phone numbers created using this method are verified automatically. Use `emailAddressIdentificationStatus` and `phoneNumberIdentificationStatus` to create any of them as reserved. Reserved identifiers are unverified, but they can still be used for sign-in and cannot be claimed by another user.
    *
    * > [!CAUTION]
    * >
@@ -63090,6 +63459,37 @@ var UserAPI = class extends AbstractAPI {
       queryParams
     });
   }
+  /**
+   * Removes the password credential from the given user. This is a privileged operation and does not require the user's current password. Password removal is allowed even when the user has no other sign-in method configured.
+   *
+   * By default, existing sessions remain active. Set `signOutOfOtherSessions` to `true` to revoke sessions active when the request is processed.
+   * @param userId - The ID of the user whose password to remove.
+   * @param params - Options for the request.
+   * @returns The updated [`User`](https://clerk.com/docs/reference/backend/types/backend-user).
+   * @example
+   * ### Keep existing sessions active
+   *
+   * ```ts
+   * const user = await clerkClient.users.removePassword('user_123');
+   * ```
+   *
+   * @example
+   * ### Revoke existing sessions
+   *
+   * ```ts
+   * const user = await clerkClient.users.removePassword('user_123', {
+   *   signOutOfOtherSessions: true,
+   * });
+   * ```
+   */
+  async removePassword(userId, params = {}) {
+    this.requireId(userId);
+    return this.request({
+      method: "POST",
+      path: joinPaths(basePath33, userId, "remove_password"),
+      bodyParams: params
+    });
+  }
   /** Check that the user's password matches the supplied input. Useful for custom auth flows and re-verification. */
   async verifyPassword(params) {
     const { userId, password } = params;
@@ -63133,7 +63533,7 @@ var UserAPI = class extends AbstractAPI {
     });
   }
   /**
-   * Locks the given [`User`](https://clerk.com/docs/reference/backend/types/backend-user), which means that they are not allowed to sign in again until the lock expires or is manually unlocked. By default, lockout duration is 1 hour, but it can be configured in the application's [**Attack protection**](https://dashboard.clerk.com/~/protect/attack-protection) settings. See the [guide on user locks](https://clerk.com/docs/guides/secure/user-lockout).
+   * Locks the given [`User`](https://clerk.com/docs/reference/backend/types/backend-user), which means that they are not allowed to sign in again until the lock expires or is manually unlocked. By default, lockout duration is 1 hour, but it can be configured in the application's [**System**](https://dashboard.clerk.com/~/protect/rules) settings under **Protect** > **Rules**. See the [guide on user locks](https://clerk.com/docs/guides/secure/user-lockout).
    * @param userId - The ID of the user to lock.
    */
   async lockUser(userId) {
@@ -63840,38 +64240,6 @@ var Domain = class _Domain {
     );
   }
 };
-var Email = class _Email {
-  constructor(id, fromEmailName, emailAddressId, toEmailAddress, subject, body, bodyPlain, status, slug, data, deliveredByClerk, userId) {
-    this.id = id;
-    this.fromEmailName = fromEmailName;
-    this.emailAddressId = emailAddressId;
-    this.toEmailAddress = toEmailAddress;
-    this.subject = subject;
-    this.body = body;
-    this.bodyPlain = bodyPlain;
-    this.status = status;
-    this.slug = slug;
-    this.data = data;
-    this.deliveredByClerk = deliveredByClerk;
-    this.userId = userId;
-  }
-  static fromJSON(data) {
-    return new _Email(
-      data.id,
-      data.from_email_name,
-      data.email_address_id,
-      data.to_email_address,
-      data.subject,
-      data.body,
-      data.body_plain,
-      data.status,
-      data.slug,
-      data.data,
-      data.delivered_by_clerk,
-      data.user_id
-    );
-  }
-};
 var IdentificationLink = class _IdentificationLink {
   constructor(id, type) {
     this.id = id;
@@ -63978,9 +64346,89 @@ var BillingPlan = class _BillingPlan {
     );
   }
 };
+var billingMoneyAmountFromJSON = (amount) => ({
+  amount: amount.amount,
+  amountFormatted: amount.amount_formatted,
+  currency: amount.currency,
+  currencySymbol: amount.currency_symbol
+});
+var billingPerUnitTotalsFromJSON = (perUnitTotals) => perUnitTotals.map((perUnitTotal) => ({
+  name: perUnitTotal.name,
+  blockSize: perUnitTotal.block_size,
+  tiers: perUnitTotal.tiers.map((tier) => ({
+    quantity: tier.quantity,
+    feePerBlock: billingMoneyAmountFromJSON(tier.fee_per_block),
+    total: billingMoneyAmountFromJSON(tier.total)
+  }))
+}));
+var billingCreditsFromJSON = (credits) => ({
+  proration: credits.proration ? {
+    amount: billingMoneyAmountFromJSON(credits.proration.amount),
+    cycleDaysRemaining: credits.proration.cycle_days_remaining,
+    cycleDaysTotal: credits.proration.cycle_days_total,
+    cycleRemainingPercent: credits.proration.cycle_remaining_percent
+  } : null,
+  payer: credits.payer ? {
+    remainingBalance: billingMoneyAmountFromJSON(credits.payer.remaining_balance),
+    appliedAmount: billingMoneyAmountFromJSON(credits.payer.applied_amount)
+  } : null,
+  total: billingMoneyAmountFromJSON(credits.total)
+});
+var billingAppliedDiscountFromJSON = (discount) => ({
+  amount: billingMoneyAmountFromJSON(discount.amount),
+  discountId: discount.discount_id,
+  name: discount.name,
+  effect: discount.effect,
+  percentOff: discount.percent_off,
+  amountOff: discount.amount_off ? billingMoneyAmountFromJSON(discount.amount_off) : void 0,
+  promoCode: discount.promo_code,
+  cyclesRemaining: discount.cycles_remaining,
+  durationInCycles: discount.duration_in_cycles
+});
+var billingDiscountsFromJSON = (discounts) => ({
+  proration: discounts.proration ? {
+    amount: billingMoneyAmountFromJSON(discounts.proration.amount),
+    cycleDaysPassed: discounts.proration.cycle_days_passed,
+    cycleDaysTotal: discounts.proration.cycle_days_total,
+    cyclePassedPercent: discounts.proration.cycle_passed_percent
+  } : null,
+  discount: discounts.discount ? billingAppliedDiscountFromJSON(discounts.discount) : void 0,
+  total: billingMoneyAmountFromJSON(discounts.total)
+});
+var billingPeriodTotalsFromJSON = (totals) => ({
+  subtotal: billingMoneyAmountFromJSON(totals.subtotal),
+  baseFee: billingMoneyAmountFromJSON(totals.base_fee),
+  taxTotal: billingMoneyAmountFromJSON(totals.tax_total),
+  grandTotal: billingMoneyAmountFromJSON(totals.grand_total),
+  perUnitTotals: totals.per_unit_totals ? billingPerUnitTotalsFromJSON(totals.per_unit_totals) : void 0
+});
+var billingTotalsFromJSON = (totals) => ({
+  subtotal: billingMoneyAmountFromJSON(totals.subtotal),
+  baseFee: totals.base_fee ? billingMoneyAmountFromJSON(totals.base_fee) : null,
+  taxTotal: billingMoneyAmountFromJSON(totals.tax_total),
+  grandTotal: billingMoneyAmountFromJSON(totals.grand_total),
+  totalDueAfterFreeTrial: totals.total_due_after_free_trial ? billingMoneyAmountFromJSON(totals.total_due_after_free_trial) : totals.total_due_after_free_trial,
+  credit: totals.credit ? billingMoneyAmountFromJSON(totals.credit) : totals.credit,
+  credits: totals.credits ? billingCreditsFromJSON(totals.credits) : null,
+  discounts: totals.discounts ? billingDiscountsFromJSON(totals.discounts) : null,
+  pastDue: totals.past_due ? billingMoneyAmountFromJSON(totals.past_due) : totals.past_due,
+  totalDueNow: totals.total_due_now ? billingMoneyAmountFromJSON(totals.total_due_now) : void 0,
+  perUnitTotals: totals.per_unit_totals ? billingPerUnitTotalsFromJSON(totals.per_unit_totals) : void 0,
+  totalsDuePerPeriod: totals.totals_due_per_period ? billingPeriodTotalsFromJSON(totals.totals_due_per_period) : void 0,
+  totalDuePerPeriod: totals.total_due_per_period ? billingMoneyAmountFromJSON(totals.total_due_per_period) : void 0
+});
+var billingSubscriptionItemSeatsFromJSON = (seats) => ({
+  quantity: seats.quantity,
+  tiers: seats.tiers ? seats.tiers.map((tier) => ({
+    quantity: tier.quantity,
+    feePerBlock: billingMoneyAmountFromJSON(tier.fee_per_block),
+    total: billingMoneyAmountFromJSON(tier.total)
+  })) : void 0
+});
 var BillingSubscriptionItem = class _BillingSubscriptionItem {
-  constructor(id, status, planPeriod, periodStart, nextPayment, amount, plan, planId, createdAt, updatedAt, periodEnd, canceledAt, pastDueAt, endedAt, payerId, isFreeTrial, lifetimePaid) {
+  constructor(id, instanceId, status, planPeriod, periodStart, nextPayment, amount, plan, planId, priceId, createdAt, updatedAt, periodEnd, canceledAt, pastDueAt, endedAt, payerId, isFreeTrial, lifetimePaid, seats) {
     this.id = id;
+    this.instanceId = instanceId;
     this.status = status;
     this.planPeriod = planPeriod;
     this.periodStart = periodStart;
@@ -63988,6 +64436,7 @@ var BillingSubscriptionItem = class _BillingSubscriptionItem {
     this.amount = amount;
     this.plan = plan;
     this.planId = planId;
+    this.priceId = priceId;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.periodEnd = periodEnd;
@@ -63997,28 +64446,26 @@ var BillingSubscriptionItem = class _BillingSubscriptionItem {
     this.payerId = payerId;
     this.isFreeTrial = isFreeTrial;
     this.lifetimePaid = lifetimePaid;
+    this.seats = seats;
   }
   static fromJSON(data) {
-    function formatAmountJSON(amount) {
-      if (!amount) {
-        return amount;
-      }
-      return {
-        amount: amount.amount,
-        amountFormatted: amount.amount_formatted,
-        currency: amount.currency,
-        currencySymbol: amount.currency_symbol
-      };
-    }
+    const nextPayment = data.next_payment ? {
+      amount: billingMoneyAmountFromJSON(data.next_payment.amount),
+      date: data.next_payment.date,
+      perUnitTotals: data.next_payment.per_unit_totals ? billingPerUnitTotalsFromJSON(data.next_payment.per_unit_totals) : void 0,
+      totals: data.next_payment.totals ? billingTotalsFromJSON(data.next_payment.totals) : void 0
+    } : data.next_payment;
     return new _BillingSubscriptionItem(
       data.id,
+      data.instance_id,
       data.status,
       data.plan_period,
       data.period_start,
-      data.next_payment,
-      formatAmountJSON(data.amount) ?? void 0,
+      nextPayment,
+      data.amount ? billingMoneyAmountFromJSON(data.amount) : void 0,
       data.plan ? BillingPlan.fromJSON(data.plan) : null,
       data.plan_id ?? null,
+      data.price_id ?? null,
       data.created_at,
       data.updated_at,
       data.period_end,
@@ -64027,13 +64474,15 @@ var BillingSubscriptionItem = class _BillingSubscriptionItem {
       data.ended_at,
       data.payer_id,
       data.is_free_trial,
-      formatAmountJSON(data.lifetime_paid) ?? void 0
+      data.lifetime_paid ? billingMoneyAmountFromJSON(data.lifetime_paid) : void 0,
+      data.seats ? billingSubscriptionItemSeatsFromJSON(data.seats) : void 0
     );
   }
 };
 var BillingSubscription = class _BillingSubscription {
-  constructor(id, status, payerId, createdAt, updatedAt, activeAt, pastDueAt, subscriptionItems, nextPayment, eligibleForFreeTrial) {
+  constructor(id, instanceId, status, payerId, createdAt, updatedAt, activeAt, pastDueAt, subscriptionItems, nextPayment, eligibleForFreeTrial) {
     this.id = id;
+    this.instanceId = instanceId;
     this.status = status;
     this.payerId = payerId;
     this.createdAt = createdAt;
@@ -64047,15 +64496,13 @@ var BillingSubscription = class _BillingSubscription {
   static fromJSON(data) {
     const nextPayment = data.next_payment ? {
       date: data.next_payment.date,
-      amount: {
-        amount: data.next_payment.amount.amount,
-        amountFormatted: data.next_payment.amount.amount_formatted,
-        currency: data.next_payment.amount.currency,
-        currencySymbol: data.next_payment.amount.currency_symbol
-      }
+      amount: billingMoneyAmountFromJSON(data.next_payment.amount),
+      perUnitTotals: data.next_payment.per_unit_totals ? billingPerUnitTotalsFromJSON(data.next_payment.per_unit_totals) : void 0,
+      totals: data.next_payment.totals ? billingTotalsFromJSON(data.next_payment.totals) : void 0
     } : null;
     return new _BillingSubscription(
       data.id,
+      data.instance_id,
       data.status,
       data.payer_id,
       data.created_at,
@@ -64136,8 +64583,45 @@ var EnterpriseAccount = class _EnterpriseAccount {
     );
   }
 };
+var SamlConnectionIdpCertificate = class _SamlConnectionIdpCertificate {
+  constructor(certificate, issuedAt, expiresAt) {
+    this.certificate = certificate;
+    this.issuedAt = issuedAt;
+    this.expiresAt = expiresAt;
+  }
+  static fromJSON(data) {
+    return new _SamlConnectionIdpCertificate(data.certificate, data.issued_at, data.expires_at);
+  }
+};
+var EnterpriseConnectionSamlConnectionLoginHint = class _EnterpriseConnectionSamlConnectionLoginHint {
+  constructor(mode, source) {
+    this.mode = mode;
+    this.source = source;
+  }
+  static fromJSON(data) {
+    return new _EnterpriseConnectionSamlConnectionLoginHint(data.mode, data.source);
+  }
+};
+var EnterpriseConnectionCustomAttribute = class _EnterpriseConnectionCustomAttribute {
+  constructor(name, key, ssoPath, scimPath, multiValued) {
+    this.name = name;
+    this.key = key;
+    this.ssoPath = ssoPath;
+    this.scimPath = scimPath;
+    this.multiValued = multiValued;
+  }
+  static fromJSON(data) {
+    return new _EnterpriseConnectionCustomAttribute(
+      data.name,
+      data.key,
+      data.sso_path,
+      data.scim_path,
+      data.multi_valued
+    );
+  }
+};
 var EnterpriseConnectionSamlConnection = class _EnterpriseConnectionSamlConnection {
-  constructor(id, name, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, syncUserAttributes, allowSubdomains, allowIdpInitiated) {
+  constructor(id, name, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, syncUserAttributes, allowSubdomains, allowIdpInitiated, active, forceAuthn, loginHint, idpCertificates) {
     this.id = id;
     this.name = name;
     this.idpEntityId = idpEntityId;
@@ -64153,6 +64637,10 @@ var EnterpriseConnectionSamlConnection = class _EnterpriseConnectionSamlConnecti
     this.syncUserAttributes = syncUserAttributes;
     this.allowSubdomains = allowSubdomains;
     this.allowIdpInitiated = allowIdpInitiated;
+    this.active = active;
+    this.forceAuthn = forceAuthn;
+    this.loginHint = loginHint;
+    this.idpCertificates = idpCertificates;
   }
   static fromJSON(data) {
     return new _EnterpriseConnectionSamlConnection(
@@ -64170,12 +64658,16 @@ var EnterpriseConnectionSamlConnection = class _EnterpriseConnectionSamlConnecti
       data.sp_metadata_url,
       data.sync_user_attributes,
       data.allow_subdomains,
-      data.allow_idp_initiated
+      data.allow_idp_initiated,
+      data.active,
+      data.force_authn,
+      EnterpriseConnectionSamlConnectionLoginHint.fromJSON(data.login_hint),
+      (data.idp_certificates ?? []).map((certificate) => SamlConnectionIdpCertificate.fromJSON(certificate))
     );
   }
 };
 var EnterpriseConnectionOauthConfig = class _EnterpriseConnectionOauthConfig {
-  constructor(id, name, clientId, discoveryUrl, logoPublicUrl, createdAt, updatedAt) {
+  constructor(id, name, clientId, discoveryUrl, logoPublicUrl, createdAt, updatedAt, providerKey, authUrl, tokenUrl, userInfoUrl, requiresPkce) {
     this.id = id;
     this.name = name;
     this.clientId = clientId;
@@ -64183,6 +64675,11 @@ var EnterpriseConnectionOauthConfig = class _EnterpriseConnectionOauthConfig {
     this.logoPublicUrl = logoPublicUrl;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
+    this.providerKey = providerKey;
+    this.authUrl = authUrl;
+    this.tokenUrl = tokenUrl;
+    this.userInfoUrl = userInfoUrl;
+    this.requiresPkce = requiresPkce;
   }
   static fromJSON(data) {
     return new _EnterpriseConnectionOauthConfig(
@@ -64192,12 +64689,17 @@ var EnterpriseConnectionOauthConfig = class _EnterpriseConnectionOauthConfig {
       data.discovery_url,
       data.logo_public_url,
       data.created_at,
-      data.updated_at
+      data.updated_at,
+      data.provider_key,
+      data.auth_url,
+      data.token_url,
+      data.user_info_url,
+      data.requires_pkce
     );
   }
 };
 var EnterpriseConnection = class _EnterpriseConnection {
-  constructor(id, name, domains, organizationId, active, syncUserAttributes, allowSubdomains, disableAdditionalIdentifications, createdAt, updatedAt, samlConnection, oauthConfig) {
+  constructor(id, name, domains, organizationId, active, syncUserAttributes, allowSubdomains, disableAdditionalIdentifications, createdAt, updatedAt, samlConnection, oauthConfig, provider, logoPublicUrl, allowOrganizationAccountLinking, authenticatable, disableJitProvisioning, customAttributes) {
     this.id = id;
     this.name = name;
     this.domains = domains;
@@ -64210,13 +64712,19 @@ var EnterpriseConnection = class _EnterpriseConnection {
     this.updatedAt = updatedAt;
     this.samlConnection = samlConnection;
     this.oauthConfig = oauthConfig;
+    this.provider = provider;
+    this.logoPublicUrl = logoPublicUrl;
+    this.allowOrganizationAccountLinking = allowOrganizationAccountLinking;
+    this.authenticatable = authenticatable;
+    this.disableJitProvisioning = disableJitProvisioning;
+    this.customAttributes = customAttributes;
   }
   static fromJSON(data) {
     return new _EnterpriseConnection(
       data.id,
       data.name,
       data.domains,
-      data.organization_id,
+      data.organization_id ?? null,
       data.active,
       data.sync_user_attributes,
       data.allow_subdomains,
@@ -64224,7 +64732,13 @@ var EnterpriseConnection = class _EnterpriseConnection {
       data.created_at,
       data.updated_at,
       data.saml_connection != null ? EnterpriseConnectionSamlConnection.fromJSON(data.saml_connection) : null,
-      data.oauth_config != null ? EnterpriseConnectionOauthConfig.fromJSON(data.oauth_config) : null
+      data.oauth_config != null ? EnterpriseConnectionOauthConfig.fromJSON(data.oauth_config) : null,
+      data.provider,
+      data.logo_public_url,
+      data.allow_organization_account_linking,
+      data.authenticatable,
+      data.disable_jit_provisioning,
+      data.custom_attributes?.map((attr) => EnterpriseConnectionCustomAttribute.fromJSON(attr))
     );
   }
 };
@@ -64898,7 +65412,7 @@ var RoleSet = class _RoleSet {
   }
 };
 var SamlConnection = class _SamlConnection {
-  constructor(id, name, domain, organizationId, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, active, provider, userCount, syncUserAttributes, allowSubdomains, allowIdpInitiated, createdAt, updatedAt, attributeMapping) {
+  constructor(id, name, domain, organizationId, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, active, provider, userCount, syncUserAttributes, allowSubdomains, allowIdpInitiated, createdAt, updatedAt, attributeMapping, idpCertificates) {
     this.id = id;
     this.name = name;
     this.domain = domain;
@@ -64922,6 +65436,7 @@ var SamlConnection = class _SamlConnection {
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.attributeMapping = attributeMapping;
+    this.idpCertificates = idpCertificates;
   }
   static fromJSON(data) {
     return new _SamlConnection(
@@ -64947,7 +65462,8 @@ var SamlConnection = class _SamlConnection {
       data.allow_idp_initiated,
       data.created_at,
       data.updated_at,
-      data.attribute_mapping && AttributeMapping.fromJSON(data.attribute_mapping)
+      data.attribute_mapping && AttributeMapping.fromJSON(data.attribute_mapping),
+      (data.idp_certificates ?? []).map((certificate) => SamlConnectionIdpCertificate.fromJSON(certificate))
     );
   }
 };
@@ -65094,7 +65610,7 @@ var Web3Wallet = class _Web3Wallet {
   }
 };
 var User = class _User {
-  constructor(id, passwordEnabled, totpEnabled, backupCodeEnabled, twoFactorEnabled, banned, locked, createdAt, updatedAt, imageUrl, hasImage, primaryEmailAddressId, primaryPhoneNumberId, primaryWeb3WalletId, lastSignInAt, externalId, username, firstName, lastName, publicMetadata = {}, privateMetadata = {}, unsafeMetadata = {}, emailAddresses = [], phoneNumbers = [], web3Wallets = [], externalAccounts = [], enterpriseAccounts = [], lastActiveAt, createOrganizationEnabled, createOrganizationsLimit = null, deleteSelfEnabled, legalAcceptedAt, locale) {
+  constructor(id, passwordEnabled, totpEnabled, backupCodeEnabled, twoFactorEnabled, banned, locked, createdAt, updatedAt, imageUrl, hasImage, primaryEmailAddressId, primaryPhoneNumberId, primaryWeb3WalletId, lastSignInAt, externalId, username, firstName, lastName, publicMetadata = {}, privateMetadata = {}, unsafeMetadata = {}, emailAddresses = [], phoneNumbers = [], web3Wallets = [], externalAccounts = [], enterpriseAccounts = [], lastActiveAt, createOrganizationEnabled, createOrganizationsLimit = null, deleteSelfEnabled, legalAcceptedAt, locale, timezone = null) {
     this.id = id;
     this.passwordEnabled = passwordEnabled;
     this.totpEnabled = totpEnabled;
@@ -65128,6 +65644,7 @@ var User = class _User {
     this.deleteSelfEnabled = deleteSelfEnabled;
     this.legalAcceptedAt = legalAcceptedAt;
     this.locale = locale;
+    this.timezone = timezone;
     this._raw = null;
   }
   get raw() {
@@ -65167,7 +65684,8 @@ var User = class _User {
       data.create_organizations_limit,
       data.delete_self_enabled,
       data.legal_accepted_at,
-      data.locale
+      data.locale,
+      data.timezone
     );
     res._raw = data;
     return res;
@@ -66006,11 +66524,8 @@ var ClerkRequest = class extends Request {
     return value?.split(",")[0];
   }
   parseCookies(req) {
-    const cookiesRecord = (0, import_cookie.parse)(this.decodeCookieValue(req.headers.get("cookie") || ""));
+    const cookiesRecord = (0, import_cookie.parse)(req.headers.get("cookie") || "");
     return new Map(Object.entries(cookiesRecord));
-  }
-  decodeCookieValue(str2) {
-    return str2 ? str2.replace(/(%[0-9A-Z]{2})+/g, decodeURIComponent) : str2;
   }
 };
 var createClerkRequest = (...args) => {
@@ -66116,9 +66631,21 @@ async function verifyM2MToken(token2, options) {
 async function verifyOAuthToken(accessToken, options) {
   try {
     const client = createBackendApiClient(options);
-    const verifiedToken = await client.idPOAuthAccessToken.verify(accessToken);
+    const verifiedToken = await client.idPOAuthAccessToken.verify(accessToken, { audience: options.audience });
     return { data: verifiedToken, tokenType: TokenType.OAuthToken, errors: void 0 };
   } catch (err) {
+    if (err instanceof TokenVerificationError) {
+      return {
+        data: void 0,
+        tokenType: TokenType.OAuthToken,
+        errors: [
+          new MachineTokenVerificationError({
+            code: MachineTokenVerificationErrorCode.TokenVerificationFailed,
+            message: err.message
+          })
+        ]
+      };
+    }
     return handleClerkAPIError(TokenType.OAuthToken, err, "OAuth token not found");
   }
 }
@@ -66189,6 +66716,13 @@ async function verifyHandshakeJwt(token2, { key }) {
   const { typ, alg } = header;
   assertHeaderType(typ);
   assertHeaderAlgorithm(alg);
+  if (isNonSessionJwtCategory(header.cat)) {
+    throw new TokenVerificationError({
+      action: TokenVerificationErrorAction.EnsureClerkJWT,
+      reason: TokenVerificationErrorReason.TokenInvalid,
+      message: "Invalid handshake token category."
+    });
+  }
   const { data: signatureValid, errors: signatureErrors } = await hasValidSignature(decoded, key);
   if (signatureErrors) {
     throw new TokenVerificationError({
@@ -66778,7 +67312,7 @@ var authenticateRequest = (async (request2, options) => {
   }
   async function authenticateRequestWithTokenInHeader() {
     const { tokenInHeader } = authenticateContext;
-    if (isMachineJwt(tokenInHeader)) {
+    if (isMachineJwt(tokenInHeader) || hasNonSessionJwtCategory(tokenInHeader)) {
       return signedOut({
         tokenType: TokenType.SessionToken,
         authenticateContext,
@@ -66900,7 +67434,11 @@ var authenticateRequest = (async (request2, options) => {
     if (decodedErrors) {
       return handleSessionTokenError(decodedErrors[0], "cookie");
     }
-    if (isMachineJwt(authenticateContext.sessionTokenInCookie)) {
+    if (
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      isMachineJwt(authenticateContext.sessionTokenInCookie) || // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      hasNonSessionJwtCategory(authenticateContext.sessionTokenInCookie)
+    ) {
       return signedOut({
         tokenType: TokenType.SessionToken,
         authenticateContext,
@@ -67079,6 +67617,14 @@ var authenticateRequest = (async (request2, options) => {
         token: tokenInHeader
       });
     }
+    if (hasNonSessionJwtCategory(tokenInHeader)) {
+      return signedOut({
+        tokenType: TokenType.SessionToken,
+        authenticateContext,
+        reason: AuthErrorReason.TokenTypeMismatch,
+        message: ""
+      });
+    }
     const { data, errors } = await verifyToken(tokenInHeader, authenticateContext);
     if (errors) {
       return handleSessionTokenError(errors[0], "header");
@@ -67166,7 +67712,7 @@ function createAuthenticateRequest(params) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-P263NW7Z.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-P263NW7Z.mjs
 function withLegacyReturn(cb) {
   return async (...args) => {
     const { data, errors } = await cb(...args);
@@ -67177,7 +67723,7 @@ function withLegacyReturn(cb) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/telemetry-9C6N5ppw.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/telemetry-9C6N5ppw.mjs
 var PROCESS_FLAG = /* @__PURE__ */ Symbol.for("@clerk/shared.telemetryNoticeShown");
 var NOTICE_LINES = [
   "Attention: Clerk collects telemetry data from its SDKs when connected to development instances.",
@@ -67219,8 +67765,8 @@ var DEFAULT_CACHE_TTL_MS = 864e5;
 var TelemetryEventThrottler = class {
   #cache;
   #cacheTtl = DEFAULT_CACHE_TTL_MS;
-  constructor(cache2) {
-    this.#cache = cache2;
+  constructor(cache) {
+    this.#cache = cache;
   }
   isEventThrottled(payload) {
     const now = Date.now();
@@ -67259,18 +67805,18 @@ var LocalStorageThrottlerCache = class {
   }
   setItem(key, value) {
     try {
-      const cache2 = this.#getCache();
-      cache2[key] = value;
-      localStorage.setItem(this.#storageKey, JSON.stringify(cache2));
+      const cache = this.#getCache();
+      cache[key] = value;
+      localStorage.setItem(this.#storageKey, JSON.stringify(cache));
     } catch (err) {
       if (err instanceof DOMException && (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED") && localStorage.length > 0) localStorage.removeItem(this.#storageKey);
     }
   }
   removeItem(key) {
     try {
-      const cache2 = this.#getCache();
-      delete cache2[key];
-      localStorage.setItem(this.#storageKey, JSON.stringify(cache2));
+      const cache = this.#getCache();
+      delete cache[key];
+      localStorage.setItem(this.#storageKey, JSON.stringify(cache));
     } catch {
     }
   }
@@ -67342,8 +67888,8 @@ var TelemetryCollector = class {
     const parsedKey = parsePublishableKey(options.publishableKey);
     if (parsedKey) this.#metadata.instanceType = parsedKey.instanceType;
     if (options.secretKey) this.#metadata.secretKey = options.secretKey.substring(0, 16);
-    const cache2 = LocalStorageThrottlerCache.isSupported() ? new LocalStorageThrottlerCache() : new InMemoryThrottlerCache();
-    this.#eventThrottler = new TelemetryEventThrottler(cache2);
+    const cache = LocalStorageThrottlerCache.isSupported() ? new LocalStorageThrottlerCache() : new InMemoryThrottlerCache();
+    this.#eventThrottler = new TelemetryEventThrottler(cache);
     maybeShowTelemetryNotice({ skip: !this.isEnabled });
   }
   get isEnabled() {
@@ -67538,7 +68084,7 @@ var TelemetryCollector = class {
   }
 };
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/index.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/index.mjs
 var verifyToken2 = withLegacyReturn(verifyToken);
 function createClerkClient(options) {
   const opts = { ...options };
@@ -67558,10 +68104,10 @@ function createClerkClient(options) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+express@2.1.47_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
+// ../../node_modules/.pnpm/@clerk+express@2.1.77_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
 import { Readable as Readable2 } from "stream";
 
-// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/proxy.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/proxy.mjs
 var HOP_BY_HOP_HEADERS = /* @__PURE__ */ new Set([
   "connection",
   "keep-alive",
@@ -67764,14 +68310,14 @@ async function clerkFrontendApiProxy(request2, options) {
   }
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/handleValueOrFn-CKEDuW4I.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/handleValueOrFn-CKEDuW4I.mjs
 function handleValueOrFn(value, url, defaultValue) {
   if (typeof value === "function") return value(url);
   if (typeof value !== "undefined") return value;
   if (typeof defaultValue !== "undefined") return defaultValue;
 }
 
-// ../../node_modules/.pnpm/@clerk+express@2.1.47_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
+// ../../node_modules/.pnpm/@clerk+express@2.1.77_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
 var clerkClientSingleton = {};
 var clerkClient = new Proxy(clerkClientSingleton, {
   get(_target, property) {
@@ -67782,7 +68328,7 @@ var clerkClient = new Proxy(clerkClientSingleton, {
     };
     const client = createClerkClient({
       ...env,
-      userAgent: `@clerk/express@2.1.47`
+      userAgent: `@clerk/express@2.1.77`
     });
     if (env.secretKey) clerkClientSingleton = client;
     return client[property];
@@ -67814,7 +68360,7 @@ Check if signInUrl is missing from your configuration or if it is not an absolut
 var authenticateRequest2 = (opts) => {
   const { clerkClient: clerkClient2, request: request2, options } = opts;
   const { clerkClient: _clerkClient, debug: _debug, frontendApiProxy: _frontendApiProxy, isSatellite: isSatelliteInput, domain: domainInput, signInUrl: signInUrlInput, proxyUrl: proxyUrlInput, secretKey: secretKeyInput, machineSecretKey: machineSecretKeyInput, publishableKey: publishableKeyInput, ...restOptions } = options || {};
-  const clerkRequest = createClerkRequest(incomingMessageToRequest(request2));
+  const clerkRequest = opts.clerkRequest ?? createClerkRequest(incomingMessageToRequest(request2));
   const env = {
     ...loadApiEnv(),
     ...loadClientEnv()
@@ -67861,7 +68407,7 @@ var resolveDefaultClerkClient = (options) => {
     ...loadClientEnv(),
     ...options.apiUrl ? { apiUrl: options.apiUrl } : {},
     ...options.apiVersion ? { apiVersion: options.apiVersion } : {},
-    userAgent: `@clerk/express@2.1.47`
+    userAgent: `@clerk/express@2.1.77`
   });
 };
 var authenticateAndDecorateRequest = (options = {}) => {
@@ -67871,6 +68417,13 @@ var authenticateAndDecorateRequest = (options = {}) => {
   const middleware = async (request2, response, next) => {
     if (requestHasAuthObject(request2)) return next();
     if ("auth" in request2) logger2.warnOnce("Clerk: another middleware has already set `req.auth` on this request. Clerk authentication will run anyway and overwrite it. To use another auth library alongside Clerk, configure it to store its state on a different request property.");
+    let clerkRequest;
+    try {
+      clerkRequest = createClerkRequest(incomingMessageToRequest(request2));
+    } catch {
+      response.status(400).end();
+      return;
+    }
     const env = {
       ...loadApiEnv(),
       ...loadClientEnv()
@@ -67878,9 +68431,22 @@ var authenticateAndDecorateRequest = (options = {}) => {
     const publishableKey = options.publishableKey || env.publishableKey;
     const secretKey = options.secretKey || env.secretKey;
     if (frontendApiProxy) {
-      const requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
+      let requestUrl;
+      try {
+        requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
+      } catch {
+        response.status(400).end();
+        return;
+      }
       if ((typeof frontendApiProxy.enabled === "function" ? frontendApiProxy.enabled(requestUrl) : frontendApiProxy.enabled) && (requestUrl.pathname === proxyPath || requestUrl.pathname.startsWith(proxyPath + "/"))) {
-        const proxyResponse = await clerkFrontendApiProxy(requestToProxyRequest(request2), {
+        let proxyRequest;
+        try {
+          proxyRequest = requestToProxyRequest(request2);
+        } catch {
+          response.status(400).end();
+          return;
+        }
+        const proxyResponse = await clerkFrontendApiProxy(proxyRequest, {
           proxyPath,
           publishableKey,
           secretKey
@@ -67906,7 +68472,13 @@ var authenticateAndDecorateRequest = (options = {}) => {
     }
     let resolvedOptions = options;
     if (frontendApiProxy && !options.proxyUrl) {
-      const requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
+      let requestUrl;
+      try {
+        requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
+      } catch {
+        response.status(400).end();
+        return;
+      }
       if (typeof frontendApiProxy.enabled === "function" ? frontendApiProxy.enabled(requestUrl) : frontendApiProxy.enabled) resolvedOptions = {
         ...options,
         proxyUrl: proxyPath
@@ -67916,7 +68488,8 @@ var authenticateAndDecorateRequest = (options = {}) => {
       const requestState = await authenticateRequest2({
         clerkClient: clerkClient2,
         request: request2,
-        options: resolvedOptions
+        options: resolvedOptions,
+        clerkRequest
       });
       const err = setResponseHeaders(requestState, response);
       if (err) return next(err);
@@ -68334,6 +68907,19 @@ var waitlistRegistrationBody = external_exports.object({
   source: external_exports.string().trim().min(1).max(80).optional().default("landing-page")
 });
 var waitlistVerificationParams = external_exports.object({ token });
+var recoveryEmailBody = external_exports.object({
+  email
+});
+var recoveryOtpVerifyBody = external_exports.object({
+  email,
+  otp: external_exports.string().trim().regex(/^\d{6}$/)
+});
+var recoveryPinResetBody = external_exports.object({
+  newPin: external_exports.string().trim().regex(/^\d{6}$/, "PIN must be exactly 6 digits")
+});
+var recoveryCompleteBody = external_exports.object({
+  recoveryToken: external_exports.string().trim().regex(/^[a-f0-9]{64}$/i, "Invalid recovery token format")
+});
 
 // src/routes/email.ts
 var router2 = (0, import_express3.Router)();
@@ -69808,10 +70394,497 @@ router7.post("/cancel", requireAuth, validateBody(ownerOnlyBody), requireOwner()
 });
 var absence_default = router7;
 
-// src/routes/waitlist.ts
+// src/routes/pin-reset.ts
 var import_express9 = __toESM(require_express2(), 1);
-import crypto5 from "node:crypto";
+import crypto6 from "crypto";
+
+// src/lib/pinResetStore.ts
+import crypto5 from "crypto";
+var PIN_RESET_EXPIRY_MS = 72 * 60 * 60 * 1e3;
+async function createOrReusePinResetRequest(ownerEmail, ownerName) {
+  const oKey = ownerEmail.toLowerCase();
+  const existing = await db.select().from(absenceRequestsTable).where(
+    and(
+      eq(absenceRequestsTable.ownerEmail, oKey),
+      eq(absenceRequestsTable.beneficiaryEmail, ""),
+      // PIN-reset marker
+      or(
+        eq(absenceRequestsTable.status, "pending_guardian_vote"),
+        eq(absenceRequestsTable.status, "pending_owner")
+        // fallback for edge cases
+      )
+    )
+  ).orderBy(desc(absenceRequestsTable.requestedAt)).limit(1);
+  if (existing[0]) return existing[0];
+  const now = Date.now();
+  const expiresAt = now + PIN_RESET_EXPIRY_MS;
+  const rows = await db.insert(absenceRequestsTable).values({
+    ownerEmail: oKey,
+    beneficiaryEmail: "",
+    // PIN-reset marker
+    beneficiaryName: "",
+    ownerName,
+    requestedAt: now,
+    status: "pending_guardian_vote",
+    ownerNotifCount: 0,
+    ownerAliveToken: null
+  }).returning();
+  return {
+    ...rows[0],
+    expiresAt
+  };
+}
+async function getLatestPinResetRequest(ownerEmail) {
+  const rows = await db.select().from(absenceRequestsTable).where(
+    and(
+      eq(absenceRequestsTable.ownerEmail, ownerEmail.toLowerCase()),
+      eq(absenceRequestsTable.beneficiaryEmail, "")
+      // PIN-reset marker
+    )
+  ).orderBy(desc(absenceRequestsTable.requestedAt)).limit(1);
+  if (!rows[0]) return null;
+  const req = rows[0];
+  return {
+    ...req,
+    expiresAt: req.requestedAt + PIN_RESET_EXPIRY_MS
+  };
+}
+async function startGuardianVote2(requestId) {
+  await db.update(absenceRequestsTable).set({ status: "pending_guardian_vote", guardianVoteStartedAt: Date.now() }).where(eq(absenceRequestsTable.id, requestId));
+}
+async function completePinResetRequest(requestId, outcome) {
+  await db.update(absenceRequestsTable).set({ status: outcome, completedAt: Date.now() }).where(eq(absenceRequestsTable.id, requestId));
+}
+async function createGuardianDecisionSlots2(requestId, guardianEmails) {
+  const tokenMap = /* @__PURE__ */ new Map();
+  for (const email2 of guardianEmails) {
+    const token2 = crypto5.randomBytes(32).toString("hex");
+    tokenMap.set(email2.toLowerCase(), token2);
+    await db.insert(absenceGuardianDecisionsTable).values({
+      requestId,
+      guardianEmail: email2.toLowerCase(),
+      voteToken: token2,
+      decision: null,
+      decidedAt: null
+    }).onConflictDoNothing();
+  }
+  return tokenMap;
+}
+async function getDecisionByToken2(token2) {
+  const rows = await db.select().from(absenceGuardianDecisionsTable).where(eq(absenceGuardianDecisionsTable.voteToken, token2)).limit(1);
+  return rows[0] ? {
+    requestId: rows[0].requestId,
+    guardianEmail: rows[0].guardianEmail,
+    decision: rows[0].decision
+  } : null;
+}
+async function recordGuardianDecision2(requestId, guardianEmail, decision) {
+  await db.update(absenceGuardianDecisionsTable).set({ decision, decidedAt: Date.now() }).where(
+    and(
+      eq(absenceGuardianDecisionsTable.requestId, requestId),
+      eq(absenceGuardianDecisionsTable.guardianEmail, guardianEmail.toLowerCase())
+    )
+  );
+}
+async function getPinResetRequestById(id) {
+  const rows = await db.select().from(absenceRequestsTable).where(eq(absenceRequestsTable.id, id)).limit(1);
+  if (!rows[0]) return null;
+  const req = rows[0];
+  return {
+    ...req,
+    expiresAt: req.requestedAt + PIN_RESET_EXPIRY_MS
+  };
+}
+async function countApprovals2(requestId) {
+  const rows = await db.select().from(absenceGuardianDecisionsTable).where(
+    and(
+      eq(absenceGuardianDecisionsTable.requestId, requestId),
+      eq(absenceGuardianDecisionsTable.decision, "approve")
+    )
+  );
+  return rows.length;
+}
+async function getGuardianDecisions(requestId) {
+  const rows = await db.select().from(absenceGuardianDecisionsTable).where(eq(absenceGuardianDecisionsTable.requestId, requestId));
+  return rows.map((r) => ({
+    guardianEmail: r.guardianEmail,
+    decision: r.decision,
+    decidedAt: r.decidedAt
+  }));
+}
+
+// src/routes/pin-reset.ts
 var router8 = (0, import_express9.Router)();
+var resetTokens = /* @__PURE__ */ new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [token2, data] of resetTokens.entries()) {
+    if (now > data.expiresAt) resetTokens.delete(token2);
+  }
+}, 6e4);
+function getBaseUrl3() {
+  const d = process.env.REPLIT_DOMAINS;
+  if (d) return `https://${d.split(",")[0].trim()}`;
+  const dev = process.env.REPLIT_DEV_DOMAIN;
+  if (dev) return `https://${dev}`;
+  return "https://getauryx.com";
+}
+function htmlPage2(title, body) {
+  return `<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+<style>
+  *{box-sizing:border-box}
+  body{background:#0A0F1E;color:#E2E8F0;font-family:Arial,Helvetica,sans-serif;
+       display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
+  .card{background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.25);
+        border-radius:20px;max-width:480px;width:100%;padding:40px;text-align:center}
+  .logo{font-size:28px;font-weight:700;color:#D4AF37;letter-spacing:3px;margin-bottom:8px}
+  h2{color:#E2E8F0;margin:16px 0 8px}
+  p{color:#94A3B8;line-height:1.7}
+  .green{color:#22C55E} .red{color:#EF4444}
+</style></head>
+<body><div class="card">
+<div class="logo">\u2B21 Auryx</div>
+${body}
+</div></body></html>`;
+}
+router8.post("/request", requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
+  try {
+    const { ownerEmail, ownerName } = req.body;
+    if (!ownerEmail) {
+      res.status(400).json({ message: "ownerEmail is required" });
+      return;
+    }
+    const vault = await lookupSealedVault(ownerEmail);
+    if (!vault || vault.guardianPackages.length === 0) {
+      res.status(404).json({ message: "No guardians found for this vault" });
+      return;
+    }
+    const guardianEmails = vault.guardianPackages.map((gp) => gp.email).filter(Boolean);
+    const pinReq = await createOrReusePinResetRequest(ownerEmail, ownerName);
+    if (pinReq.guardianVoteStartedAt === null) {
+      await startGuardianVote2(pinReq.id);
+      const tokenMap = await createGuardianDecisionSlots2(pinReq.id, guardianEmails);
+      const base = getBaseUrl3();
+      const linkMap = /* @__PURE__ */ new Map();
+      for (const [email2, token2] of tokenMap.entries()) {
+        linkMap.set(email2, {
+          approveUrl: `${base}/api/pin-reset/guardian-vote/${token2}?vote=approve`,
+          rejectUrl: `${base}/api/pin-reset/guardian-vote/${token2}?vote=reject`
+        });
+      }
+      try {
+        await sendGuardianVoteRequest(ownerName, "\u0635\u0627\u062D\u0628 \u0627\u0644\u062E\u0632\u0646\u0629", guardianEmails, linkMap);
+        logger.info({ requestId: pinReq.id, ownerEmail }, "PIN-Reset: guardian vote emails sent");
+      } catch (mailErr) {
+        logger.warn({ mailErr, requestId: pinReq.id }, "PIN-Reset: guardian vote emails failed (non-fatal)");
+      }
+    }
+    res.json({
+      success: true,
+      requestId: pinReq.id,
+      guardianCount: guardianEmails.length
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router8.get("/status/:ownerEmail", requireAuth, requireVaultParticipant(), async (req, res, next) => {
+  try {
+    const pinReq = await getLatestPinResetRequest(String(req.params.ownerEmail));
+    if (!pinReq) {
+      res.status(404).json({ message: "No PIN-reset request found", status: "none" });
+      return;
+    }
+    if (Date.now() > pinReq.expiresAt && pinReq.status === "pending_guardian_vote") {
+      await completePinResetRequest(pinReq.id, "expired");
+      res.json({
+        requestId: pinReq.id,
+        status: "expired",
+        threshold: 0,
+        approvals: 0,
+        rejections: 0,
+        quorumReached: false,
+        otpSent: false,
+        expiresAt: pinReq.expiresAt,
+        decisions: []
+      });
+      return;
+    }
+    const decisions = await getGuardianDecisions(pinReq.id);
+    const approvals = decisions.filter((d) => d.decision === "approve").length;
+    const rejections = decisions.filter((d) => d.decision === "reject").length;
+    const vault = await lookupSealedVault(String(req.params.ownerEmail));
+    const threshold = vault?.threshold ?? 1;
+    const quorumReached = approvals >= threshold;
+    res.json({
+      requestId: pinReq.id,
+      status: pinReq.status,
+      threshold,
+      approvals,
+      rejections,
+      quorumReached,
+      otpSent: pinReq.status === "approved",
+      // simplified flag
+      expiresAt: pinReq.expiresAt,
+      decisions
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router8.get("/guardian-vote/:token", async (req, res, next) => {
+  try {
+    const voteParam = req.query.vote?.toLowerCase();
+    if (voteParam !== "approve" && voteParam !== "reject") {
+      res.status(400).send(htmlPage2("\u0631\u0627\u0628\u0637 \u062E\u0627\u0637\u0626", `<h2 class="red">\u0627\u0644\u0631\u0627\u0628\u0637 \u064A\u062C\u0628 \u0623\u0646 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 ?vote=approve \u0623\u0648 ?vote=reject</h2>`));
+      return;
+    }
+    const slot = await getDecisionByToken2(req.params.token);
+    if (!slot) {
+      res.status(200).send(htmlPage2("\u0631\u0627\u0628\u0637 \u0645\u0646\u062A\u0647\u064A", `<h2 class="red">\u0627\u0644\u0631\u0627\u0628\u0637 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A</h2><p>\u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0635\u0627\u062D\u0628 \u0627\u0644\u062E\u0632\u0646\u0629.</p>`));
+      return;
+    }
+    if (slot.decision !== null) {
+      res.status(200).send(htmlPage2("\u062A\u0645 \u0627\u0644\u062A\u0635\u0648\u064A\u062A", `<h2 class="green">\u2705 \u0644\u0642\u062F \u0635\u0648\u0651\u062A\u062A \u0628\u0627\u0644\u0641\u0639\u0644</h2><p>\u062A\u0635\u0648\u064A\u062A\u0643 \u0645\u064F\u0633\u062C\u064E\u0651\u0644. \u0634\u0643\u0631\u0627\u064B \u0644\u0643.</p>`));
+      return;
+    }
+    const pinReq = await getPinResetRequestById(slot.requestId);
+    if (!pinReq || pinReq.status !== "pending_guardian_vote") {
+      res.status(200).send(htmlPage2("\u062A\u0645\u062A \u0627\u0644\u0645\u0639\u0627\u0644\u062C\u0629", `<h2 class="green">\u2705 \u062A\u0645\u062A \u0645\u0639\u0627\u0644\u062C\u0629 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628 \u0628\u0627\u0644\u0641\u0639\u0644</h2><p>\u0627\u0644\u062D\u0627\u0644\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629: <strong>${pinReq?.status ?? "\u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641"}</strong></p>`));
+      return;
+    }
+    await recordGuardianDecision2(slot.requestId, slot.guardianEmail, voteParam);
+    logger.info({ requestId: slot.requestId, guardianEmail: slot.guardianEmail, vote: voteParam }, "PIN-Reset: guardian vote recorded");
+    if (voteParam === "approve") {
+      const approvals = await countApprovals2(slot.requestId);
+      const threshold = pinReq ? (await lookupSealedVault(pinReq.ownerEmail))?.threshold ?? 1 : 1;
+      if (approvals >= threshold) {
+        await completePinResetRequest(slot.requestId, "approved");
+        const otp = await generateOtp(pinReq.ownerEmail, "pin-reset-owner");
+        await sendWithRetry("otp-email", pinReq.ownerEmail, { ownerName: pinReq.ownerName, otp });
+        logger.info({ requestId: slot.requestId, ownerEmail: pinReq.ownerEmail }, "PIN-Reset: quorum reached, OTP generated and emailed successfully");
+      }
+    }
+    const label = voteParam === "approve" ? "\u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u2705" : "\u0627\u0644\u0631\u0641\u0636 \u274C";
+    res.status(200).send(htmlPage2("\u062A\u0645 \u0627\u0644\u062A\u0635\u0648\u064A\u062A", `<h2 class="green">\u2705 \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u062A\u0635\u0648\u064A\u062A\u0643</h2><p>\u0627\u062E\u062A\u0631\u062A: <strong>${label}</strong></p><p>\u0634\u0643\u0631\u0627\u064B \u0639\u0644\u0649 \u0645\u0634\u0627\u0631\u0643\u062A\u0643 \u0641\u064A \u062D\u0645\u0627\u064A\u0629 \u062E\u0632\u0646\u0629 Auryx.</p>`));
+  } catch (err) {
+    next(err);
+  }
+});
+router8.post("/verify-otp", requireAuth, requireVaultParticipant(), async (req, res, next) => {
+  try {
+    const { ownerEmail, code } = req.body;
+    if (!ownerEmail || !code) {
+      res.status(400).json({ message: "ownerEmail and code are required" });
+      return;
+    }
+    const otpResult = await verifyOtp(ownerEmail, "pin-reset-owner", code);
+    if (!otpResult.ok) {
+      res.status(400).json({ success: false, error: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629" });
+      return;
+    }
+    const resetToken = crypto6.randomBytes(32).toString("hex");
+    resetTokens.set(resetToken, {
+      ownerEmail: ownerEmail.toLowerCase(),
+      expiresAt: Date.now() + 5 * 60 * 1e3
+      // 5 minutes
+    });
+    logger.info({ ownerEmail }, "PIN-Reset: OTP verified, reset token issued");
+    res.json({ success: true, resetToken });
+  } catch (err) {
+    next(err);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+router8.post("/complete", requireAuth, requireVaultParticipant(), async (req, res, next) => {
+  try {
+    const { ownerEmail, resetToken } = req.body;
+    if (!ownerEmail || !resetToken) {
+      res.status(400).json({ message: "ownerEmail and resetToken are required" });
+      return;
+    }
+    const tokenData = resetTokens.get(resetToken);
+    if (!tokenData || tokenData.ownerEmail !== ownerEmail.toLowerCase() || Date.now() > tokenData.expiresAt) {
+      res.status(403).json({ success: false, error: "\u0631\u0645\u0632 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062A\u0639\u064A\u064A\u0646 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629" });
+      return;
+    }
+    resetTokens.delete(resetToken);
+    const pinReq = await getLatestPinResetRequest(ownerEmail);
+    if (pinReq && pinReq.status === "approved") {
+      await completePinResetRequest(pinReq.id, "completed");
+      logger.info({ ownerEmail, requestId: pinReq.id }, "PIN-Reset: process completed successfully");
+    }
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+var pin_reset_default = router8;
+
+// src/routes/recovery-email.ts
+var import_express10 = __toESM(require_express2(), 1);
+import crypto8 from "crypto";
+
+// src/lib/recoveryEmailStore.ts
+import crypto7 from "crypto";
+function hashEmail(email2) {
+  const salt = crypto7.randomBytes(16).toString("hex");
+  const normalizedEmail = email2.toLowerCase().trim();
+  const hash = crypto7.pbkdf2Sync(normalizedEmail, salt, 1e4, 64, "sha256").toString("hex");
+  return { hash, salt };
+}
+async function upsertRecoveryEmail(userId, email2) {
+  const { hash, salt } = hashEmail(email2);
+  const now = Date.now();
+  try {
+    await db.insert(recoveryEmailsTable).values({
+      userId,
+      emailHash: hash,
+      emailSalt: salt,
+      verified: false,
+      createdAt: now,
+      updatedAt: now
+    }).onConflictDoUpdate({
+      target: recoveryEmailsTable.userId,
+      set: {
+        emailHash: hash,
+        emailSalt: salt,
+        verified: false,
+        // Reset verification status on change
+        updatedAt: now
+      }
+    });
+    return { success: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
+  }
+}
+async function markRecoveryEmailVerified(userId) {
+  try {
+    await db.update(recoveryEmailsTable).set({
+      verified: true,
+      updatedAt: Date.now()
+    }).where(eq(recoveryEmailsTable.userId, userId));
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function getRecoveryEmailRecord(userId) {
+  try {
+    const rows = await db.select().from(recoveryEmailsTable).where(eq(recoveryEmailsTable.userId, userId)).limit(1);
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+// src/routes/recovery-email.ts
+var router9 = (0, import_express10.Router)();
+var recoveryTokens = /* @__PURE__ */ new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [token2, data] of recoveryTokens.entries()) {
+    if (now > data.expiresAt) recoveryTokens.delete(token2);
+  }
+}, 6e4);
+router9.post("/set", requireAuth, validateBody(recoveryEmailBody), async (req, res) => {
+  logger.info({ userId: req.authUser?.id, email: req.body.email }, "[DIAGNOSTIC] POST /recovery-email/set received");
+  try {
+    const { email: email2 } = req.body;
+    const userId = req.authUser.id;
+    const mainEmail = req.authUser.email;
+    if (email2.toLowerCase() === mainEmail.toLowerCase()) {
+      logger.warn({ userId, email: email2, mainEmail }, "[DIAGNOSTIC] Recovery email matches main email - rejected");
+      return res.status(400).json({ error: "Recovery email must be different from your main account email" });
+    }
+    logger.debug({ userId }, "[DIAGNOSTIC] Attempting upsertRecoveryEmail...");
+    const result = await upsertRecoveryEmail(userId, email2);
+    if (!result.success) {
+      logger.error({ userId, error: result.error }, "[DIAGNOSTIC] Failed to upsert recovery email");
+      return res.status(500).json({ error: "Failed to save recovery email" });
+    }
+    logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Generating OTP...");
+    const otp = await generateOtp(mainEmail, "recovery-verify");
+    logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Sending OTP via emailService...");
+    await sendWithRetry("recovery-otp", email2, { otp });
+    logger.info({ userId, email: email2 }, "[DIAGNOSTIC] Recovery email set and OTP sent successfully");
+    res.json({ success: true, message: "OTP sent to verify email" });
+  } catch (err) {
+    logger.error({
+      err,
+      stack: err instanceof Error ? err.stack : void 0
+    }, "[DIAGNOSTIC] Unhandled error in /recovery-email/set");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+router9.post("/verify", requireAuth, validateBody(recoveryOtpVerifyBody), async (req, res) => {
+  logger.info({ userId: req.authUser?.id, email: req.body.email }, "[DIAGNOSTIC] POST /recovery-email/verify received");
+  try {
+    const { email: email2, otp } = req.body;
+    const userId = req.authUser.id;
+    const mainEmail = req.authUser.email;
+    logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Checking recovery email match...");
+    const isMatch = await verifyRecoveryEmailMatch(userId, email2);
+    if (!isMatch) {
+      logger.warn({ userId, email: email2 }, "[DIAGNOSTIC] Recovery email mismatch");
+      return res.status(400).json({ error: "Invalid recovery email" });
+    }
+    logger.debug({ userId }, "[DIAGNOSTIC] Verifying OTP...");
+    const otpResult = await verifyOtp(mainEmail, "recovery-verify", otp);
+    if (!otpResult.ok) {
+      logger.warn({ userId, reason: otpResult.reason }, "[DIAGNOSTIC] OTP verification failed");
+      return res.status(400).json({ error: otpResult.reason === "max_attempts" ? "Max attempts exceeded" : "Invalid or expired OTP" });
+    }
+    logger.debug({ userId }, "[DIAGNOSTIC] Marking recovery email as verified...");
+    await markRecoveryEmailVerified(userId);
+    const recoveryToken = crypto8.randomBytes(32).toString("hex");
+    recoveryTokens.set(recoveryToken, {
+      userId,
+      expiresAt: Date.now() + 15 * 60 * 1e3
+      // 15 minutes
+    });
+    logger.info({ userId }, "[DIAGNOSTIC] Recovery email verified, token issued successfully");
+    res.json({ success: true, recoveryToken });
+  } catch (err) {
+    logger.error({
+      err,
+      stack: err instanceof Error ? err.stack : void 0
+    }, "[DIAGNOSTIC] Unhandled error in /recovery-email/verify");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+router9.post("/complete", requireAuth, validateBody(recoveryCompleteBody), async (req, res) => {
+  logger.info({ userId: req.authUser?.id }, "[DIAGNOSTIC] POST /recovery-email/complete received");
+  try {
+    const { recoveryToken } = req.body;
+    const userId = req.authUser.id;
+    const tokenData = recoveryTokens.get(recoveryToken);
+    if (!tokenData || tokenData.userId !== userId || Date.now() > tokenData.expiresAt) {
+      logger.warn({ userId, tokenExists: !!tokenData }, "[DIAGNOSTIC] Invalid or expired recovery token");
+      return res.status(403).json({ error: "Invalid or expired recovery token" });
+    }
+    recoveryTokens.delete(recoveryToken);
+    const record = await getRecoveryEmailRecord(userId);
+    logger.info({ userId, recordId: record?.id }, "[DIAGNOSTIC] Recovery PIN reset completed successfully");
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({
+      err,
+      stack: err instanceof Error ? err.stack : void 0
+    }, "[DIAGNOSTIC] Unhandled error in /recovery-email/complete");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+var recovery_email_default = router9;
+
+// src/routes/waitlist.ts
+var import_express11 = __toESM(require_express2(), 1);
+import crypto9 from "node:crypto";
+var router10 = (0, import_express11.Router)();
 var CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1e3;
 var LAUNCH_DISCOUNT_PERCENT = 50;
 var LAUNCH_LIMIT = 500;
@@ -69820,7 +70893,7 @@ var waitlistRegistrationSchema = RegisterWaitlistBody.refine(
   (value) => value.privacyAccepted === true,
   { message: "privacyAccepted must be true", path: ["privacyAccepted"] }
 );
-function getBaseUrl3() {
+function getBaseUrl4() {
   const domains = process.env.REPLIT_DOMAINS;
   if (domains) return `https://${domains.split(",")[0].trim()}`;
   const devDomain = process.env.REPLIT_DEV_DOMAIN;
@@ -69881,7 +70954,7 @@ async function confirmEntry(token2) {
     return { status: "confirmed", entry: confirmedEntry };
   });
 }
-router8.post(
+router10.post(
   "/register",
   waitlistLimiter,
   validateBody(waitlistRegistrationSchema),
@@ -69890,7 +70963,7 @@ router8.post(
       const email2 = req.body.email;
       const source = req.body.source;
       const now = Date.now();
-      const token2 = crypto5.randomBytes(32).toString("hex");
+      const token2 = crypto9.randomBytes(32).toString("hex");
       const existingRows = await db.select().from(waitlistEntriesTable).where(eq(waitlistEntriesTable.email, email2)).limit(1);
       const existing = existingRows[0];
       if (existing?.confirmedAt) {
@@ -69922,7 +70995,7 @@ router8.post(
         createdAt: now,
         expiresAt: now + CONFIRMATION_TTL_MS
       });
-      const verificationUrl = `${getBaseUrl3()}/api/waitlist/confirm/${token2}`;
+      const verificationUrl = `${getBaseUrl4()}/api/waitlist/confirm/${token2}`;
       const emailResult = await sendWithRetry(
         "waitlist-verification",
         email2,
@@ -69947,7 +71020,7 @@ router8.post(
     }
   }
 );
-router8.get(
+router10.get(
   "/stats",
   async (_req, res, next) => {
     try {
@@ -69969,7 +71042,7 @@ router8.get(
     }
   }
 );
-router8.get(
+router10.get(
   "/confirm/:token",
   validateParams(ConfirmWaitlistEmailParams),
   async (req, res, next) => {
@@ -69993,7 +71066,7 @@ router8.get(
     }
   }
 );
-router8.get(
+router10.get(
   "/me",
   requireAuth,
   async (req, res, next) => {
@@ -70010,12 +71083,12 @@ router8.get(
     }
   }
 );
-var waitlist_default = router8;
+var waitlist_default = router10;
 
 // src/routes/subscriptions.ts
-var import_express10 = __toESM(require_express2(), 1);
+var import_express12 = __toESM(require_express2(), 1);
 import { createHmac, timingSafeEqual } from "node:crypto";
-var router9 = (0, import_express10.Router)();
+var router11 = (0, import_express12.Router)();
 var SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 function parseSignatureHeader(header) {
   const parts = new Map(
@@ -70076,7 +71149,7 @@ function productName(event) {
   }
   return null;
 }
-router9.post("/webhook", async (req, res) => {
+router11.post("/webhook", async (req, res) => {
   try {
     const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
     if (!secret) {
@@ -70189,20 +71262,24 @@ router9.post("/webhook", async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
-var subscriptions_default = router9;
+var subscriptions_default = router11;
 
 // src/routes/index.ts
-var router10 = (0, import_express11.Router)();
-router10.use(health_default);
-router10.use("/email", email_default);
-router10.use("/invite", invite_default);
-router10.use("/push", push_default);
-router10.use("/keys", keys_default);
-router10.use("/vault", vaultTransfer_default);
-router10.use("/absence", absence_default);
-router10.use("/waitlist", waitlist_default);
-router10.use("/subscriptions", subscriptions_default);
-var routes_default = router10;
+var router12 = (0, import_express13.Router)();
+router12.use(health_default);
+router12.use("/email", email_default);
+router12.use("/invite", invite_default);
+router12.use("/push", push_default);
+router12.use("/keys", keys_default);
+router12.use("/vault", vaultTransfer_default);
+router12.use("/absence", absence_default);
+router12.use("/pin-reset", pin_reset_default);
+router12.use("/recovery-email", recovery_email_default);
+router12.use("/waitlist", waitlist_default);
+router12.use("/subscriptions", subscriptions_default);
+logger.info("[DIAGNOSTIC] API Routes registered successfully.");
+logger.info("[DIAGNOSTIC] Recovery Email route is ACTIVE at: /api/recovery-email");
+var routes_default = router12;
 
 // ../../node_modules/.pnpm/httpxy@0.5.5/node_modules/httpxy/dist/index.mjs
 import httpNative, { request } from "node:http";
@@ -71158,11 +72235,11 @@ function parsePathRewriteRules(rewriteConfig) {
 var debug4 = Debug.extend("router");
 async function getTarget(req, res, config) {
   let newTarget;
-  const router11 = config.router;
-  if (isPlainObject(router11)) {
-    newTarget = getTargetFromProxyTable(req, router11);
-  } else if (typeof router11 === "function") {
-    newTarget = await router11(req, res, config);
+  const router13 = config.router;
+  if (isPlainObject(router13)) {
+    newTarget = getTargetFromProxyTable(req, router13);
+  } else if (typeof router13 === "function") {
+    newTarget = await router13(req, res, config);
   }
   return newTarget;
 }
@@ -71468,7 +72545,7 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
-var app = (0, import_express12.default)();
+var app = (0, import_express14.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(clerkMiddleware());
@@ -71517,10 +72594,10 @@ app.use(helmet({
 }));
 app.use(
   "/api/subscriptions/webhook",
-  import_express12.default.raw({ type: "application/json", limit: "1mb", inflate: false })
+  import_express14.default.raw({ type: "application/json", limit: "1mb", inflate: false })
 );
-app.use(import_express12.default.json());
-app.use(import_express12.default.urlencoded({ extended: true }));
+app.use(import_express14.default.json());
+app.use(import_express14.default.urlencoded({ extended: true }));
 app.use("/api/", generalLimiter);
 app.use("/api", routes_default);
 app.get("/", (req, res) => {

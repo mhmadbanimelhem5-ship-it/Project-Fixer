@@ -80,11 +80,13 @@ export async function markRecoveryEmailVerified(userId: string): Promise<boolean
 // ── Lookup by user ───────────────────────────────────────────────────────────
 
 export interface RecoveryEmailRecord {
+  id?: number;
   userId: string;
   emailHash: string;
   emailSalt: string;
   verified: boolean;
   updatedAt: number;
+  createdAt?: number;
 }
 
 export async function getRecoveryEmailByUser(userId: string): Promise<RecoveryEmailRecord | null> {
@@ -101,6 +103,20 @@ export async function getRecoveryEmailByUser(userId: string): Promise<RecoveryEm
       .where(eq(recoveryEmailsTable.userId, userId))
       .limit(1);
 
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+// ← إضافة جديدة: تُرجع السجل الكامل (مع id) للـ logging في routes/recovery-email.ts
+export async function getRecoveryEmailRecord(userId: string): Promise<RecoveryEmailRecord | null> {
+  try {
+    const rows = await db
+      .select()
+      .from(recoveryEmailsTable)
+      .where(eq(recoveryEmailsTable.userId, userId))
+      .limit(1);
     return rows[0] || null;
   } catch {
     return null;

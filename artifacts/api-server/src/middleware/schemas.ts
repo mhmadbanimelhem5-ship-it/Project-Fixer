@@ -128,3 +128,8 @@ export const recoveryOtpVerifyBody = z.object({
 export const recoveryPinResetBody = z.object({
   newPin: z.string().trim().regex(/^\d{6}$/, "PIN must be exactly 6 digits"),
 });
+
+// ← إضافة جديدة: للتحقق من رمز الاسترجاع المؤقت (recoveryToken)
+export const recoveryCompleteBody = z.object({
+  recoveryToken: z.string().trim().regex(/^[a-f0-9]{64}$/i, "Invalid recovery token format"),
+});
