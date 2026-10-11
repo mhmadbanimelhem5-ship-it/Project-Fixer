@@ -113,3 +113,18 @@ export const waitlistRegistrationBody = z.object({
 });
 
 export const waitlistVerificationParams = z.object({ token });
+
+// ── Recovery Email Schemas ────────────────────────────────────────────────────
+
+export const recoveryEmailBody = z.object({
+  email,
+});
+
+export const recoveryOtpVerifyBody = z.object({
+  email,
+  otp: z.string().trim().regex(/^\d{6}$/),
+});
+
+export const recoveryPinResetBody = z.object({
+  newPin: z.string().trim().regex(/^\d{6}$/, "PIN must be exactly 6 digits"),
+});

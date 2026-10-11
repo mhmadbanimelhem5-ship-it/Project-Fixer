@@ -11,13 +11,12 @@ const ATTEMPTS_KEY        = 'auryx_attempts';
 const LOCKOUT_KEY         = 'auryx_lockout_until';
 const VAULT_KEY_KEY       = 'auryx_vault_key';
 const DECOY_PIN_HASH_KEY  = 'auryx_decoy_pin_hash';
-const DECOY_VAULT_KEY_KEY  = 'auryx_decoy_vault_key';
+const DECOY_VAULT_KEY_KEY = 'auryx_decoy_vault_key';
 const BIOMETRICS_KEY      = 'auryx_biometrics_enabled';
 const DATA_VERSION_KEY    = 'auryx_data_v';
+const RECOVERY_TOKEN_KEY  = 'auryx_recovery_token'; // ← إضافة جديدة
 
 // v7: migrate authentication metadata without deleting either vault key.
-// Older PIN hashes may be incompatible, but the random vault keys must remain
-// available so the encrypted vault is not orphaned during the migration.
 const DATA_VERSION = '7';
 
 export type LockType = 'pin' | 'password' | 'pattern';
@@ -33,10 +32,12 @@ interface AuthContextType {
   biometricsEnabled: boolean;
   biometricsAvailable: boolean;
   intruderDetected: boolean;
+  recoveryToken: string | null; // ← إضافة جديدة
   setupPin: (pin: string) => Promise<void>;
   setupDecoyPin: (decoyPin: string) => Promise<void>;
   verifyPin: (pin: string) => Promise<boolean>;
   changePin: (currentPin: string, newPin: string) => Promise<boolean>;
+  forceResetPin: (newPin: string) => Promise<boolean>;
   unlock: (pin: string) => Promise<boolean>;
   unlockWithBiometrics: () => Promise<boolean>;
   lock: () => void;
@@ -47,19 +48,23 @@ interface AuthContextType {
   enableBiometrics: () => Promise<boolean>;
   disableBiometrics: () => Promise<void>;
   clearIntruderDetected: () => void;
+  setRecoveryToken: (token: string | null) => Promise<void>; // ← إضافة جديدة
 }
 
 const AuthContext = createContext<AuthContextType>({
   isLocked: true, isSetup: false, lockType: 'pin', isDecoyMode: false,
   attempts: 0, lockoutUntil: null, vaultKey: null,
   biometricsEnabled: false, biometricsAvailable: false, intruderDetected: false,
+  recoveryToken: null, // ← إضافة جديدة
   setupPin: async () => {}, setupDecoyPin: async () => {},
   verifyPin: async () => false, changePin: async () => false,
+  forceResetPin: async () => false,
   unlock: async () => false, unlockWithBiometrics: async () => false,
   lock: () => {}, getLockoutRemaining: () => 0, canAttempt: () => true,
   wipeAll: async () => {}, hasPin: async () => false,
   enableBiometrics: async () => false, disableBiometrics: async () => {},
   clearIntruderDetected: () => {},
+  setRecoveryToken: async () => {}, // ← إضافة جديدة
 });
 
 /* ─── secure storage helpers ─── */
@@ -81,8 +86,6 @@ async function secureDelete(key: string): Promise<void> {
     await SecureStore.deleteItemAsync(key);
   } catch {}
 }
-// Variant that throws on failure — used for critical vault-creation writes so
-// callers can surface "Storage unavailable" instead of silently losing the PIN.
 async function secureSetOrThrow(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
   await SecureStore.setItemAsync(key, value);
@@ -91,19 +94,9 @@ async function secureSetOrThrow(key: string, value: string): Promise<void> {
 const ALL_AUTH_KEYS = [
   PIN_HASH_KEY, PIN_SALT_KEY, ATTEMPTS_KEY, LOCKOUT_KEY,
   VAULT_KEY_KEY, DECOY_PIN_HASH_KEY, DECOY_VAULT_KEY_KEY, BIOMETRICS_KEY,
+  RECOVERY_TOKEN_KEY, // ← إضافة جديدة
 ];
 
-// PBKDF2-HMAC-SHA256, 8000 iterations.
-//
-// Primary path: Web Crypto API (async, native, non-blocking).
-//   Available in React Native 0.74+ (Hermes). Runs off the JS thread so the
-//   loading spinner stays responsive during the ~200 ms derive operation.
-//
-// Fallback: CryptoJS with explicit SHA-256 PRF + 50 ms yield so the loading
-//   UI renders BEFORE the synchronous CryptoJS hash blocks the thread.
-//
-// Both paths produce identical output for ASCII inputs (hex salt + digit PIN)
-// because UTF-8 and Latin-1 encode ASCII identically.
 async function hashPin(pin: string, salt: string): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subtle = (global as any).crypto?.subtle as {
@@ -113,9 +106,6 @@ async function hashPin(pin: string, salt: string): Promise<string> {
 
   if (subtle) {
     try {
-      // Guard with a 3 s timeout: if the native crypto module is in a bad
-      // state (e.g. wrong version at install time) these Promises can hang
-      // forever, causing the "Creating Vault…" screen to never resolve.
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('crypto.subtle timeout')), 3000),
       );
@@ -140,7 +130,6 @@ async function hashPin(pin: string, salt: string): Promise<string> {
     }
   }
 
-  // CryptoJS fallback: yield first so the spinner renders before the thread blocks
   await new Promise<void>(r => setTimeout(r, 50));
   return CryptoJS.PBKDF2(pin, salt, {
     keySize: 8,
@@ -168,11 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [biometricsEnabled, setBiometrics]    = useState(false);
   const [biometricsAvailable, setBioAvail]    = useState(false);
   const [intruderDetected, setIntruder]       = useState(false);
+  const [recoveryToken, setRecoveryTokenState] = useState<string | null>(null); // ← إضافة جديدة
 
   useEffect(() => {
     (async () => {
-      // One-time migration. Never delete either vault key: they protect the
-      // user's encrypted content and are independent from PIN metadata.
       const storedVersion = await secureGet(DATA_VERSION_KEY);
       if (storedVersion !== DATA_VERSION) {
         if (storedVersion !== '6') {
@@ -182,15 +170,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await secureDelete(ATTEMPTS_KEY);
           await secureDelete(LOCKOUT_KEY);
           await secureDelete(BIOMETRICS_KEY);
+          await secureDelete(RECOVERY_TOKEN_KEY); // ← إضافة جديدة
         }
         await secureSet(DATA_VERSION_KEY, DATA_VERSION);
       }
 
-      // Normal load
       const pinHash        = await secureGet(PIN_HASH_KEY);
       const storedAttempts = await secureGet(ATTEMPTS_KEY);
       const storedLockout  = await secureGet(LOCKOUT_KEY);
       const storedBio      = await secureGet(BIOMETRICS_KEY);
+      const storedRecovery = await secureGet(RECOVERY_TOKEN_KEY); // ← إضافة جديدة
 
       setIsSetup(!!pinHash);
       if (storedAttempts) setAttempts(parseInt(storedAttempts, 10));
@@ -200,6 +189,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         else { await secureDelete(LOCKOUT_KEY); await secureSet(ATTEMPTS_KEY, '0'); setAttempts(0); }
       }
       if (storedBio === 'true') setBiometrics(true);
+      if (storedRecovery) setRecoveryTokenState(storedRecovery); // ← إضافة جديدة
+
       if (Platform.OS !== 'web') {
         const ok = await LocalAuthentication.hasHardwareAsync();
         const enrolled = await LocalAuthentication.isEnrolledAsync();
@@ -234,19 +225,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   /* ── public API ── */
-  // Throws with a user-visible message on crypto or storage failure so the lock
-  // screen can show "Encryption failed" / "Storage unavailable" rather than
-  // leaving the user staring at "Creating Vault…" forever.
   const setupPin = async (pin: string) => {
-    // Use expo-crypto for cryptographically-secure random bytes (native RNG).
-    const salt = await secureRandomHex(16); // 128-bit salt
+    const salt = await secureRandomHex(16);
     let hash: string;
     try {
       hash = await hashPin(pin, salt);
     } catch {
       throw new Error('Encryption error — please try again.');
     }
-    // Preserve a migrated key. Only generate one for a genuinely new vault.
     const vk = (await secureGet(VAULT_KEY_KEY)) ?? await secureRandomHex(32);
     try {
       await secureSetOrThrow(PIN_HASH_KEY, hash);
@@ -255,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       throw new Error('Storage error — check your device security settings.');
     }
-    await secureSet(ATTEMPTS_KEY, '0'); // non-critical, keep silent
+    await secureSet(ATTEMPTS_KEY, '0');
     setVaultKey(vk);
     setIsSetup(true);
     setIsLocked(false);
@@ -278,13 +264,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const changePin = async (currentPin: string, newPin: string): Promise<boolean> => {
     const ok = await verifyPin(currentPin);
     if (!ok) return false;
-    const salt = await secureRandomHex(16); // 128-bit salt via expo-crypto
+    const salt = await secureRandomHex(16);
     const hash = await hashPin(newPin, salt);
     await secureSet(PIN_HASH_KEY, hash);
     await secureSet(PIN_SALT_KEY, salt);
     const decoyHash = await secureGet(DECOY_PIN_HASH_KEY);
-    if (decoyHash) await secureDelete(DECOY_PIN_HASH_KEY); // decoy PIN must be re-setup
+    if (decoyHash) await secureDelete(DECOY_PIN_HASH_KEY);
     return true;
+  };
+
+  const forceResetPin = async (newPin: string): Promise<boolean> => {
+    try {
+      const salt = await secureRandomHex(16);
+      const hash = await hashPin(newPin, salt);
+      await secureSetOrThrow(PIN_HASH_KEY, hash);
+      await secureSetOrThrow(PIN_SALT_KEY, salt);
+      const decoyHash = await secureGet(DECOY_PIN_HASH_KEY);
+      if (decoyHash) await secureDelete(DECOY_PIN_HASH_KEY);
+      setAttempts(0);
+      setLockoutUntil(null);
+      await secureSet(ATTEMPTS_KEY, '0');
+      await secureDelete(LOCKOUT_KEY);
+
+      // مسح رمز الاسترجاع بعد نجاح تغيير الـ PIN (لأنه لمرة واحدة فقط)
+      await setRecoveryToken(null); // ← إضافة جديدة
+
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const unlock = async (pin: string): Promise<boolean> => {
@@ -301,15 +309,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return true;
     }
     if (decoyStored && input === decoyStored) {
-      // The decoy vault has its OWN random 256-bit key, fully separate from the
-      // real vault key, so decoy media can never be decrypted with the real key
-      // (and vice-versa). Create it lazily on first decoy entry, reuse after.
       let decoyKey = await secureGet(DECOY_VAULT_KEY_KEY);
       if (!decoyKey) {
-        decoyKey = await secureRandomHex(32); // 256-bit decoy key via expo-crypto
+        decoyKey = await secureRandomHex(32);
         await secureSet(DECOY_VAULT_KEY_KEY, decoyKey);
-        // If the key didn't persist, refuse to unlock rather than accept media
-        // that would be orphaned (undecryptable) on the next decoy entry.
         const check = await secureGet(DECOY_VAULT_KEY_KEY);
         if (check !== decoyKey) return false;
       }
@@ -370,23 +373,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const wipeAll = async () => {
     for (const k of ALL_AUTH_KEYS) await secureDelete(k);
-    // Keep DATA_VERSION so we don't re-wipe after user sets new PIN
     setIsSetup(false); setIsLocked(true); setAttempts(0);
     setLockoutUntil(null); setVaultKey(null); setBiometrics(false);
-    setIsDecoyMode(false); setIntruder(false);
+    setIsDecoyMode(false); setIntruder(false); setRecoveryTokenState(null); // ← إضافة جديدة
   };
 
   const hasPin = async () => !!(await secureGet(PIN_HASH_KEY));
   const clearIntruderDetected = () => setIntruder(false);
 
+  // ← إضافة جديدة: دالة لحفظ أو مسح رمز الاسترجاع
+  const setRecoveryToken = async (token: string | null) => {
+    if (token) {
+      await secureSet(RECOVERY_TOKEN_KEY, token);
+      setRecoveryTokenState(token);
+    } else {
+      await secureDelete(RECOVERY_TOKEN_KEY);
+      setRecoveryTokenState(null);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       isLocked, isSetup, lockType, isDecoyMode, attempts, lockoutUntil, vaultKey,
-      biometricsEnabled, biometricsAvailable, intruderDetected,
-      setupPin, setupDecoyPin, verifyPin, changePin,
+      biometricsEnabled, biometricsAvailable, intruderDetected, recoveryToken, // ← إضافة recoveryToken
+      setupPin, setupDecoyPin, verifyPin, changePin, forceResetPin,
       unlock, unlockWithBiometrics, lock,
       getLockoutRemaining, canAttempt, wipeAll, hasPin,
       enableBiometrics, disableBiometrics, clearIntruderDetected,
+      setRecoveryToken, // ← إضافة setRecoveryToken
     }}>
       {children}
     </AuthContext.Provider>

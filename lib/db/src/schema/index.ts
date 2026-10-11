@@ -150,3 +150,21 @@ export const subscriptionsTable = pgTable(
     statusIdx: index("subscriptions_status_idx").on(table.status),
   })
 );
+
+// ── Recovery Emails (for PIN reset) ───────────────────────────────────────────
+// Stores a hashed recovery email separate from the main Clerk account email.
+export const recoveryEmailsTable = pgTable(
+  "recovery_emails",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull().unique(), // Clerk user ID (one recovery email per user)
+    emailHash: text("email_hash").notNull(),
+    emailSalt: text("email_salt").notNull(),
+    verified: boolean("verified").notNull().default(false),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("recovery_emails_user_id_idx").on(table.userId),
+  })
+);

@@ -185,7 +185,7 @@ async function sendMail(to: string, subject: string, html: string): Promise<void
 
   if (provider === 'resend') {
     try {
-            const result = await getResendClient().emails.send({
+      const result = await getResendClient().emails.send({
         from: getResendFromAddress(),
         to,
         subject,
@@ -248,6 +248,32 @@ ${body}
 }
 
 // ─── Email Senders ────────────────────────────────────────────────────────────
+
+export async function sendRecoveryOtp(email: string, otp: string): Promise<void> {
+  const html = wrap(`
+    <p>طلبتم رمزاً لاستعادة رمز الدخول (PIN) لحسابكم في Auryx.</p>
+    <p>استخدم الرمز التالي لإتمام العملية:</p>
+    <div style="text-align:center;margin:28px 0">
+      <div style="display:inline-block;background:linear-gradient(135deg,rgba(212,175,55,0.15),rgba(139,92,246,0.15));border:2px solid rgba(212,175,55,0.4);border-radius:16px;padding:20px 36px">
+        <span style="font-size:42px;font-weight:700;letter-spacing:16px;color:#D4AF37;font-family:monospace">${otp}</span>
+      </div>
+    </div>
+    <p style="text-align:center;color:#94A3B8;font-size:13px">⏳ هذا الرمز صالح لمدة <strong style="color:#F59E0B">15 دقيقة</strong> فقط</p>
+    <hr class="divider">
+    <p class="hint">إذا لم تطلب هذا الرمز، يرجى تجاهل هذا البريد وتغيير كلمة مرور بريدك الإلكتروني فوراً.</p>
+  `);
+  await sendMail(email, "🔑 رمز استعادة حساب Auryx", html);
+}
+
+export async function sendRecoverySuccessAlert(email: string): Promise<void> {
+  const html = wrap(`
+    <p>⚠️ تم استخدام رمز الاسترجاع بنجاح لتغيير رمز الدخول (PIN) لحسابك.</p>
+    <p>إذا لم تكن أنت من قام بهذا الإجراء، يرجى التواصل مع دعم Auryx فوراً وتغيير كلمة مرور بريدك الإلكتروني.</p>
+    <hr class="divider">
+    <p class="hint">وقت العملية: ${new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' })}</p>
+  `);
+  await sendMail(email, "🚨 تنبيه أمني: تم تغيير رمز الدخول", html);
+}
 
 export async function sendGuardianInvite(
   ownerName: string,
@@ -486,7 +512,7 @@ export async function sendGuardianVoteRequest(
 
 // ─── Retry Queue ───────────────────────────────────────────────────────────────
 
-export type RetryType = 'otp-email' | 'guardian-invite' | 'beneficiary-invite' | 'vote-request' | 'owner-notification' | 'beneficiary-absent' | 'waitlist-verification';
+export type RetryType = 'otp-email' | 'guardian-invite' | 'beneficiary-invite' | 'vote-request' | 'owner-notification' | 'beneficiary-absent' | 'waitlist-verification' | 'recovery-otp';
 
 async function sendEmailByType(type: RetryType, email: string, data: Record<string, unknown>): Promise<void> {
   switch (type) {
@@ -494,6 +520,11 @@ async function sendEmailByType(type: RetryType, email: string, data: Record<stri
       const otp = String(data.otp ?? '');
       const ownerName = String(data.ownerName ?? email);
       await sendVaultAccessOtp(email, ownerName, otp);
+      return;
+    }
+    case 'recovery-otp': {
+      const otp = String(data.otp ?? '');
+      await sendRecoveryOtp(email, otp);
       return;
     }
     case 'guardian-invite': {

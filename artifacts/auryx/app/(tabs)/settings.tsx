@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Purchases from 'react-native-purchases'; // ✅ تمت الإضافة
+import Purchases from 'react-native-purchases';
 import { GlassCard } from '@/components/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVault } from '@/contexts/VaultContext';
@@ -28,6 +28,7 @@ import { useTheme, ThemeColors, ThemeMode } from '@/contexts/ThemeContext';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import { getStealthMode, saveStealthMode } from '@/utils/stealthStore';
 import { usePremiumGuard } from '@/hooks/usePremiumGuard';
+import { setRecoveryEmail, verifyRecoveryOtp } from '@/utils/emailApi'; // ← إضافة جديدة
 
 /* ─── Setting row ─── */
 const SettingRow = React.memo(function SettingRow({
@@ -74,7 +75,141 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
-/* ─── Decoy PIN modal (uses text input) ─── */
+/* ─── Recovery Email Modal (NEW) ─── */
+function RecoveryEmailModal({
+  visible, onClose, currentEmail, onVerified
+}: {
+  visible: boolean; onClose: () => void; currentEmail: string | null; onVerified: (email: string) => void;
+}) {
+  const { t } = useLanguage();
+  const { colors: tc } = useTheme();
+  const styles = useMemo(() => makeStyles(tc), [tc]);
+
+  const [step, setStep] = useState<'input' | 'verify'>('input');
+  const [email, setEmail] = useState(currentEmail || '');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (visible) {
+      setStep('input');
+      setEmail(currentEmail || '');
+      setOtp('');
+      setError('');
+      setLoading(false);
+    }
+  }, [visible, currentEmail]);
+
+  const handleSendOtp = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t('recovery.invalidEmail'));
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await setRecoveryEmail(email);
+      if (res.success) {
+        setStep('verify');
+      } else {
+        setError(res.error || t('recovery.networkError'));
+      }
+    } catch {
+      setError(t('recovery.networkError'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (otp.length !== 6) {
+      setError(t('recovery.invalidOtp'));
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await verifyRecoveryOtp(email, otp);
+      if (res.success) {
+        onVerified(email);
+        onClose();
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(t('recovery.successTitle'), t('recovery.successDesc'));
+      } else {
+        setError(res.error || t('recovery.invalidOtp'));
+        setOtp('');
+      }
+    } catch {
+      setError(t('recovery.networkError'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>
+              {step === 'input' ? t('recovery.enterEmail') : t('recovery.verifyOtpTitle')}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {step === 'input' ? t('recovery.subtitle') : t('recovery.verifyOtpDesc')}
+            </Text>
+
+            {step === 'input' ? (
+              <TextInput
+                style={styles.pinInput}
+                placeholder={t('recovery.emailPlaceholder')}
+                placeholderTextColor={tc.textMuted}
+                value={email}
+                onChangeText={(v) => { setEmail(v); setError(''); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={320}
+              />
+            ) : (
+              <TextInput
+                style={styles.pinInput}
+                placeholder={t('recovery.otpPlaceholder')}
+                placeholderTextColor={tc.textMuted}
+                value={otp}
+                onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, '')); setError(''); }}
+                keyboardType="numeric"
+                secureTextEntry
+                maxLength={6}
+                autoCorrect={false}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            )}
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancel} onPress={onClose}>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirm} onPress={step === 'input' ? handleSendOtp : handleVerify} disabled={loading}>
+                <LinearGradient colors={['#D4AF37', '#B8960C']} style={styles.modalConfirmGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  <Text style={styles.modalConfirmText}>
+                    {loading ? t('common.loading') : step === 'input' ? t('recovery.sendOtp') : t('recovery.verify')}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+/* ─── Decoy PIN modal ─── */
 function PinSetupModal({
   visible, title, subtitle, onConfirm, onCancel, minLen = 4,
 }: {
@@ -368,7 +503,6 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
   useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
 
   const encryptedBackup = encryptData(JSON.stringify({ items, guardians, legacy }));
-
   const shortKey = encryptedBackup.slice(0, 80) + '…';
 
   const handleCopy = async () => {
@@ -562,7 +696,7 @@ function EditProfileModal({
   );
 }
 
-/* ─── Confirm Modal (replaces Alert for web compatibility) ─── */
+/* ─── Confirm Modal ─── */
 function ConfirmModal({ visible, title, message, confirmLabel, confirmColor = '#EF4444', onConfirm, onCancel }: {
   visible: boolean; title: string; message: string;
   confirmLabel: string; confirmColor?: string;
@@ -609,7 +743,11 @@ export default function SettingsScreen() {
 
   const [decoyVaultEnabled, setDecoyVaultEnabled] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false); // ✅ حالة التحميل للاستعادة
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  // ← إضافة جديدة: حالة إيميل الاسترجاع
+  const [recoveryEmail, setRecoveryEmailState] = useState<string | null>(null);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
   useEffect(() => {
     getStealthMode().then(val => setStealthMode(val));
@@ -625,7 +763,6 @@ export default function SettingsScreen() {
 
   const tabBarHeight = 60 + (Platform.OS === 'web' ? 34 : insets.bottom);
 
-  // ✅ دالة استعادة المشتريات
   const handleRestorePurchases = async () => {
     setIsRestoring(true);
     try {
@@ -836,6 +973,15 @@ export default function SettingsScreen() {
             onToggle={handleBiometricsToggle}
           />
           <View style={styles.rowDivider} />
+          {/* ← إضافة جديدة: صف إيميل الاسترجاع */}
+          <SettingRow
+            icon="mail"
+            iconColor={tc.teal}
+            title={t('recovery.title')}
+            subtitle={recoveryEmail ? `${t('recovery.currentEmail')}: ${recoveryEmail}` : t('recovery.noEmail')}
+            onPress={() => setShowRecoveryModal(true)}
+          />
+          <View style={styles.rowDivider} />
           <SettingRow
             icon="eye-off"
             iconColor={tc.blue}
@@ -942,7 +1088,6 @@ export default function SettingsScreen() {
           />
         </GlassCard>
 
-        {/* ✅ قسم الاشتراك واستعادة المشتريات (محدث ليدعم اللغات) */}
         <SectionHeader title={t('settings.subscription') || 'الاشتراك'} />
         <GlassCard style={styles.sectionCard} padding={0}>
           <TouchableOpacity
@@ -1025,6 +1170,13 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* ── Modals ── */}
+      <RecoveryEmailModal // ← إضافة جديدة
+        visible={showRecoveryModal}
+        onClose={() => setShowRecoveryModal(false)}
+        currentEmail={recoveryEmail}
+        onVerified={(email) => setRecoveryEmailState(email)}
+      />
+
       <PinSetupModal
         visible={showDecoyModal}
         title={t('settings.decoyPinTitle')}

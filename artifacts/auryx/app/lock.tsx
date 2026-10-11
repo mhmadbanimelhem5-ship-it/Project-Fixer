@@ -126,27 +126,6 @@ function IntruderModal({ visible, onDismiss }: { visible: boolean; onDismiss: ()
   );
 }
 
-/* ─── Reset Confirmation inline UI ─── */
-function ResetConfirm({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
-  const { colors: tc } = useTheme();
-  const styles = useMemo(() => makeStyles(tc), [tc]);
-  const rst = useMemo(() => makeRstStyles(tc), [tc]);
-  return (
-    <View style={rst.container}>
-      <Feather name="alert-triangle" size={18} color={tc.red} />
-      <Text style={rst.msg}>This will erase ALL vault data and PIN. Cannot be undone.</Text>
-      <View style={rst.row}>
-        <TouchableOpacity style={rst.cancelBtn} onPress={onCancel}>
-          <Text style={rst.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={rst.confirmBtn} onPress={onConfirm}>
-          <Text style={rst.confirmText}>Erase & Reset</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
 /* ─── Calculator Lock Screen ─── */
 // Renders a convincing calculator UI. The user types their PIN via digit buttons
 // then presses "=" to unlock. Operators (+, -, ×, ÷) appear on screen for
@@ -296,20 +275,22 @@ export default function LockScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
-    isSetup, setupPin, unlock, unlockWithBiometrics, wipeAll,
+    isSetup, setupPin, unlock, unlockWithBiometrics,
     attempts, lockoutUntil, canAttempt, getLockoutRemaining,
     biometricsEnabled, biometricsAvailable,
     intruderDetected, clearIntruderDetected,
   } = useAuth();
   const { isAvailable, biometricType, authenticate } = useBiometrics();
   const { t } = useLanguage();
+  // Direction-aware placement: Arabic → trailing corner right, English → left.
+  const { language: langCode } = useLanguage() as { language?: string };
+  const isRTL = (langCode ?? 'ar').startsWith('ar');
 
   const [pin, setPin]             = useState('');
   const [error, setError]         = useState('');
   const [lockoutTime, setLockoutTime] = useState('');
   const [confirmPin, setConfirmPin]   = useState('');
   const [setupStep, setSetupStep]     = useState<'create' | 'confirm'>('create');
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   // isVerifying: true while PBKDF2 hash is running on unlock attempt.
   // Gives the user "جاري التحقق…" feedback instead of a frozen UI.
@@ -351,7 +332,6 @@ export default function LockScreen() {
       setConfirmPin('');
       setSetupStep('create');
       setError('');
-      setShowResetConfirm(false);
     }
   }, [isSettingUp]);
 
@@ -482,23 +462,11 @@ export default function LockScreen() {
     }
   }, [biometricsEnabled, biometricsAvailable, unlockWithBiometrics, authenticate, unlock, shake, t, router]);
 
-  const handleReset = async () => {
-    try {
-      await wipeAll();
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } catch (err) {
-      console.warn('[auryx][lock] handleReset error:', err);
-      setError('حدث خطأ، الرجاء إعادة المحاولة');
-      scheduleErrorClear(2500);
-    }
-  };
-
   const isLockedOut = !!lockoutUntil && lockoutUntil > Date.now();
   const warning = getAttemptsWarning(attempts);
 
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
-  const rst = useMemo(() => makeRstStyles(tc), [tc]);
   const ist = useMemo(() => makeIstStyles(tc), [tc]);
 
   // Stealth mode: show calculator when vault is already set up (not during first-time setup)
@@ -531,6 +499,23 @@ export default function LockScreen() {
       <View style={styles.ambientPurple} />
       <View style={styles.ambientGold} />
       <ScreenGlow color="#8B5CF6" icon="key" />
+
+      {/* ── Top bar: Forgot PIN (flips with language direction) ── */}
+      {!isSettingUp && (
+        <View style={styles.topBar}>
+          {isRTL ? <View style={styles.topBarSpacer} /> : null}
+          <TouchableOpacity
+            onPress={() => router.push('/pin-reset')}
+            style={styles.forgotTopBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
+          >
+            <Feather name="help-circle" size={14} color={tc.textSecondary} />
+            <Text style={styles.forgotTopText}>{t('lock.forgotPin')}</Text>
+          </TouchableOpacity>
+          {!isRTL ? <View style={styles.topBarSpacer} /> : null}
+        </View>
+      )}
 
       <IntruderModal visible={intruderDetected} onDismiss={clearIntruderDetected} />
 
@@ -676,21 +661,6 @@ export default function LockScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-
-              {/* ── Forgot PIN / Reset ── */}
-              {!showResetConfirm ? (
-                <TouchableOpacity
-                  style={styles.forgotBtn}
-                  onPress={() => setShowResetConfirm(true)}
-                  activeOpacity={0.6}
-                  hitSlop={{ top: 14, bottom: 14, left: 20, right: 20 }}
-                >
-                  <Feather name="rotate-ccw" size={12} color={tc.textMuted} />
-                  <Text style={styles.forgotText}>Forgot PIN? Reset Vault</Text>
-                </TouchableOpacity>
-              ) : (
-                <ResetConfirm onConfirm={handleReset} onCancel={() => setShowResetConfirm(false)} />
-              )}
             </>
           )}
         </View>
@@ -715,6 +685,10 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   logoContainer: { alignItems: 'center', paddingTop: 10 },
   appName: { fontSize: 32, fontWeight: '700', color: tc.gold, fontFamily: 'Poppins_700Bold', letterSpacing: 4, marginTop: 10, lineHeight: 42, includeFontPadding: false },
   tagline:  { fontSize: 13, color: tc.textSecondary, fontFamily: 'Poppins_400Regular', letterSpacing: 0.5, marginTop: 4 },
+  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10 },
+  topBarSpacer: { flex: 1 },
+  forgotTopBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  forgotTopText: { fontSize: 13, color: tc.textSecondary, fontFamily: 'Poppins_600SemiBold' },
   lockPadArea: { width: '100%', alignItems: 'center' },
   stepBadge: { paddingVertical: 3, paddingHorizontal: 12, borderRadius: 20, backgroundColor: tc.goldGlass, borderWidth: 1, borderColor: 'rgba(212,175,55,0.30)', marginBottom: 10 },
   stepBadgeText: { fontSize: 10, color: tc.gold, fontFamily: 'Poppins_700Bold', letterSpacing: 1.5 },
@@ -737,21 +711,8 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   unlockBtnText: { fontSize: 16, fontWeight: '700', color: '#0A0F1E', fontFamily: 'Poppins_700Bold', letterSpacing: 0.5 },
   biometricBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, paddingVertical: 10, paddingHorizontal: 20 },
   biometricText: { fontSize: 14, color: tc.purple, fontFamily: 'Poppins_400Regular' },
-  forgotBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.03)' },
-  forgotText: { fontSize: 12, color: tc.textMuted, fontFamily: 'Poppins_400Regular' },
   footer: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
   footerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tc.gold, opacity: 0.8 },
-});
-
-/* ─── Reset confirm styles ─── */
-const makeRstStyles = (tc: ThemeColors) => StyleSheet.create({
-  container: { marginTop: 16, width: '100%', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(239,68,68,0.30)', padding: 16, alignItems: 'center', gap: 10 },
-  msg: { fontSize: 12, color: tc.textSecondary, fontFamily: 'Poppins_400Regular', textAlign: 'center', lineHeight: 18 },
-  row: { flexDirection: 'row', gap: 10, width: '100%' },
-  cancelBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: tc.glass, borderRadius: 12, borderWidth: 1, borderColor: tc.glassBorder },
-  cancelText: { fontSize: 13, color: tc.textSecondary, fontFamily: 'Poppins_600SemiBold' },
-  confirmBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: 'rgba(239,68,68,0.20)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.50)' },
-  confirmText: { fontSize: 13, color: tc.red, fontFamily: 'Poppins_700Bold' },
 });
 
 /* ─── Intruder Modal styles ─── */

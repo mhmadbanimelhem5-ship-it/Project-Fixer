@@ -1,7 +1,7 @@
 /**
  * Email API client.
- * Sends requests to the Express API server (/api/email/*) which relays them
- * through SMTP (smtp.gmail.com:587) via nodemailer.
+ * Sends requests to the Express API server (/api/email/*, /api/recovery-email/*, etc.) 
+ * which relays them through SMTP/Resend via nodemailer.
  */
 import { getApiBase } from './apiBase';
 import { authenticatedFetch } from './authenticatedFetch';
@@ -310,6 +310,179 @@ export async function checkInviteStatus(
     return (await res.json()) as { status: 'pending' | 'accepted' | 'rejected' | 'expired' };
   } catch {
     return { status: 'expired' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// ── PIN Reset via Guardians ────────────────────────────────────────────────────
+
+export interface PinResetStatus {
+  requestId: number;
+  status:
+    | 'pending_guardian_vote'
+    | 'approved'
+    | 'rejected'
+    | 'expired'
+    | 'completed'
+    | 'none';
+  threshold: number;
+  approvals: number;
+  rejections: number;
+  quorumReached: boolean;
+  otpSent: boolean;
+  expiresAt: number | null;
+  decisions: GuardianVoteDecision[];
+}
+
+/** Start a PIN-reset request — server sends vote links to all guardians. */
+export async function initiatePinResetRequest(
+  ownerEmail: string,
+  ownerName: string,
+): Promise<{ success: boolean; requestId?: number; guardianCount?: number; error?: string }> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+  try {
+    const res = await authenticatedFetch(`${getApiBase()}/api/pin-reset/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerEmail, ownerName }),
+      signal: ctrl.signal,
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
+    return {
+      success: true,
+      requestId: json.requestId as number | undefined,
+      guardianCount: json.guardianCount as number | undefined,
+    };
+  } catch (e: unknown) {
+    return { success: false, error: (e as Error)?.message ?? 'Network error' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Poll the PIN-reset voting status (guardian approvals). */
+export async function fetchPinResetStatus(
+  ownerEmail: string,
+): Promise<PinResetStatus | null> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10_000);
+  try {
+    const res = await authenticatedFetch(
+      `${getApiBase()}/api/pin-reset/status/${encodeURIComponent(ownerEmail)}`,
+      { signal: ctrl.signal },
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    return (await res.json()) as PinResetStatus;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Verify the OTP emailed to the owner after guardian quorum — returns a one-time reset token. */
+export async function verifyPinResetOtp(
+  ownerEmail: string,
+  code: string,
+): Promise<{ success: boolean; resetToken?: string; error?: string }> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+  try {
+    const res = await authenticatedFetch(`${getApiBase()}/api/pin-reset/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerEmail, code }),
+      signal: ctrl.signal,
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
+    return { success: true, resetToken: json.resetToken as string | undefined };
+  } catch (e: unknown) {
+    return { success: false, error: (e as Error)?.message ?? 'Network error' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Mark the PIN-reset request completed (server audit + one-time token invalidation). */
+export async function completePinReset(
+  ownerEmail: string,
+  resetToken: string,
+): Promise<{ success: boolean; error?: string }> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+  try {
+    const res = await authenticatedFetch(`${getApiBase()}/api/pin-reset/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerEmail, resetToken }),
+      signal: ctrl.signal,
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
+    return { success: true };
+  } catch (e: unknown) {
+    return { success: false, error: (e as Error)?.message ?? 'Network error' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// ── Recovery Email (PIN Reset Alternative) ────────────────────────────────────
+
+/** Set or update the recovery email. Triggers an OTP to be sent to that email. */
+export async function setRecoveryEmail(
+  email: string,
+): Promise<{ success: boolean; error?: string }> {
+  return post('/recovery-email/set', { email });
+}
+
+/** Verify the OTP sent to the recovery email. Returns a short-lived recoveryToken. */
+export async function verifyRecoveryOtp(
+  email: string,
+  otp: string,
+): Promise<{ success: boolean; recoveryToken?: string; error?: string }> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+  try {
+    const res = await authenticatedFetch(`${getApiBase()}/api/recovery-email/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+      signal: ctrl.signal,
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
+    return { success: true, recoveryToken: json.recoveryToken as string | undefined };
+  } catch (e: unknown) {
+    return { success: false, error: (e as Error)?.message ?? 'Network error' };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Mark the recovery process as complete (consumes the recoveryToken). */
+export async function completeRecovery(
+  recoveryToken: string,
+): Promise<{ success: boolean; error?: string }> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), EMAIL_TIMEOUT_MS);
+  try {
+    const res = await authenticatedFetch(`${getApiBase()}/api/recovery-email/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recoveryToken }),
+      signal: ctrl.signal,
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) return { success: false, error: String(json.message ?? json.error ?? `HTTP ${res.status}`) };
+    return { success: true };
+  } catch (e: unknown) {
+    return { success: false, error: (e as Error)?.message ?? 'Network error' };
   } finally {
     clearTimeout(t);
   }
