@@ -46,6 +46,7 @@ import { useFirstLaunchPermissions } from '@/hooks/useFirstLaunchPermissions';
 import { isSubtleAvailable } from '@/utils/cryptoFallback';
 import { setAuthenticatedTokenGetter } from '@/utils/authenticatedFetch';
 import { getApiBase } from '@/utils/apiBase';
+import { getStealthMode } from '@/utils/stealthStore'; // ← إضافة جديدة
 
 SplashScreen.preventAutoHideAsync();
 
@@ -349,10 +350,9 @@ function RootLayoutNav() {
     }
     const inLock       = segments[0] === 'lock';
     const inOnboarding = segments[0] === 'onboarding';
-    const inPinReset   = segments[0] === 'pin-reset'; // ← السماح بالوصول لشاشة الاستعادة أثناء القفل
+    const inPinReset   = segments[0] === 'pin-reset';
 
     if (isLocked || !isSetup) {
-      // ✅ التعديل: السماح بالبقاء في lock أو pin-reset
       if (!inLock && !inPinReset) router.replace('/lock');
       return;
     }
@@ -459,6 +459,9 @@ export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(Platform.OS !== 'web');
   const [fontsReady, setFontsReady] = useState(false);
 
+  // ← إضافة جديدة: حالة وضع التخفي
+  const [stealthMode, setStealthMode] = useState<boolean | null>(null);
+
   useEffect(() => {
     const initRevenueCat = async () => {
       try {
@@ -477,12 +480,20 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
+  // ← إضافة جديدة: قراءة وضع التخفي من الذاكرة فور بدء التشغيل
   useEffect(() => {
-    if (fontsLoaded || fontError || timedOut) {
+    getStealthMode()
+      .then((val) => setStealthMode(val))
+      .catch(() => setStealthMode(false));
+  }, []);
+
+  // ← تعديل جديد: الانتظار حتى نعرف وضع التخفي قبل إخفاء السبلاش الأصلي
+  useEffect(() => {
+    if ((fontsLoaded || fontError || timedOut) && stealthMode !== null) {
       SplashScreen.hideAsync();
       setFontsReady(true);
     }
-  }, [fontsLoaded, fontError, timedOut]);
+  }, [fontsLoaded, fontError, timedOut, stealthMode]);
 
   if (!fontsReady) return null;
 
@@ -513,7 +524,11 @@ export default function RootLayout() {
                     <AuthProvider>
                       <VaultProvider>
                         <NotificationProvider>
-                          <ThemedContainer showSplash={showSplash} onSplashComplete={() => setShowSplash(false)}>
+                          <ThemedContainer 
+                            // ← التعديل الجذري: إذا كان التخفي شغالاً، لا تعرض AnimatedSplash إطلاقاً
+                            showSplash={showSplash && stealthMode === false} 
+                            onSplashComplete={() => setShowSplash(false)}
+                          >
                             <RootLayoutNav />
                           </ThemedContainer>
                         </NotificationProvider>
