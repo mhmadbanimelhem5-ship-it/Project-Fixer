@@ -46,7 +46,7 @@ import { useFirstLaunchPermissions } from '@/hooks/useFirstLaunchPermissions';
 import { isSubtleAvailable } from '@/utils/cryptoFallback';
 import { setAuthenticatedTokenGetter } from '@/utils/authenticatedFetch';
 import { getApiBase } from '@/utils/apiBase';
-import { getStealthMode } from '@/utils/stealthStore'; // ← إضافة جديدة
+import { getStealthMode } from '@/utils/stealthStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -339,7 +339,7 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (!clerkLoaded) return;
-    const inAuth = segments[0] === '(auth)';
+    const inAuth = (segments[0] as string) === '(auth)';
     if (!isSignedIn) {
       if (!inAuth) router.replace('/sign-in');
       return;
@@ -348,16 +348,19 @@ function RootLayoutNav() {
       router.replace('/lock');
       return;
     }
-    const inLock       = segments[0] === 'lock';
-    const inOnboarding = segments[0] === 'onboarding';
-    const inPinReset   = segments[0] === 'pin-reset';
+    // ✅ تجاوز قائمة Typed Routes القديمة
+    const seg0 = segments[0] as string;
+    const inLock       = seg0 === 'lock';
+    const inOnboarding = seg0 === 'onboarding';
+    const inPinReset   = seg0 === 'pin-reset';
+    const inHelp       = seg0 === 'help';
 
     if (isLocked || !isSetup) {
       if (!inLock && !inPinReset) router.replace('/lock');
       return;
     }
     if (!isVaultReady) {
-      if (inLock) router.replace('/(tabs)');
+      if (inLock || inHelp) router.replace('/(tabs)');
       return;
     }
     if (!isDecoyMode && !legacy.ownerName) {
@@ -379,6 +382,8 @@ function RootLayoutNav() {
       <Stack.Screen name="legacy"        options={{ headerShown: false, presentation: 'card' }} />
       <Stack.Screen name="received-vault" options={{ headerShown: false, presentation: 'card' }} />
       <Stack.Screen name="pin-reset"     options={{ headerShown: false, presentation: 'card' }} />
+      {/* ✅ شاشة دليل الاستخدام (Help Guide) */}
+      <Stack.Screen name="help"          options={{ headerShown: false, presentation: 'card' }} />
     </Stack>
   );
 }
@@ -396,7 +401,8 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   const handleSafetyFired = React.useCallback(() => {
     console.warn('[Auryx] AnimatedSplash completed via safety timer — possible frame-drop or native animation interruption on this device.');
     setTouchWarn(true);
-    if (touchWarnTimerRef.current) clearTimeout(touchWarnTimer.current);
+    // ✅ إصلاح الخطأ الإملائي: touchWarnTimerRef بدلاً من touchWarnTimer
+    if (touchWarnTimerRef.current) clearTimeout(touchWarnTimerRef.current);
     touchWarnTimerRef.current = setTimeout(() => setTouchWarn(false), 4000);
   }, []);
 
@@ -458,8 +464,6 @@ export default function RootLayout() {
   const [timedOut, setTimedOut]   = useState(false);
   const [showSplash, setShowSplash] = useState(Platform.OS !== 'web');
   const [fontsReady, setFontsReady] = useState(false);
-
-  // ← إضافة جديدة: حالة وضع التخفي
   const [stealthMode, setStealthMode] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -480,14 +484,12 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ← إضافة جديدة: قراءة وضع التخفي من الذاكرة فور بدء التشغيل
   useEffect(() => {
     getStealthMode()
       .then((val) => setStealthMode(val))
       .catch(() => setStealthMode(false));
   }, []);
 
-  // ← تعديل جديد: الانتظار حتى نعرف وضع التخفي قبل إخفاء السبلاش الأصلي
   useEffect(() => {
     if ((fontsLoaded || fontError || timedOut) && stealthMode !== null) {
       SplashScreen.hideAsync();
@@ -525,7 +527,6 @@ export default function RootLayout() {
                       <VaultProvider>
                         <NotificationProvider>
                           <ThemedContainer 
-                            // ← التعديل الجذري: إذا كان التخفي شغالاً، لا تعرض AnimatedSplash إطلاقاً
                             showSplash={showSplash && stealthMode === false} 
                             onSplashComplete={() => setShowSplash(false)}
                           >

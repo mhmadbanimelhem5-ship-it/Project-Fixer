@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router'; // ← إضافة جديدة
 import Purchases from 'react-native-purchases';
 import { GlassCard } from '@/components/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,7 +29,7 @@ import { useTheme, ThemeColors, ThemeMode } from '@/contexts/ThemeContext';
 import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import { getStealthMode, saveStealthMode } from '@/utils/stealthStore';
 import { usePremiumGuard } from '@/hooks/usePremiumGuard';
-import { setRecoveryEmail, verifyRecoveryOtp } from '@/utils/emailApi'; // ← إضافة جديدة
+import { setRecoveryEmail, verifyRecoveryOtp } from '@/utils/emailApi';
 
 /* ─── Setting row ─── */
 const SettingRow = React.memo(function SettingRow({
@@ -75,7 +76,7 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
-/* ─── Recovery Email Modal (NEW) ─── */
+/* ─── Recovery Email Modal ─── */
 function RecoveryEmailModal({
   visible, onClose, currentEmail, onVerified
 }: {
@@ -732,6 +733,7 @@ function ConfirmModal({ visible, title, message, confirmLabel, confirmColor = '#
 /* ─── Settings Screen ─── */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter(); // ← إضافة جديدة
   const { t, language, setLanguage } = useLanguage();
   const {
     lock, wipeAll,
@@ -745,7 +747,6 @@ export default function SettingsScreen() {
   const [stealthMode, setStealthMode] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
-  // ← إضافة جديدة: حالة إيميل الاسترجاع
   const [recoveryEmail, setRecoveryEmailState] = useState<string | null>(null);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
 
@@ -865,6 +866,7 @@ export default function SettingsScreen() {
 
   const { colors: tc, mode: themeMode, setMode: setThemeMode } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
+  const isRTL = (language ?? 'ar').startsWith('ar');
 
   const modeLabels: Record<ThemeMode, string> = {
     dark: t('settings.modeDark'),
@@ -973,7 +975,6 @@ export default function SettingsScreen() {
             onToggle={handleBiometricsToggle}
           />
           <View style={styles.rowDivider} />
-          {/* ← إضافة جديدة: صف إيميل الاسترجاع */}
           <SettingRow
             icon="mail"
             iconColor={tc.teal}
@@ -1018,6 +1019,49 @@ export default function SettingsScreen() {
             onPress={() => setShowAuditLog(true)}
           />
         </GlassCard>
+
+        {/* ✅ بطاقة دليل الاستخدام الذهبية المميزة */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+onPress={() => router.push('/help' as any)}          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderRadius: 16,
+            borderWidth: 1,
+            padding: 16,
+            marginTop: 24,
+            marginBottom: 14,
+            borderColor: 'rgba(212,175,55,0.28)',
+            backgroundColor: 'rgba(212,175,55,0.07)',
+          }}
+        >
+          <View style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: 'rgba(212,175,55,0.15)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Feather name="book-open" size={18} color="#D4AF37" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#D4AF37', fontFamily: 'Poppins_600SemiBold' }}>
+              {isRTL ? 'دليل الاستخدام' : 'Help Guide'}
+            </Text>
+            <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 2, fontFamily: 'Poppins_400Regular' }}>
+              {isRTL
+                ? 'شرح كل ميزة + سياسة الخصوصية + بحث ذكي'
+                : 'Every feature explained + privacy policy + smart search'}
+            </Text>
+          </View>
+          <Feather
+            name={isRTL ? 'chevron-left' : 'chevron-right'}
+            size={16}
+            color="#94A3B8"
+          />
+        </TouchableOpacity>
 
         <SectionHeader title={t('settings.language')} />
         <GlassCard style={styles.sectionCard} padding={0}>
@@ -1170,7 +1214,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* ── Modals ── */}
-      <RecoveryEmailModal // ← إضافة جديدة
+      <RecoveryEmailModal
         visible={showRecoveryModal}
         onClose={() => setShowRecoveryModal(false)}
         currentEmail={recoveryEmail}

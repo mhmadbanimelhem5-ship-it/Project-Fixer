@@ -101,7 +101,7 @@ function SealRow({ icon, label, sublabel, color, ok }: {
   icon: string; label: string; sublabel?: string; color: string; ok: boolean;
 }) {
   const { colors: tc } = useTheme();
-  
+
   return (
     <View style={successStyles.row}>
       <View style={[successStyles.rowIcon, { backgroundColor: `${color}20` }]}>
@@ -128,11 +128,6 @@ function SealRow({ icon, label, sublabel, color, ok }: {
 
 // ── Seal Success Sheet ────────────────────────────────────────────────────────
 
-/**
- * Bottom-sheet shown after a successful seal operation.
- * Displays a breakdown of each encryption layer so the user understands
- * exactly what happened and who has access to the sealed package.
- */
 function SealSuccessSheet({
   visible,
   onClose,
@@ -584,6 +579,14 @@ export default function LegacyScreen() {
     try { await SecureStore.setItemAsync(ONBOARDING_STORE_KEY, '1'); } catch {}
   }, []);
 
+  // ── Help button: opens the same onboarding guide on demand ──────────────────
+  // Does NOT reset the "first-time seen" flag — just shows the guide again
+  // so the user can re-read the steps + disclaimer at any time.
+  const handleHelpPress = useCallback(() => {
+    setShowOnboarding(true);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
   // Clean up timers on unmount
   useEffect(() => () => {
     clearPhaseTimers();
@@ -639,24 +642,6 @@ export default function LegacyScreen() {
     prevKeyReadyRef.current = keyReady;
   }, [keyReady, showToast, t]);
 
-  /**
-   * Retry RSA key generation with a live connectivity pre-check.
-   *
-   * Flow:
-   *   1. Call NetInfo.fetch() to get the freshest network state (bypasses any
-   *      cached `isConnected` value that might be stale after a flap).
-   *   2. If offline → show orange toast and return; nothing else happens.
-   *   3. If online  → update NetworkContext state via recheckConnectivity so the
-   *      rest of the app also sees the fresh status, then kick off key generation.
-   *   4. retryKeyGeneration now returns Promise<boolean> — we await it here so
-   *      we can show an explicit success/failure toast without relying on a
-   *      separate useEffect transition watcher.
-   *
-   * NOTE: This is an internal recovery action for an already-Premium flow.
-   * It is intentionally NOT gated because reaching it implies the user already
-   * passed the gate when enabling legacy.  If somehow a free user triggers it,
-   * the underlying key generation still runs locally and harms nothing.
-   */
   const handleRetryKey = useCallback(async () => {
     if (isRetryingNet) return;
     setIsRetryingNet(true);
@@ -666,15 +651,11 @@ export default function LegacyScreen() {
       const online =
         state.isConnected !== false &&
         (Platform.OS === 'web' || state.isInternetReachable !== false);
-      // Sync NetworkContext so OfflineScreen and other guards see fresh state
       recheckConnectivity();
       if (!online) {
         showToast(t('legacy.noInternet'), tc.orange);
         return;
       }
-      // Awaiting retryKeyGeneration keeps isRetryingNet=true while the key is
-      // being generated, so the error box stays hidden (keyError=false) and the
-      // generating spinner is visible until we get a definitive result.
       showToast(t('legacy.generatingKey'), tc.purple);
       const success = await retryKeyGeneration(legacy.ownerEmail ?? '');
       if (success) {
@@ -689,10 +670,6 @@ export default function LegacyScreen() {
     }
   }, [isRetryingNet, recheckConnectivity, retryKeyGeneration, legacy.ownerEmail, showToast]);
 
-  /**
-   * ✅ Premium-gated: choosing absence days mutates legacy configuration.
-   * Free users are redirected to the Paywall instead of changing the timer.
-   */
   const handleDaysSelect = async (days: AbsenceDays) => {
     const allowed = await checkAndGate('legacy_setup');
     if (!allowed) return;
@@ -700,11 +677,6 @@ export default function LegacyScreen() {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  /**
-   * ✅ Premium-gated: opening the beneficiary form is the entry point to the
-   * whole legacy setup.  We gate the OPEN action itself so a free user never
-   * even sees the input fields — they hit the Paywall immediately.
-   */
   const openBeneficiaryModal = useCallback(async () => {
     const allowed = await checkAndGate('legacy_setup');
     if (!allowed) return;
@@ -719,16 +691,9 @@ export default function LegacyScreen() {
       notifyBeneficiaryRemoved(legacy.ownerEmail || '', ownerName, previous!.email).catch(() => {});
     }
 
-    // Save locally first (no status yet — will update to 'pending' once API responds).
-    // ⚠️ DO NOT call retryKeyGeneration here: node-forge RSA blocks the JS thread
-    //    for 30-120s on ARM devices, preventing the autosave debounce from firing →
-    //    data is never written to SecureStore → beneficiary disappears on force-close.
-    //    RSA is already handled by the post-onboarding useEffect in VaultContext.
     updateLegacy({ beneficiary: { name, email }, enabled: true, lastActiveAt: Date.now() });
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Send invite in the background — fire-and-forget so the UI is never frozen.
-    // After API responds, persist the invite token + status so the badge can update.
     const ownerName = legacy.ownerName || t('legacy.ownerDefault');
     showToast(t('legacy.inviteSending', { email }));
     inviteBeneficiary(legacy.ownerEmail || '', ownerName, name, email, '').then(result => {
@@ -768,24 +733,15 @@ export default function LegacyScreen() {
     showToast(t('legacy.beneficiaryRemoved'), tc.orange);
   };
 
-  /**
-   * ✅ Premium-gated: toggling legacy mode ON is the master switch for the
-   * entire feature.  Turning it OFF is always allowed (we never trap a user
-   * inside a paid state against their will), but turning it ON requires a
-   * valid Premium entitlement.
-   */
   const handleLegacyToggle = async () => {
     if (!legacy.beneficiary) {
-      // No beneficiary yet → route through the gated opener, not raw setState
       await openBeneficiaryModal();
       return;
     }
     if (legacy.enabled) {
-      // Disabling is free — let the user opt out at any time
       updateLegacy({ enabled: false });
       showToast(t('legacy.legacyDisabled'), tc.orange);
     } else {
-      // Enabling is Premium-only
       const allowed = await checkAndGate('legacy_setup');
       if (!allowed) return;
       updateLegacy({ enabled: true, lastActiveAt: Date.now() });
@@ -794,22 +750,6 @@ export default function LegacyScreen() {
     }
   };
 
-  /**
-   * Seal the vault for legacy transfer.
-   *
-   * Validates prerequisites (beneficiary + guardians), then calls the three-layer
-   * sealVaultForLegacy() from VaultContext.  Phase labels are cycled automatically
-   * so the user sees what's happening during the multi-second crypto operation.
-   *
-   * On success: opens the SealSuccessSheet with a per-layer breakdown.
-   * On failure: shows an inline error box with the rejection reason.
-   *
-   * The owner's vault is NOT locked or modified — they can keep using it normally.
-   *
-   * ✅ Premium-gated: sealing uploads a cryptographic package to the server and
-   * is the most expensive operation on this screen.  Free users are stopped at
-   * the gate before any crypto work begins.
-   */
   const handleSealVault = async () => {
     const allowed = await checkAndGate('legacy_setup');
     if (!allowed) return;
@@ -831,15 +771,12 @@ export default function LegacyScreen() {
     setSealError('');
     clearPhaseTimers();
 
-    // Cycle through phase labels while the async operation runs
     const phaseCount = 4;
     for (let i = 1; i < phaseCount; i++) {
       const timer = setTimeout(() => setSealPhaseIdx(i), i * 1600);
       phaseTimers.current.push(timer);
     }
 
-    // Safety timeout: if the seal operation takes more than 35s, force an error
-    // state so the button never stays disabled indefinitely.
     if (sealTimeoutRef.current) clearTimeout(sealTimeoutRef.current);
     sealTimeoutRef.current = setTimeout(() => {
       clearPhaseTimers();
@@ -850,7 +787,6 @@ export default function LegacyScreen() {
 
     try {
       const result = await sealVaultForLegacy();
-      // Clear safety timeout — operation completed before the deadline
       if (sealTimeoutRef.current) { clearTimeout(sealTimeoutRef.current); sealTimeoutRef.current = null; }
       clearPhaseTimers();
 
@@ -890,7 +826,15 @@ export default function LegacyScreen() {
           <Feather name="chevron-left" size={20} color={tc.textSecondary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('legacy.title')}</Text>
-        <View style={{ width: 38 }} />
+        {/* ✅ Help button — opens the onboarding guide on demand */}
+        <TouchableOpacity
+          style={styles.helpBtn}
+          onPress={handleHelpPress}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Feather name="help-circle" size={20} color={tc.gold} />
+        </TouchableOpacity>
       </View>
 
       {/* ── Toast banner ── */}
@@ -949,7 +893,6 @@ export default function LegacyScreen() {
                   <Text style={styles.beneficiaryName}>{legacy.beneficiary.name}</Text>
                   <Text style={styles.beneficiaryEmail}>{legacy.beneficiary.email}</Text>
                 </View>
-                {/* Status badge — mirrors guardian StatusBadge */}
                 {(() => {
                   const st = legacy.beneficiary.inviteStatus;
                   if (!st) return null;
@@ -964,7 +907,6 @@ export default function LegacyScreen() {
                 })()}
               </View>
               <View style={styles.beneficiaryActions}>
-                {/* ✅ Edit goes through the gated opener, not raw setState */}
                 <TouchableOpacity style={styles.editBtn} onPress={openBeneficiaryModal}>
                   <Feather name="edit-2" size={14} color={tc.gold} />
                   <Text style={styles.editBtnText}>{t('common.edit')}</Text>
@@ -976,7 +918,6 @@ export default function LegacyScreen() {
               </View>
             </>
           ) : (
-            /* ✅ Add beneficiary goes through the gated opener */
             <TouchableOpacity style={styles.addBeneficiaryBtn} onPress={openBeneficiaryModal}>
               <Text style={styles.addBeneficiaryText}>{t('legacy.addBeneficiary')}</Text>
             </TouchableOpacity>
@@ -1069,19 +1010,6 @@ export default function LegacyScreen() {
           </View>
         </GlassCard>
 
-        {/* ────────────────────────────────────────────────────────────────────
-            Seal Vault Card
-            ──────────────────────────────────────────────────────────────────
-            Purpose of "إغلاق الخزنة الآن":
-              Creates a sealed cryptographic package from the current vault
-              contents and uploads it to the server.  This does NOT end the
-              owner's session — they keep their vault unlocked and usable.
-              The button can be pressed again at any time to refresh the
-              sealed package with the latest vault contents.
-
-            The three-layer breakdown shown below maps directly to the seal
-            flow in legacyTransfer.ts / keyManager.ts / shamirUtils.ts.
-        ──────────────────────────────────────────────────────────────────── */}
         <GlassCard style={styles.card} padding={18}>
           <View style={styles.cardHeader}>
             <View style={[styles.cardIcon, { backgroundColor: 'rgba(212,175,55,0.15)' }]}>
@@ -1103,12 +1031,7 @@ export default function LegacyScreen() {
             )}
           </View>
 
-          {/* ── Layer description ── */}
           <View style={styles.layersContainer}>
-            {/*
-             * Layer 1: AES-256 encrypts the vault snapshot with a random
-             * transfer key (TK).  This is the core blob stored on the server.
-             */}
             <View style={styles.layerRow}>
               <View style={[styles.layerDot, { backgroundColor: tc.blue }]} />
               <Text style={styles.layerText}>
@@ -1134,7 +1057,6 @@ export default function LegacyScreen() {
             </View>
           </View>
 
-          {/* ── RSA key status ── */}
           {keyReady && !keyErrorMsg ? (
             <View style={styles.keyStatusRow}>
               <Feather name="key" size={12} color={tc.green} />
@@ -1206,7 +1128,6 @@ export default function LegacyScreen() {
             </View>
           )}
 
-          {/* ── Error box ── */}
           {sealState === 'error' && sealError ? (
             <View style={styles.sealErrorBox}>
               <Feather name="alert-circle" size={12} color={tc.red} />
@@ -1214,12 +1135,6 @@ export default function LegacyScreen() {
             </View>
           ) : null}
 
-          {/* ── Seal button ──
-              Disabled when: RSA key not ready, or seal operation in progress.
-              Loading: cycles through SEAL_PHASES labels (1 per 1.6 s).
-              Done: turns green — can be pressed again to refresh the package.
-              ✅ handleSealVault is internally Premium-gated.
-          ── */}
           <TouchableOpacity
             style={[styles.sealBtn, (sealState === 'loading' || !keyReady) && { opacity: 0.6 }]}
             activeOpacity={0.85}
@@ -1251,9 +1166,6 @@ export default function LegacyScreen() {
           </TouchableOpacity>
         </GlassCard>
 
-        {/* ── Activate / Deactivate Button ──
-            ✅ handleLegacyToggle is internally Premium-gated for the ON path.
-        ── */}
         <TouchableOpacity style={styles.setLegacyBtn} activeOpacity={0.85} onPress={handleLegacyToggle}>
           <LinearGradient
             colors={legacy.enabled ? ['#22C55E', '#16A34A'] : ['#D4AF37', '#B8960C']}
@@ -1316,6 +1228,13 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
     width: 38, height: 38, borderRadius: 12,
     backgroundColor: tc.glass, borderWidth: 1,
     borderColor: tc.glassBorder, alignItems: 'center', justifyContent: 'center',
+  },
+  // ✅ Help button — same size as back button for perfect header symmetry
+  helpBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: tc.glass, borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.30)',
+    alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: tc.text, fontFamily: 'Poppins_700Bold', letterSpacing: 1, lineHeight: 26, includeFontPadding: false },
   scrollContent: { paddingHorizontal: 20 },
