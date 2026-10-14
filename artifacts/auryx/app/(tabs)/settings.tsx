@@ -19,7 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router'; // ← إضافة جديدة
+import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store'; // ← إضافة جديدة
 import Purchases from 'react-native-purchases';
 import { GlassCard } from '@/components/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +31,8 @@ import { ScreenGlow } from '@/components/shared/ScreenGlow';
 import { getStealthMode, saveStealthMode } from '@/utils/stealthStore';
 import { usePremiumGuard } from '@/hooks/usePremiumGuard';
 import { setRecoveryEmail, verifyRecoveryOtp } from '@/utils/emailApi';
+
+const RECOVERY_EMAIL_LOCAL_KEY = 'auryx_recovery_email_local'; // ← إضافة جديدة
 
 /* ─── Setting row ─── */
 const SettingRow = React.memo(function SettingRow({
@@ -733,7 +736,7 @@ function ConfirmModal({ visible, title, message, confirmLabel, confirmColor = '#
 /* ─── Settings Screen ─── */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter(); // ← إضافة جديدة
+  const router = useRouter();
   const { t, language, setLanguage } = useLanguage();
   const {
     lock, wipeAll,
@@ -752,6 +755,13 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     getStealthMode().then(val => setStealthMode(val));
+  }, []);
+
+  // ✅ قراءة إيميل الاسترجاع المحفوظ محلياً عند فتح الإعدادات
+  useEffect(() => {
+    SecureStore.getItemAsync(RECOVERY_EMAIL_LOCAL_KEY)
+      .then((v) => { if (v) setRecoveryEmailState(v); })
+      .catch(() => {});
   }, []);
 
   const [showDecoyModal, setShowDecoyModal] = useState(false);
@@ -1023,7 +1033,8 @@ export default function SettingsScreen() {
         {/* ✅ بطاقة دليل الاستخدام الذهبية المميزة */}
         <TouchableOpacity
           activeOpacity={0.85}
-onPress={() => router.push('/help' as any)}          style={{
+          onPress={() => router.push('/help' as any)}
+          style={{
             flexDirection: 'row',
             alignItems: 'center',
             gap: 12,
@@ -1218,7 +1229,10 @@ onPress={() => router.push('/help' as any)}          style={{
         visible={showRecoveryModal}
         onClose={() => setShowRecoveryModal(false)}
         currentEmail={recoveryEmail}
-        onVerified={(email) => setRecoveryEmailState(email)}
+        onVerified={(email) => {
+          setRecoveryEmailState(email);
+          SecureStore.setItemAsync(RECOVERY_EMAIL_LOCAL_KEY, email).catch(() => {});
+        }}
       />
 
       <PinSetupModal

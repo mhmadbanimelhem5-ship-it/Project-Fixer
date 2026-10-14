@@ -10,6 +10,10 @@ interface LockPadProps {
   maxLength?: number;
   /** Called with the COMPLETE pin string once maxLength is reached */
   onSubmit?: (completedPin: string) => void;
+  // ✅ Biometric button — replaces the empty bottom-left slot when provided
+  biometricAvailable?: boolean;
+  biometricType?: string; // ← الإصلاح: توسيع النوع ليتوافق مع BiometricType الحقيقي
+  onBiometric?: () => void;
 }
 
 const KEYS = [
@@ -19,7 +23,10 @@ const KEYS = [
   ['', '0', 'del'],
 ];
 
-export function LockPad({ value, onChange, maxLength = 6, onSubmit }: LockPadProps) {
+export function LockPad({
+  value, onChange, maxLength = 6, onSubmit,
+  biometricAvailable, biometricType, onBiometric,
+}: LockPadProps) {
   const { colors: c } = useTheme();
   const styles = useMemo(() => makeStyles(c), [c]);
 
@@ -42,6 +49,8 @@ export function LockPad({ value, onChange, maxLength = 6, onSubmit }: LockPadPro
     }
   }, [value, onChange, maxLength, onSubmit]);
 
+  const showBiometric = Boolean(biometricAvailable && onBiometric);
+
   return (
     <View style={styles.container}>
       {/* PIN dots — always LTR so filled dots grow left→right on any locale */}
@@ -58,25 +67,60 @@ export function LockPad({ value, onChange, maxLength = 6, onSubmit }: LockPadPro
       <View style={styles.pad}>
         {KEYS.map((row, ri) => (
           <View key={ri} style={styles.row}>
-            {row.map((key, ki) => (
-              <TouchableOpacity
-                key={ki}
-                style={[
-                  styles.key,
-                  key === '' && styles.keyInvisible,
-                  key === 'del' && styles.keyDel,
-                ]}
-                onPress={() => handlePress(key)}
-                activeOpacity={key === '' ? 1 : 0.55}
-                disabled={key === ''}
-              >
-                {key === 'del' ? (
-                  <Feather name="delete" size={22} color={c.textSecondary} />
-                ) : key !== '' ? (
-                  <Text style={styles.keyText}>{key}</Text>
-                ) : null}
-              </TouchableOpacity>
-            ))}
+            {row.map((key, ki) => {
+              // ── Empty slot → biometric button OR invisible spacer ──
+              if (key === '') {
+                if (showBiometric) {
+                  return (
+                    <TouchableOpacity
+                      key={ki}
+                      style={[styles.key, styles.keyBiometric]}
+                      onPress={() => {
+                        if (Platform.OS !== 'web') {
+                          try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+                        }
+                        onBiometric!();
+                      }}
+                      activeOpacity={0.6}
+                      accessibilityLabel={biometricType === 'facial' ? 'Face ID' : 'Biometrics'}
+                    >
+                      <Feather
+                        name={biometricType === 'facial' ? 'aperture' : 'activity'}
+                        size={26}
+                        color={c.purple}
+                      />
+                    </TouchableOpacity>
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    key={ki}
+                    style={[styles.key, styles.keyInvisible]}
+                    activeOpacity={1}
+                    disabled
+                  />
+                );
+              }
+
+              // ── Normal digit / delete keys ──
+              return (
+                <TouchableOpacity
+                  key={ki}
+                  style={[
+                    styles.key,
+                    key === 'del' && styles.keyDel,
+                  ]}
+                  onPress={() => handlePress(key)}
+                  activeOpacity={0.55}
+                >
+                  {key === 'del' ? (
+                    <Feather name="delete" size={22} color={c.textSecondary} />
+                  ) : (
+                    <Text style={styles.keyText}>{key}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ))}
       </View>
@@ -109,6 +153,11 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   },
   keyInvisible: { backgroundColor: 'transparent', borderColor: 'transparent' },
   keyDel: { backgroundColor: c.glassMedium, borderColor: c.border },
+  // ✅ Biometric key — purple tint to signal interactivity, same footprint as digits
+  keyBiometric: {
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderColor: 'rgba(139,92,246,0.35)',
+  },
   keyText: {
     fontSize: 26, fontWeight: '300', color: c.text,
     fontFamily: 'Poppins_400Regular',

@@ -94,7 +94,7 @@ function IntruderModal({ visible, onDismiss }: { visible: boolean; onDismiss: ()
   };
 
   const { colors: tc } = useTheme();
-  const styles = useMemo(() => makeStyles(tc), [tc]);
+
   const ist = useMemo(() => makeIstStyles(tc), [tc]);
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={() => {}}>
@@ -127,10 +127,6 @@ function IntruderModal({ visible, onDismiss }: { visible: boolean; onDismiss: ()
 }
 
 /* ─── Calculator Lock Screen ─── */
-// Renders a convincing calculator UI. The user types their PIN via digit buttons
-// then presses "=" to unlock. Operators (+, -, ×, ÷) appear on screen for
-// authenticity but only digits are extracted for the PIN attempt.
-// No Auryx branding is shown while this screen is active.
 const CALC_ROWS = [
   ['C', '±', '%', '÷'],
   ['7', '8', '9', '×'],
@@ -192,7 +188,6 @@ function CalculatorLock({ onUnlock }: { onUnlock: (pin: string) => Promise<boole
       });
       return;
     }
-    // Operator / ± / % — show on display only, reset digit buffer after operator
     if (key === '±') {
       setDisplay(prev => prev.startsWith('-') ? prev.slice(1) : `-${prev}`);
       return;
@@ -213,7 +208,6 @@ function CalculatorLock({ onUnlock }: { onUnlock: (pin: string) => Promise<boole
 
   return (
     <View style={{ flex: 1, backgroundColor: '#1C1C1E', paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      {/* Display */}
       <Animated.View
         style={[
           { flex: 1, justifyContent: 'flex-end', alignItems: 'flex-end',
@@ -230,7 +224,6 @@ function CalculatorLock({ onUnlock }: { onUnlock: (pin: string) => Promise<boole
         </Text>
       </Animated.View>
 
-      {/* Button grid */}
       <View style={{ paddingHorizontal: 12, paddingBottom: 8, gap: 10 }}>
         {CALC_ROWS.map((row, ri) => (
           <View key={ri} style={{ flexDirection: 'row', gap: 10, justifyContent: 'space-between' }}>
@@ -282,7 +275,6 @@ export default function LockScreen() {
   } = useAuth();
   const { isAvailable, biometricType, authenticate } = useBiometrics();
   const { t } = useLanguage();
-  // Direction-aware placement: Arabic → trailing corner right, English → left.
   const { language: langCode } = useLanguage() as { language?: string };
   const isRTL = (langCode ?? 'ar').startsWith('ar');
 
@@ -292,12 +284,9 @@ export default function LockScreen() {
   const [confirmPin, setConfirmPin]   = useState('');
   const [setupStep, setSetupStep]     = useState<'create' | 'confirm'>('create');
   const [isCreating, setIsCreating] = useState(false);
-  // isVerifying: true while PBKDF2 hash is running on unlock attempt.
-  // Gives the user "جاري التحقق…" feedback instead of a frozen UI.
   const [isVerifying, setIsVerifying] = useState(false);
   const [stealthMode, setStealthModeState] = useState(false);
 
-  // Load persisted stealth mode preference once on mount
   useEffect(() => {
     getStealthMode().then(val => setStealthModeState(val));
   }, []);
@@ -307,7 +296,6 @@ export default function LockScreen() {
   const logoAnim  = useRef(new Animated.Value(0)).current;
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clear the error-dismiss timer on unmount to prevent setState on stale component
   useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current); }, []);
 
   const scheduleErrorClear = (delay: number) => {
@@ -315,7 +303,6 @@ export default function LockScreen() {
     errorTimerRef.current = setTimeout(() => setError(''), delay);
   };
 
-  // Derive directly from context — no stale state
   const isSettingUp = !isSetup;
 
   useEffect(() => {
@@ -325,7 +312,6 @@ export default function LockScreen() {
     ]).start();
   }, []);
 
-  // Reset setup step when transitioning to setup mode after wipe
   useEffect(() => {
     if (isSettingUp) {
       setPin('');
@@ -363,15 +349,10 @@ export default function LockScreen() {
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
   }, [shakeAnim]);
 
-  // Accept pinValue directly from LockPad to avoid stale-closure bug.
-  // Navigates immediately on success; nav guard in _layout.tsx fires as backup.
-  // Navigation is in its own try/catch so nav errors never produce auth errors.
   const handleUnlock = useCallback(async (pinValue?: string) => {
     const p = pinValue ?? pin;
     if (!canAttempt() || isVerifying) return;
 
-    // Show "جاري التحقق…" immediately — PBKDF2 takes ~200 ms and without this
-    // the UI appears completely frozen, giving no feedback to the user.
     setIsVerifying(true);
     const start = Date.now();
 
@@ -381,11 +362,6 @@ export default function LockScreen() {
       setIsVerifying(false);
       try { router.replace('/(tabs)'); } catch {}
     } else {
-      // Enforce a minimum 400 ms visible-feedback window on wrong PIN:
-      //   • Brute-force deterrence: attacker gets no speed advantage from
-      //     hardware variation in PBKDF2 timing.
-      //   • UX clarity: "جاري التحقق…" disappears and the error appears
-      //     cleanly, not in a single jarring flash.
       const elapsed = Date.now() - start;
       if (elapsed < 400) await new Promise<void>(r => setTimeout(r, 400 - elapsed));
       setIsVerifying(false);
@@ -396,11 +372,6 @@ export default function LockScreen() {
     }
   }, [pin, unlock, canAttempt, shake, t, router, isVerifying]);
 
-  // Async so we can await setupPin and navigate immediately after.
-  // isCreating guard prevents double-invocation during the ~500ms PBKDF2 freeze:
-  // Android queues native touch events while the JS thread is blocked, so without
-  // this guard a second tap during the freeze would re-run setupPin with a new salt
-  // and overwrite the vault key that was just stored.
   const handleSetupSubmit = useCallback(async (pinValue?: string) => {
     if (isCreating) return;
     const p = pinValue ?? pin;
@@ -411,11 +382,8 @@ export default function LockScreen() {
       if (p === confirmPin) {
         setIsCreating(true);
         try {
-          // setupPin now throws on crypto or storage failure with a user-readable
-          // message. Await it so we navigate only AFTER state is fully updated.
           await setupPin(p);
         } catch (e) {
-          // Show the specific error (Encryption failed / Storage unavailable)
           setIsCreating(false);
           setError(e instanceof Error ? e.message : 'Failed to create vault — please try again.');
           setPin(''); setConfirmPin(''); setSetupStep('create');
@@ -423,8 +391,6 @@ export default function LockScreen() {
           return;
         }
         setIsCreating(false);
-        // Navigate immediately. Nav guard in _layout.tsx fires as a backup.
-        // In its own try/catch so nav errors never surface as vault errors.
         try { router.replace('/(tabs)'); } catch {}
       } else {
         shake();
@@ -435,7 +401,6 @@ export default function LockScreen() {
     }
   }, [pin, setupStep, confirmPin, setupPin, shake, router, isCreating]);
 
-  // Navigates immediately on success; nav guard fires as backup.
   const handleBiometric = useCallback(async () => {
     try {
       if (biometricsEnabled && biometricsAvailable) {
@@ -465,11 +430,21 @@ export default function LockScreen() {
   const isLockedOut = !!lockoutUntil && lockoutUntil > Date.now();
   const warning = getAttemptsWarning(attempts);
 
+  // ✅ طلب البصمة تلقائياً مرة واحدة فور ظهور شاشة القفل
+  const autoBioTriedRef = useRef(false);
+  useEffect(() => {
+    if (autoBioTriedRef.current || isSettingUp || isLockedOut || isVerifying) return;
+    const bioReady = isAvailable || (biometricsEnabled && biometricsAvailable);
+    if (!bioReady) return;
+    autoBioTriedRef.current = true;
+    const t = setTimeout(() => { void handleBiometric(); }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
-  const ist = useMemo(() => makeIstStyles(tc), [tc]);
 
-  // Stealth mode: show calculator when vault is already set up (not during first-time setup)
   if (stealthMode && isSetup) {
     return (
       <>
@@ -500,12 +475,11 @@ export default function LockScreen() {
       <View style={styles.ambientGold} />
       <ScreenGlow color="#8B5CF6" icon="key" />
 
-      {/* ── Top bar: Forgot PIN (flips with language direction) ── */}
       {!isSettingUp && (
         <View style={styles.topBar}>
           {isRTL ? <View style={styles.topBarSpacer} /> : null}
           <TouchableOpacity
-            onPress={() => router.push('/pin-reset')}
+            onPress={() => router.push('/pin-reset' as any)}
             style={styles.forgotTopBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
@@ -526,17 +500,14 @@ export default function LockScreen() {
           { opacity: fadeAnim, transform: [{ translateX: shakeAnim }, { scale: logoAnim }] },
         ]}
       >
-        {/* Logo */}
         <View style={styles.logoContainer}>
           <HexagonLogo size={120} />
           <Text style={styles.appName}>Auryx</Text>
           <Text style={styles.tagline}>{t('lock.subtitle')}</Text>
         </View>
 
-        {/* Main area */}
         <View style={[styles.lockPadArea, { paddingBottom: insets.bottom + (Platform.OS === 'web' ? 50 : 20) }]}>
           {isLockedOut ? (
-            /* ── Locked out ── */
             <View style={styles.lockedContainer}>
               <View style={styles.lockedIcon}>
                 <Feather name="lock" size={36} color={tc.red} />
@@ -552,7 +523,6 @@ export default function LockScreen() {
               ) : null}
             </View>
           ) : isSettingUp ? (
-            /* ── Create PIN ── */
             <>
               <View style={styles.stepBadge}>
                 <Text style={styles.stepBadgeText}>
@@ -588,9 +558,7 @@ export default function LockScreen() {
               </TouchableOpacity>
             </>
           ) : (
-            /* ── Unlock ── */
             <>
-              {/* Instruction — shows "جاري التحقق…" with spinner while PBKDF2 runs */}
               {isVerifying ? (
                 <View style={styles.verifyingRow}>
                   <ActivityIndicator size="small" color={tc.gold} />
@@ -624,12 +592,16 @@ export default function LockScreen() {
                 </View>
               )}
 
-              {/* LockPad disabled during verification to prevent double-entry */}
+              {/* ✅ البصمة الآن داخل اللوحة (المربع الفاضي يسار 0).
+                  أثناء isVerifying نمرّر undefined فيختفي الزر تلقائياً لمنع التعارض. */}
               <LockPad
                 value={pin}
                 onChange={isVerifying ? () => {} : setPin}
                 maxLength={6}
                 onSubmit={isVerifying ? () => {} : handleUnlock}
+                biometricAvailable={isAvailable || (biometricsEnabled && biometricsAvailable)}
+                biometricType={biometricType}
+                onBiometric={isVerifying ? undefined : handleBiometric}
               />
 
               <TouchableOpacity
@@ -653,20 +625,12 @@ export default function LockScreen() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {(isAvailable || (biometricsEnabled && biometricsAvailable)) && (
-                <TouchableOpacity style={styles.biometricBtn} onPress={handleBiometric} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}>
-                  <Feather name={biometricType === 'facial' ? 'aperture' : 'activity'} size={20} color={tc.purple} />
-                  <Text style={styles.biometricText}>
-                    {biometricType === 'facial' ? t('lock.useFaceId') : t('lock.useBiometrics')}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {/* ⛔ الزر السفلي للبصمة حُذف — انتقل لمكان المربع الفاضي داخل اللوحة */}
             </>
           )}
         </View>
       </Animated.View>
 
-      {/* Footer dots */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 12) }]}>
         <View style={styles.footerDot} />
         <View style={[styles.footerDot, { backgroundColor: tc.purple, opacity: 0.6 }]} />
@@ -709,6 +673,9 @@ const makeStyles = (tc: ThemeColors) => StyleSheet.create({
   unlockBtn: { width: '100%', marginTop: 20, borderRadius: 50, overflow: 'hidden', shadowColor: tc.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
   unlockBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 17, paddingHorizontal: 32 },
   unlockBtnText: { fontSize: 16, fontWeight: '700', color: '#0A0F1E', fontFamily: 'Poppins_700Bold', letterSpacing: 0.5 },
+  // ملاحظة: biometricBtn / biometricText تُركتا هنا عمداً — حذفهما من StyleSheet
+  // غير مطلوب (تعريفات غير مستخدمة داخل StyleSheet.create لا تُنتج أخطاء TS)،
+  // وتركهما يمنع أي كسر لو استُخدمتا لاحقاً. يمكن حذفهما في جلسة تنظيف مستقبلية.
   biometricBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, paddingVertical: 10, paddingHorizontal: 20 },
   biometricText: { fontSize: 14, color: tc.purple, fontFamily: 'Poppins_400Regular' },
   footer: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
