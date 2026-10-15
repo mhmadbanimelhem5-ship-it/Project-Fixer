@@ -1,1 +1,17 @@
+name: Absence Protocol Scheduler
 
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger absence scheduler tick
+        env:
+          API_URL: ${{ secrets.API_BASE_URL }}
+          SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X GET "$API_URL/api/cron/absence-tick" -H "Authorization: Bearer $SECRET"
