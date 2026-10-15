@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "110367506208",
+    "project_id": "auryx-4096b",
+    "storage_bucket": "auryx-4096b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:110367506208:android:53fe7fc74884aeb44ca145",
+        "android_client_info": {
+          "package_name": "app.auryx.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEw4Whout8dh7TNk1QKSnIgN8z7R2EPBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -25,7 +25,8 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "package": "app.auryx.mobile", 
+      "package": "app.auryx.mobile",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -70,8 +71,8 @@
           "android": {
             "kotlinVersion": "2.0.21",
             "minSdkVersion": 24,
-            "compileSdkVersion": 36, 
-            "targetSdkVersion": 36, 
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
             "packagingOptions": {
               "pickFirst": [
                 "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
