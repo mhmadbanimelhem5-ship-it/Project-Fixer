@@ -26,6 +26,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "package": "app.auryx.mobile",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -81,7 +82,6 @@
             }
           }
         }
-      ]
     ],
     "experiments": {
       "typedRoutes": true,
