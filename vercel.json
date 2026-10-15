@@ -8,11 +8,5 @@
       "source": "/(.*)",
       "destination": "/api"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/absence-tick",
-      "schedule": "*/3 * * * *"
-    }
   ]
 }
