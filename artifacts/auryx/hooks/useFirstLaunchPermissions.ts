@@ -1,13 +1,15 @@
 /**
  * useFirstLaunchPermissions
  *
- * Runs once per app installation (tracked via AsyncStorage).
- * Requests OS-level permissions for:
- *   1. Push Notifications — needed for guardian alerts via FCM
+ * Runs once per app installation (tracked via AsyncStorage):
+ *   1. Push Notifications — needed for guardian alerts + absence protocol
  *   2. Camera — needed for the intruder-detection selfie feature
  *
- * If camera is denied, shows a clear explanation alert.
- * Also registers the device push token after permission is granted.
+ * PLUS (fix): a lightweight retry loop that guarantees the push token reaches
+ * the server AFTER the user signs in. The one-shot registration used to fire
+ * before the Clerk session existed, fail silently, and never retry — leaving
+ * user_push_tokens empty forever. Registration is idempotent (server upserts;
+ * fcmService skips re-syncing an already-synced token), so retrying is cheap.
  */
 
 import { useEffect } from 'react';
@@ -20,6 +22,7 @@ import { registerForPushNotifications } from '@/utils/fcmService';
 const PERMISSIONS_KEY = 'auryx_permissions_requested_v1';
 
 export function useFirstLaunchPermissions(): void {
+  // ── Effect 1: one-shot OS permission dialogs (behavior unchanged) ──────────
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
@@ -36,7 +39,6 @@ export function useFirstLaunchPermissions(): void {
         if (cancelled) return;
 
         // ── 1. Notification permission ──────────────────────────────────────
-        // iOS shows a system dialog; Android 13+ requires POST_NOTIFICATIONS
         const { status: notifStatus } = await Notifications.requestPermissionsAsync({
           ios: {
             allowAlert: true,
@@ -46,7 +48,6 @@ export function useFirstLaunchPermissions(): void {
         });
 
         if (notifStatus === 'granted') {
-          // Register for push immediately after permission is granted
           await registerForPushNotifications();
         } else {
           console.warn('[auryx][Permissions] Notification permission denied:', notifStatus);
@@ -64,7 +65,6 @@ export function useFirstLaunchPermissions(): void {
         if (cancelled) return;
 
         if (camStatus !== 'granted') {
-          // Explain why camera is needed — user can grant later from Settings
           Alert.alert(
             'إذن الكاميرا',
             'تحتاج Auryx إلى إذن الكاميرا لأخذ صورة للشخص الذي يحاول فتح خزنتك بعد محاولات كثيرة (ميزة "تصوير المتجسس").\n\nبدون هذا الإذن لن تعمل هذه الميزة الأمنية.\nيمكنك تفعيله لاحقاً من إعدادات الجهاز.',
@@ -84,6 +84,38 @@ export function useFirstLaunchPermissions(): void {
     return () => {
       cancelled = true;
       clearTimeout(timer);
+    };
+  }, []);
+
+  // ── Effect 2 (THE FIX): guarantee token sync happens after sign-in ─────────
+  // Runs on EVERY launch. Attempts registration shortly after start, then
+  // retries every 20s while the app is open. Before sign-in the attempt fails
+  // harmlessly; once a Clerk session exists, the next attempt succeeds and
+  // fcmService's dedup makes every later attempt a cheap local no-op.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    let stopped = false;
+
+    const attempt = async () => {
+      if (stopped) return;
+      try {
+        // Don't re-trigger system dialogs from here — only sync if allowed
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') return;
+        await registerForPushNotifications();
+      } catch (e) {
+        // Silent by design: the next interval tick retries
+      }
+    };
+
+    const first = setTimeout(attempt, 2500);
+    const interval = setInterval(attempt, 20_000);
+
+    return () => {
+      stopped = true;
+      clearTimeout(first);
+      clearInterval(interval);
     };
   }, []);
 }
