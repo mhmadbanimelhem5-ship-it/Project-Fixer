@@ -7,6 +7,9 @@
  *
  * Flow:
  *   1. registerForPushNotifications() → requests OS permission + gets token
+ *      └─ NEW: syncs the token to the server (/api/push/register) so the
+ *         backend can send pushes later even when the app is closed
+ *         (critical for the Absence Protocol).
  *   2. sendGuardianNotification()     → calls API server → Expo Push API → FCM
  *
  * Logging:
@@ -22,10 +25,59 @@ import { authenticatedFetch } from './authenticatedFetch';
 import { getApiBase as getApiRoot } from './apiBase';
 
 const PUSH_TOKEN_KEY = 'auryx_push_token_v1';
+// Track whether we've already synced this exact token to avoid redundant network calls
+const LAST_SYNCED_TOKEN_KEY = 'auryx_last_synced_push_token';
 
 // Resolve the API server independently from the static Expo hosting domain.
 function getApiBase(): string {
   return `${getApiRoot()}/api`;
+}
+
+/* ─── Server Sync Helper ───────────────────────────────────────────────────── */
+
+/**
+ * Sends the generated Expo push token to the backend so it can be stored in
+ * the user_push_tokens table linked to the Clerk User ID.
+ *
+ * CRITICAL FOR SECURITY: Without this step, the Absence Scheduler (running via
+ * Vercel Cron while the user's phone is locked/offline) has NO WAY to find the
+ * user's device address. This function bridges that gap.
+ *
+ * Failures are logged but do NOT throw — losing a push sync must never break
+ * the core vault experience or login flow. It degrades gracefully to email-only alerts.
+ */
+async function syncTokenToServer(token: string): Promise<void> {
+  try {
+    // Optimization: Don't re-sync if we know the server already has this exact token.
+    // This saves battery/network on every single app open.
+    const lastSynced = await SecureStore.getItemAsync(LAST_SYNCED_TOKEN_KEY);
+    if (lastSynced === token) {
+      console.log('[auryx][FCM] Token already synced to server, skipping.');
+      return;
+    }
+
+    const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expoPushToken: token,
+        platform: Platform.OS, // 'ios' | 'android'
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => String(response.status));
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+
+    // Mark as successfully synced
+    await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, token);
+    console.log('[auryx][FCM] ✅ Push token synced to server successfully');
+  } catch (e) {
+    // NON-FATAL ERROR: The app continues working perfectly without push sync.
+    // We just log it so developers can debug connectivity issues later.
+    console.warn('[auryx][FCM] ⚠️ Failed to sync push token to server (non-fatal):', e);
+  }
 }
 
 /* ─── Token Registration ──────────────────────────────────────────────────── */
@@ -33,7 +85,7 @@ function getApiBase(): string {
 /**
  * Request OS permission for push notifications and obtain an Expo push token
  * (which wraps the underlying FCM registration token on Android).
- * Stores the token in SecureStore for later use.
+ * Stores the token in SecureStore AND syncs it to the backend database.
  *
  * Returns null on web or if permission is denied.
  */
@@ -71,6 +123,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
     } catch {
       // Non-critical — continue without caching
     }
+
+    // 🔥 THE MOST IMPORTANT LINE IN THIS FILE 🔥
+    // Sync to server immediately upon generation/update.
+    // Fire-and-forget: we don't await blocking the UI thread unnecessarily,
+    // but we DO initiate the background task safely.
+    void syncTokenToServer(token);
 
     console.log('[auryx][FCM] Push token registered successfully');
     return token;

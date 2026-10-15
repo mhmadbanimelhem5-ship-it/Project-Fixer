@@ -12,7 +12,7 @@ export const sealedVaultsTable = pgTable("sealed_vaults", {
   ownerEmail:        text("owner_email").primaryKey(),
   beneficiaryEmail:  text("beneficiary_email").notNull(),
   encryptedBlob:     text("encrypted_blob").notNull(),
-  benefEncryptedKey: text("benef_encrypted_key"),
+  benefEncryptedKey: text("ben_encrypted_key"),
   threshold:         integer("threshold").notNull(),
   sealedAt:          bigint("sealed_at", { mode: "number" }).notNull(),
 });
@@ -166,5 +166,27 @@ export const recoveryEmailsTable = pgTable(
   },
   (table) => ({
     userIdIdx: index("recovery_emails_user_id_idx").on(table.userId),
+  })
+);
+
+// ── User Push Tokens (New Addition) ──────────────────────────────────────────
+// Stores Expo Push tokens linked to Clerk User IDs.
+// Allows server-side services (like Absence Scheduler) to send pushes even when app is closed.
+export const userPushTokensTable = pgTable(
+  "user_push_tokens",
+  {
+    id:          serial("id").primaryKey(),
+    userId:      text("user_id").notNull(),       // Clerk User ID
+    token:       text("token").notNull(),         // ExponentPushToken[...]
+    platform:    text("platform").notNull().default('unknown'), // 'ios' | 'android' | 'web'
+    createdAt:   bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt:   bigint("updated_at", { mode: "number" }).notNull(),
+    lastSeenAt:  bigint("last_seen_at", { mode: "number" }).notNull(), // Updated on every successful push or registration ping
+  },
+  (table) => ({
+    // Ensure one active token per user per platform (handles multi-device scenarios cleanly)
+    uniqueUserPlatform: index("idx_user_platform_unique").on(table.userId, table.platform).unique(),
+    // Fast lookup by user ID for broadcasting/sending specific notifications
+    userIdIdx: index("idx_user_push_tokens_user_id").on(table.userId),
   })
 );

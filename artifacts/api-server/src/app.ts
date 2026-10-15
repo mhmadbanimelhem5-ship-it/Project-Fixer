@@ -3,6 +3,8 @@ import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
+// 👇 ADD THIS IMPORT FOR THE CRON ROUTER 👇
+import cronRouter from "./routes/cron"; 
 import { logger } from "./lib/logger";
 import { generalLimiter } from "./middleware/rateLimit";
 import { clerkMiddleware } from "@clerk/express";
@@ -78,7 +80,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Apply the general API limit before any route handler runs.
 app.use("/api/", generalLimiter);
+
+// 👇 REGISTER THE CRON ROUTER HERE 👇
+// Must be placed AFTER middleware but BEFORE the main router to ensure precedence
+// if there were path overlaps (though unlikely here).
+app.use("/api/cron", cronRouter);
+
 app.use("/api", router);
+
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Auryx API is running 🚀', endpoints: '/api/v1/*' });
 });
