@@ -1,19 +1,23 @@
 /**
  * push.ts — Push Notification Infrastructure
- * 
- * Two main responsibilities:
- * 1. POST /register : Client sends Expo Push Token -> Server stores it in DB linked to User ID.
- *    This allows the server to send pushes later even if the app is closed (e.g., Absence Protocol).
- * 2. POST /notify   : Server-side helper to actually SEND a push via Expo API.
- *    Used by internal services (like absence scheduler) or admin tools.
+ *
+ * Three endpoints:
+ * 1. POST /register        : Client sends Expo Push Token -> Server stores it in DB
+ *                            linked to Clerk User ID. Enables server-initiated pushes
+ *                            later (e.g. Absence Protocol) even when the app is closed.
+ * 2. POST /notify          : Direct push to a single token provided in the body.
+ *                            Used by the client app for instant events (guardian added/removed).
+ *                            Compatible with fcmService.sendGuardianNotification().
+ * 3. POST /internal-notify : Server-side fan-out to ALL devices of a given userId.
+ *                            Protected by x-internal-secret (CRON_SECRET) — NOT public.
  */
 
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
-import { z } from 'zod'; // Assuming zod is used for validation based on schemas.ts pattern
+import { z } from 'zod';
 import { authLimiter } from '../middleware/rateLimit';
-import { db, userPushTokensTable } from '@workspace/db'; // Adjust import path as needed
+import { db, userPushTokensTable } from '@workspace/db';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../lib/logger';
 
@@ -26,8 +30,18 @@ const registerSchema = z.object({
   platform: z.enum(['ios', 'android']).optional(),
 });
 
+// /notify receives the token DIRECTLY (matches fcmService.sendGuardianNotification body)
+const notifyDirectSchema = z.object({
+  token: z.string().regex(/^Exponent?PushToken\[.*\]$/, 'Invalid Expo push token format'),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  sound: z.enum(['default', null]).nullable().optional(),
+  data: z.record(z.any()).optional(),
+});
+
+// /internal-notify fans out by userId
 const notifySchema = z.object({
-  userId: z.string().min(1), // Target user ID (from Clerk)
+  userId: z.string().min(1),
   title: z.string().min(1),
   body: z.string().min(1),
   sound: z.enum(['default', null]).nullable().optional(),
@@ -81,9 +95,6 @@ async function sendRawPush(message: ExpoPushMessage): Promise<{ success: boolean
     if (!ticket || ticket.status === 'error') {
       const errMsg = ticket?.message ?? 'Unknown push delivery error';
       logger.warn({ ticket }, `Push delivery failed: ${errMsg}`);
-
-      // Optional: If token is invalid/expired, we might want to clean it up from DB here
-      // For now, we just report failure.
       return { success: false, error: errMsg };
     }
 
@@ -106,25 +117,23 @@ router.post('/register', requireAuth, authLimiter, async (req, res, next) => {
     }
 
     const { expoPushToken, platform } = parsed.data;
-    const userId = req.auth.userId; // From Clerk middleware
+    const userId = req.auth.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
 
-    // Upsert logic: Update existing record for this user/platform, or insert new one
-    // We assume a user can have multiple devices (iOS + Android), so we key by userId + platform
     const existing = await db.select().from(userPushTokensTable)
       .where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? 'unknown')))
       .limit(1);
 
     if (existing.length > 0) {
       await db.update(userPushTokensTable)
-        .set({ 
-          token: expoPushToken, 
+        .set({
+          token: expoPushToken,
           updatedAt: new Date(),
-          lastSeenAt: new Date() 
+          lastSeenAt: new Date(),
         })
         .where(eq(userPushTokensTable.id, existing[0].id));
     } else {
@@ -145,17 +154,52 @@ router.post('/register', requireAuth, authLimiter, async (req, res, next) => {
   }
 });
 
-// ─── Route 2: Internal Notify (Used by Scheduler/Admin) ────────────────────────
-// NOTE: This route should ideally be protected differently than public client routes.
-// Since it's called internally by our own code (absence.ts), we trust the caller 
-// but still validate inputs strictly.
+// ─── Route 2: Direct Notify (Called by Client App for instant events) ──────────
+// Receives the token in the body and pushes to it directly. This is what
+// fcmService.sendGuardianNotification() calls. Protected by Clerk auth.
+
+router.post('/notify', requireAuth, authLimiter, async (req, res, next) => {
+  try {
+    const parsed = notifyDirectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: parsed.error.flatten() });
+      return;
+    }
+
+    const { token, title, body, sound, data } = parsed.data;
+    const result = await sendRawPush({
+      to: token,
+      title,
+      body,
+      sound: sound ?? null,
+      data: data ?? {},
+    });
+
+    res.json({ success: result.success, error: result.error });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Route 3: Internal Fan-out Notify (Server-side, by userId) ─────────────────
+// SECURITY: previously this route had NO auth, exposing it to anyone who knew
+// the URL. Now gated by x-internal-secret == CRON_SECRET (same secret the cron
+// uses — no new secret introduced). Intended for absence.ts / admin tools only.
 
 router.post('/internal-notify', async (req, res, next) => {
-  // SECURITY WARNING: In production, ensure this endpoint is NOT exposed publicly
-  // or protect it with a specific secret header (e.g., x-internal-secret).
-  // For simplicity in this refactor, we assume it's called safely from within the same process/context.
-
   try {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      logger.error('CRON_SECRET missing — refusing internal-notify');
+      res.status(500).json({ success: false, error: 'Server misconfiguration' });
+      return;
+    }
+    if (req.headers['x-internal-secret'] !== secret) {
+      logger.warn({ ip: req.ip }, 'Unauthorized attempt on /internal-notify');
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
     const parsed = notifySchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ success: false, error: parsed.error.flatten() });
@@ -164,7 +208,6 @@ router.post('/internal-notify', async (req, res, next) => {
 
     const { userId, title, body, sound, data } = parsed.data;
 
-    // Fetch ALL active tokens for this user (might have iOS + Android)
     const tokensRows = await db.select().from(userPushTokensTable)
       .where(eq(userPushTokensTable.userId, userId));
 
@@ -182,21 +225,18 @@ router.post('/internal-notify', async (req, res, next) => {
       data: { ...data, timestamp: Date.now() },
     }));
 
-    // Send all messages in parallel
     const results = await Promise.all(messages.map(msg => sendRawPush(msg)));
-
     const successes = results.filter(r => r.success).length;
     const failures = results.filter(r => !r.success).length;
 
     logger.info({ userId, total: messages.length, successes, failures }, 'Batch push notification dispatched');
 
-    res.json({ 
-      success: successes > 0, 
+    res.json({
+      success: successes > 0,
       totalDevices: messages.length,
       delivered: successes,
-      failed: failures 
+      failed: failures,
     });
-
   } catch (err) {
     next(err);
   }
