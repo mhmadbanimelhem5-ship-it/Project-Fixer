@@ -5,11 +5,9 @@
  *   1. Push Notifications — needed for guardian alerts + absence protocol
  *   2. Camera — needed for the intruder-detection selfie feature
  *
- * PLUS (fix): a lightweight retry loop that guarantees the push token reaches
- * the server AFTER the user signs in. The one-shot registration used to fire
- * before the Clerk session existed, fail silently, and never retry — leaving
- * user_push_tokens empty forever. Registration is idempotent (server upserts;
- * fcmService skips re-syncing an already-synced token), so retrying is cheap.
+ * PLUS (THE FIX): a diagnostic retry loop that guarantees the push token reaches
+ * the server AFTER the user signs in. If it fails, it shows an on-screen Alert
+ * with the exact step that failed, ending silent failures forever.
  */
 
 import { useEffect } from 'react';
@@ -17,7 +15,8 @@ import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
-import { registerForPushNotifications } from '@/utils/fcmService';
+// لاحظ الاستيراد الجديد لـ debugPushRegistration
+import { registerForPushNotifications, debugPushRegistration } from '@/utils/fcmService';
 
 const PERMISSIONS_KEY = 'auryx_permissions_requested_v1';
 
@@ -87,28 +86,36 @@ export function useFirstLaunchPermissions(): void {
     };
   }, []);
 
-  // ── Effect 2 (THE FIX): guarantee token sync happens after sign-in ─────────
-  // Runs on EVERY launch. Attempts registration shortly after start, then
-  // retries every 20s while the app is open. Before sign-in the attempt fails
-  // harmlessly; once a Clerk session exists, the next attempt succeeds and
-  // fcmService's dedup makes every later attempt a cheap local no-op.
+  // ── Effect 2 (THE FIX): Diagnostic registration after sign-in ──────────────
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
     let stopped = false;
+    let alerted = false; // Ensure we only show the alert once per session
 
     const attempt = async () => {
       if (stopped) return;
       try {
-        // Don't re-trigger system dialogs from here — only sync if allowed
-        const { status } = await Notifications.getPermissionsAsync();
-        if (status !== 'granted') return;
-        await registerForPushNotifications();
+        // Run the diagnostic check
+        const report = await debugPushRegistration();
+
+        // If it succeeded (contains http=200), stop trying and stay silent
+        if (report.includes('http=200')) {
+          return; 
+        }
+
+        // If it failed, show the exact reason on screen ONCE
+        if (!alerted) {
+          alerted = true;
+          Alert.alert('تشخيص الإشعارات', `فشل التسجيل. السبب:\n\n${report}`);
+        }
       } catch (e) {
-        // Silent by design: the next interval tick retries
+        // Never crash the app
+        console.warn('[auryx][Permissions] Diagnostic attempt failed:', e);
       }
     };
 
+    // Try after 2.5 seconds, then every 20 seconds while app is open
     const first = setTimeout(attempt, 2500);
     const interval = setInterval(attempt, 20_000);
 

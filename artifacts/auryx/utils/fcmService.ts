@@ -7,10 +7,11 @@
  *
  * Flow:
  *   1. registerForPushNotifications() → requests OS permission + gets token
- *      └─ NEW: syncs the token to the server (/api/push/register) so the
- *         backend can send pushes later even when the app is closed
- *         (critical for the Absence Protocol).
+ *      └─ syncs the token to the server (/api/push/register) so the backend
+ *         can send pushes later even when the app is closed (Absence Protocol).
  *   2. sendGuardianNotification()     → calls API server → Expo Push API → FCM
+ *   3. debugPushRegistration()        → diagnostic path that surfaces silent
+ *         failures as an on-screen Alert (one-shot, cheap retries).
  *
  * Logging:
  *   Success: "[auryx][FCM] تم إرسال إشعار بنجاح"
@@ -227,5 +228,57 @@ export async function sendGuardianNotification(
     return { success: false, error: String(e) };
   } finally {
     clearTimeout(pushTimer);
+  }
+}
+
+/* ─── Diagnostic: surfaces silent registration failures on-screen ─────────── */
+/**
+ * Runs the entire registration pipeline step-by-step and returns a compact
+ * report of exactly where it died (or succeeded). The hook calls this on
+ * every launch; if it doesn't succeed, an Alert pops with the report, so the
+ * failure is no longer silent — the user sees the exact broken step.
+ *
+ * Report format: "perm=granted > pid=18afbd16 > token=ExponentPushTok… > http=200"
+ * or: "perm=granted > pid=18afbd16 > ERR=google-services.json not found"
+ */
+export async function debugPushRegistration(): Promise<string> {
+  const steps: string[] = [];
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    steps.push(`perm=${status}`);
+    if (status !== 'granted') return steps.join(' > ');
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? null;
+    steps.push(`pid=${projectId ? projectId.slice(0, 8) : 'MISSING'}`);
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: projectId ?? undefined,
+    });
+    const token = tokenData.data;
+    steps.push(`token=${token.slice(0, 14)}…`);
+
+    try {
+      await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
+    } catch {
+      // non-critical, continue
+    }
+
+    const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expoPushToken: token, platform: Platform.OS }),
+    });
+    steps.push(`http=${response.status}`);
+    if (response.ok) {
+      try {
+        await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, token);
+      } catch {
+        // non-critical
+      }
+    }
+    return steps.join(' > ');
+  } catch (e) {
+    steps.push(`ERR=${e instanceof Error ? e.message : String(e).slice(0, 80)}`);
+    return steps.join(' > ');
   }
 }
