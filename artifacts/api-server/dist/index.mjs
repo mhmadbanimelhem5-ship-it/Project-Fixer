@@ -20821,27 +20821,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router13;
+    module.exports = Router14;
     module.exports.Route = Route;
-    function Router13(options) {
-      if (!(this instanceof Router13)) {
-        return new Router13(options);
+    function Router14(options) {
+      if (!(this instanceof Router14)) {
+        return new Router14(options);
       }
       const opts = options || {};
-      function router13(req, res, next) {
-        router13.handle(req, res, next);
+      function router14(req, res, next) {
+        router14.handle(req, res, next);
       }
-      Object.setPrototypeOf(router13, this);
-      router13.caseSensitive = opts.caseSensitive;
-      router13.mergeParams = opts.mergeParams;
-      router13.params = {};
-      router13.strict = opts.strict;
-      router13.stack = [];
-      return router13;
+      Object.setPrototypeOf(router14, this);
+      router14.caseSensitive = opts.caseSensitive;
+      router14.mergeParams = opts.mergeParams;
+      router14.params = {};
+      router14.strict = opts.strict;
+      router14.stack = [];
+      return router14;
     }
-    Router13.prototype = function() {
+    Router14.prototype = function() {
     };
-    Router13.prototype.param = function param(name, fn) {
+    Router14.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20861,7 +20861,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router13.prototype.handle = function handle(req, res, callback) {
+    Router14.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20988,7 +20988,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router13.prototype.use = function use(handler) {
+    Router14.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -21021,7 +21021,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router13.prototype.route = function route(path) {
+    Router14.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -21036,7 +21036,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router13.prototype[method] = function(path) {
+      Router14.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21219,13 +21219,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router13 = require_router();
+    var Router14 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router13 = null;
+      var router14 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21234,13 +21234,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router13 === null) {
-            router13 = new Router13({
+          if (router14 === null) {
+            router14 = new Router14({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router13;
+          return router14;
         }
       });
     };
@@ -21311,15 +21311,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router13 = this.router;
+      var router14 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router13.use(path, fn2);
+          return router14.use(path, fn2);
         }
         debug7(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router13.use(path, function mounted_app(req, res, next) {
+        router14.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23904,7 +23904,7 @@ var require_express = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router13 = require_router();
+    var Router14 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23926,8 +23926,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router13.Route;
-    exports.Router = Router13;
+    exports.Route = Router14.Route;
+    exports.Router = Router14;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -39874,7 +39874,7 @@ var require_micromatch = __commonJS({
 });
 
 // src/app.ts
-var import_express14 = __toESM(require_express2(), 1);
+var import_express16 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 
 // ../../node_modules/.pnpm/helmet@8.3.0/node_modules/helmet/index.mjs
@@ -40446,12 +40446,6 @@ var helmet = Object.assign(
 
 // src/app.ts
 var import_pino_http = __toESM(require_logger(), 1);
-
-// src/routes/index.ts
-var import_express13 = __toESM(require_express2(), 1);
-
-// src/routes/health.ts
-var import_express = __toESM(require_express2(), 1);
 
 // ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};
@@ -44493,56 +44487,6 @@ var coerce = {
   date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
 };
 var NEVER = INVALID;
-
-// ../../lib/api-zod/src/generated/api.ts
-var HealthCheckResponse = objectType({
-  "status": stringType()
-});
-var registerWaitlistBodyEmailMax = 320;
-var registerWaitlistBodyEmailRegExp = new RegExp("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
-var registerWaitlistBodySourceDefault = `landing-page`;
-var registerWaitlistBodySourceMax = 80;
-var RegisterWaitlistBody = objectType({
-  "email": stringType().max(registerWaitlistBodyEmailMax).regex(registerWaitlistBodyEmailRegExp),
-  "privacyAccepted": booleanType(),
-  "source": stringType().max(registerWaitlistBodySourceMax).default(registerWaitlistBodySourceDefault)
-});
-var registerWaitlistResponseDiscountPercentMin = 0;
-var registerWaitlistResponseDiscountPercentMax = 100;
-var RegisterWaitlistResponse = objectType({
-  "accepted": booleanType(),
-  "message": stringType(),
-  "alreadyConfirmed": booleanType().optional(),
-  "eligible": booleanType().optional().describe("True only when the email has confirmed a place in the first 500."),
-  "discountPercent": numberType().min(registerWaitlistResponseDiscountPercentMin).max(registerWaitlistResponseDiscountPercentMax).optional()
-});
-var getWaitlistStatsResponseConfirmedCountMin = 0;
-var getWaitlistStatsResponseDiscountSpotsRemainingMin = 0;
-var getWaitlistStatsResponseDiscountSpotsRemainingMax = 500;
-var GetWaitlistStatsResponse = objectType({
-  "confirmedCount": numberType().min(getWaitlistStatsResponseConfirmedCountMin).describe("Number of waitlist emails confirmed so far."),
-  "discountSpotsRemaining": numberType().min(getWaitlistStatsResponseDiscountSpotsRemainingMin).max(getWaitlistStatsResponseDiscountSpotsRemainingMax).describe("Remaining confirmed places eligible for the launch discount."),
-  "discountLimit": numberType().describe("Total number of launch-discount places.")
-});
-var confirmWaitlistEmailPathTokenMin = 64;
-var confirmWaitlistEmailPathTokenMax = 64;
-var confirmWaitlistEmailPathTokenRegExp = new RegExp("^[a-fA-F0-9]{64}$");
-var ConfirmWaitlistEmailParams = objectType({
-  "token": coerce.string().min(confirmWaitlistEmailPathTokenMin).max(confirmWaitlistEmailPathTokenMax).regex(confirmWaitlistEmailPathTokenRegExp)
-});
-var ConfirmWaitlistEmailResponse = unknownType();
-var getMyWaitlistEligibilityResponseDiscountPercentMin = 0;
-var getMyWaitlistEligibilityResponseDiscountPercentMax = 100;
-var GetMyWaitlistEligibilityResponse = objectType({
-  "confirmed": booleanType(),
-  "eligible": booleanType(),
-  "confirmationRank": numberType().nullish(),
-  "discountPercent": numberType().min(getMyWaitlistEligibilityResponseDiscountPercentMin).max(getMyWaitlistEligibilityResponseDiscountPercentMax),
-  "planPrices": objectType({
-    "monthly": numberType(),
-    "annual": numberType()
-  }).optional()
-});
 
 // ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib5(), 1);
@@ -51632,6 +51576,7 @@ __export(schema_exports, {
   retryQueueTable: () => retryQueueTable,
   sealedVaultsTable: () => sealedVaultsTable,
   subscriptionsTable: () => subscriptionsTable,
+  userPushTokensTable: () => userPushTokensTable,
   waitlistEntriesTable: () => waitlistEntriesTable,
   waitlistVerificationsTable: () => waitlistVerificationsTable
 });
@@ -51644,7 +51589,7 @@ var sealedVaultsTable = pgTable("sealed_vaults", {
   ownerEmail: text("owner_email").primaryKey(),
   beneficiaryEmail: text("beneficiary_email").notNull(),
   encryptedBlob: text("encrypted_blob").notNull(),
-  benefEncryptedKey: text("benef_encrypted_key"),
+  benefEncryptedKey: text("ben_encrypted_key"),
   threshold: integer("threshold").notNull(),
   sealedAt: bigint("sealed_at", { mode: "number" }).notNull()
 });
@@ -51784,6 +51729,28 @@ var recoveryEmailsTable = pgTable(
     userIdIdx: index("recovery_emails_user_id_idx").on(table.userId)
   })
 );
+var userPushTokensTable = pgTable(
+  "user_push_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    // Clerk User ID
+    token: text("token").notNull(),
+    // ExponentPushToken[...]
+    platform: text("platform").notNull().default("unknown"),
+    // 'ios' | 'android' | 'web'
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+    lastSeenAt: bigint("last_seen_at", { mode: "number" }).notNull()
+    // Updated on every successful push or registration ping
+  },
+  (table) => ({
+    // Ensure one active token per user per platform (handles multi-device scenarios cleanly)
+    uniqueUserPlatform: index("idx_user_platform_unique").on(table.userId, table.platform).unique(),
+    // Fast lookup by user ID for broadcasting/sending specific notifications
+    userIdIdx: index("idx_user_push_tokens_user_id").on(table.userId)
+  })
+);
 
 // ../../lib/db/src/index.ts
 var { Pool: Pool3 } = esm_default;
@@ -51795,6 +51762,62 @@ if (!databaseUrl) {
 }
 var pool = new Pool3({ connectionString: databaseUrl });
 var db = drizzle(pool, { schema: schema_exports });
+
+// src/routes/index.ts
+var import_express14 = __toESM(require_express2(), 1);
+
+// src/routes/health.ts
+var import_express = __toESM(require_express2(), 1);
+
+// ../../lib/api-zod/src/generated/api.ts
+var HealthCheckResponse = objectType({
+  "status": stringType()
+});
+var registerWaitlistBodyEmailMax = 320;
+var registerWaitlistBodyEmailRegExp = new RegExp("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+var registerWaitlistBodySourceDefault = `landing-page`;
+var registerWaitlistBodySourceMax = 80;
+var RegisterWaitlistBody = objectType({
+  "email": stringType().max(registerWaitlistBodyEmailMax).regex(registerWaitlistBodyEmailRegExp),
+  "privacyAccepted": booleanType(),
+  "source": stringType().max(registerWaitlistBodySourceMax).default(registerWaitlistBodySourceDefault)
+});
+var registerWaitlistResponseDiscountPercentMin = 0;
+var registerWaitlistResponseDiscountPercentMax = 100;
+var RegisterWaitlistResponse = objectType({
+  "accepted": booleanType(),
+  "message": stringType(),
+  "alreadyConfirmed": booleanType().optional(),
+  "eligible": booleanType().optional().describe("True only when the email has confirmed a place in the first 500."),
+  "discountPercent": numberType().min(registerWaitlistResponseDiscountPercentMin).max(registerWaitlistResponseDiscountPercentMax).optional()
+});
+var getWaitlistStatsResponseConfirmedCountMin = 0;
+var getWaitlistStatsResponseDiscountSpotsRemainingMin = 0;
+var getWaitlistStatsResponseDiscountSpotsRemainingMax = 500;
+var GetWaitlistStatsResponse = objectType({
+  "confirmedCount": numberType().min(getWaitlistStatsResponseConfirmedCountMin).describe("Number of waitlist emails confirmed so far."),
+  "discountSpotsRemaining": numberType().min(getWaitlistStatsResponseDiscountSpotsRemainingMin).max(getWaitlistStatsResponseDiscountSpotsRemainingMax).describe("Remaining confirmed places eligible for the launch discount."),
+  "discountLimit": numberType().describe("Total number of launch-discount places.")
+});
+var confirmWaitlistEmailPathTokenMin = 64;
+var confirmWaitlistEmailPathTokenMax = 64;
+var confirmWaitlistEmailPathTokenRegExp = new RegExp("^[a-fA-F0-9]{64}$");
+var ConfirmWaitlistEmailParams = objectType({
+  "token": coerce.string().min(confirmWaitlistEmailPathTokenMin).max(confirmWaitlistEmailPathTokenMax).regex(confirmWaitlistEmailPathTokenRegExp)
+});
+var ConfirmWaitlistEmailResponse = unknownType();
+var getMyWaitlistEligibilityResponseDiscountPercentMin = 0;
+var getMyWaitlistEligibilityResponseDiscountPercentMax = 100;
+var GetMyWaitlistEligibilityResponse = objectType({
+  "confirmed": booleanType(),
+  "eligible": booleanType(),
+  "confirmationRank": numberType().nullish(),
+  "discountPercent": numberType().min(getMyWaitlistEligibilityResponseDiscountPercentMin).max(getMyWaitlistEligibilityResponseDiscountPercentMax),
+  "planPrices": objectType({
+    "monthly": numberType(),
+    "annual": numberType()
+  }).optional()
+});
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -69166,27 +69189,26 @@ var invite_default = router3;
 // src/routes/push.ts
 var import_express5 = __toESM(require_express2(), 1);
 var router4 = (0, import_express5.Router)();
-function isValidExpoPushToken(token2) {
-  return token2.startsWith("ExponentPushToken[") || token2.startsWith("ExpoPushToken[");
-}
-router4.post("/notify", requireAuth, authLimiter, validateBody(pushBody), async (req, res, next) => {
+var registerSchema = external_exports.object({
+  expoPushToken: external_exports.string().regex(/^Exponent?PushToken\[.*\]$/, "Invalid Expo push token format"),
+  platform: external_exports.enum(["ios", "android"]).optional()
+});
+var notifyDirectSchema = external_exports.object({
+  token: external_exports.string().regex(/^Exponent?PushToken\[.*\]$/, "Invalid Expo push token format"),
+  title: external_exports.string().min(1),
+  body: external_exports.string().min(1),
+  sound: external_exports.enum(["default", null]).nullable().optional(),
+  data: external_exports.record(external_exports.any()).optional()
+});
+var notifySchema = external_exports.object({
+  userId: external_exports.string().min(1),
+  title: external_exports.string().min(1),
+  body: external_exports.string().min(1),
+  sound: external_exports.enum(["default", null]).nullable().optional(),
+  data: external_exports.record(external_exports.any()).optional()
+});
+async function sendRawPush(message) {
   try {
-    const { token: token2, title, body } = req.body;
-    if (typeof token2 !== "string" || typeof title !== "string" || typeof body !== "string" || !token2.trim() || !title.trim() || !body.trim()) {
-      res.status(400).json({ success: false, error: "token, title, and body are required strings" });
-      return;
-    }
-    if (!isValidExpoPushToken(token2)) {
-      res.status(400).json({ success: false, error: "Invalid Expo push token format" });
-      return;
-    }
-    const message = {
-      to: token2,
-      title,
-      body,
-      sound: "default",
-      data: { timestamp: Date.now(), app: "auryx" }
-    };
     const expoResponse = await fetch("https://api.expo.io/v2/push/send", {
       method: "POST",
       headers: {
@@ -69198,31 +69220,123 @@ router4.post("/notify", requireAuth, authLimiter, validateBody(pushBody), async 
     });
     if (!expoResponse.ok) {
       const errorText = await expoResponse.text().catch(() => String(expoResponse.status));
-      req.log.error(
-        { status: expoResponse.status, body: errorText },
-        "\u0641\u0634\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u2013 \u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A Firebase: Expo Push API returned non-2xx"
-      );
-      res.status(502).json({ success: false, error: `Expo Push API error: ${expoResponse.status}` });
-      return;
+      logger.error({ status: expoResponse.status, body: errorText }, "Expo Push API returned non-2xx");
+      return { success: false, error: `HTTP ${expoResponse.status}` };
     }
     const result = await expoResponse.json();
     const ticket = result.data?.[0];
     if (!ticket || ticket.status === "error") {
       const errMsg = ticket?.message ?? "Unknown push delivery error";
-      req.log.warn(
-        { ticket },
-        `\u0641\u0634\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0625\u0634\u0639\u0627\u0631 \u2013 \u062A\u062D\u0642\u0642 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A Firebase: ${errMsg}`
-      );
-      res.status(200).json({ success: false, error: errMsg });
+      logger.warn({ ticket }, `Push delivery failed: ${errMsg}`);
+      return { success: false, error: errMsg };
+    }
+    logger.info({ to: message.to.slice(0, 20) + "\u2026", ticketId: ticket.id }, "Push sent successfully");
+    return { success: true, ticketId: ticket.id };
+  } catch (e) {
+    logger.error({ err: e }, "Exception during Expo Push request");
+    return { success: false, error: "Internal Server Error" };
+  }
+}
+router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
+  try {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: parsed.error.flatten() });
       return;
     }
-    req.log.info(
-      { to: token2.slice(0, 40) + "\u2026", title, ticketId: ticket.id },
-      "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0625\u0634\u0639\u0627\u0631 \u0628\u0646\u062C\u0627\u062D"
-    );
-    res.json({ success: true, ticketId: ticket.id });
-  } catch (e) {
-    next(e);
+    const { expoPushToken, platform } = parsed.data;
+    const userId = req.auth.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+    const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? "unknown"))).limit(1);
+    if (existing.length > 0) {
+      await db.update(userPushTokensTable).set({
+        token: expoPushToken,
+        updatedAt: /* @__PURE__ */ new Date(),
+        lastSeenAt: /* @__PURE__ */ new Date()
+      }).where(eq(userPushTokensTable.id, existing[0].id));
+    } else {
+      await db.insert(userPushTokensTable).values({
+        userId,
+        token: expoPushToken,
+        platform: platform ?? "unknown",
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date(),
+        lastSeenAt: /* @__PURE__ */ new Date()
+      });
+    }
+    logger.info({ userId, platform }, "Push token registered/updated");
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+router4.post("/notify", requireAuth, authLimiter, async (req, res, next) => {
+  try {
+    const parsed = notifyDirectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: parsed.error.flatten() });
+      return;
+    }
+    const { token: token2, title, body, sound, data } = parsed.data;
+    const result = await sendRawPush({
+      to: token2,
+      title,
+      body,
+      sound: sound ?? null,
+      data: data ?? {}
+    });
+    res.json({ success: result.success, error: result.error });
+  } catch (err) {
+    next(err);
+  }
+});
+router4.post("/internal-notify", async (req, res, next) => {
+  try {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      logger.error("CRON_SECRET missing \u2014 refusing internal-notify");
+      res.status(500).json({ success: false, error: "Server misconfiguration" });
+      return;
+    }
+    if (req.headers["x-internal-secret"] !== secret) {
+      logger.warn({ ip: req.ip }, "Unauthorized attempt on /internal-notify");
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+    const parsed = notifySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: parsed.error.flatten() });
+      return;
+    }
+    const { userId, title, body, sound, data } = parsed.data;
+    const tokensRows = await db.select().from(userPushTokensTable).where(eq(userPushTokensTable.userId, userId));
+    if (tokensRows.length === 0) {
+      logger.warn({ userId }, "No push tokens found for user");
+      res.json({ success: false, error: "No registered devices for this user" });
+      return;
+    }
+    const messages = tokensRows.map((row) => ({
+      to: row.token,
+      title,
+      body,
+      sound: sound ?? null,
+      data: { ...data, timestamp: Date.now() }
+    }));
+    const results = await Promise.all(messages.map((msg) => sendRawPush(msg)));
+    const successes = results.filter((r) => r.success).length;
+    const failures = results.filter((r) => !r.success).length;
+    logger.info({ userId, total: messages.length, successes, failures }, "Batch push notification dispatched");
+    res.json({
+      success: successes > 0,
+      totalDevices: messages.length,
+      delivered: successes,
+      failed: failures
+    });
+  } catch (err) {
+    next(err);
   }
 });
 var push_default = router4;
@@ -69940,6 +70054,50 @@ async function countApprovals(requestId) {
 var router7 = (0, import_express8.Router)();
 var NOTIFY_INTERVAL_MS = 3 * 60 * 60 * 1e3;
 var MAX_NOTIFICATIONS = 16;
+async function resolveUserIdByEmail(email2) {
+  try {
+    if (!email2) return null;
+    const res = await clerkClient.users.getUserList({ emailAddress: [email2], limit: 1 });
+    const arr = Array.isArray(res) ? res : res?.data ?? [];
+    return arr[0]?.id ?? null;
+  } catch (e) {
+    logger.warn({ err: e, email: email2 }, "Absence push: email\u2192userId resolution failed");
+    return null;
+  }
+}
+async function sendPushToUserByEmail(email2, title, body) {
+  try {
+    const userId = await resolveUserIdByEmail(email2);
+    if (!userId) return false;
+    const tokensRows = await db.select().from(userPushTokensTable).where(eq(userPushTokensTable.userId, userId));
+    if (tokensRows.length === 0) return false;
+    const messages = tokensRows.map((row) => ({
+      to: row.token,
+      title,
+      body,
+      sound: null,
+      data: { timestamp: Date.now(), app: "auryx", type: "absence" }
+    }));
+    const expoResponse = await fetch("https://api.expo.io/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(messages)
+    });
+    if (!expoResponse.ok) {
+      logger.warn({ status: expoResponse.status }, "Expo Push API returned non-2xx");
+      return false;
+    }
+    const result = await expoResponse.json();
+    return Boolean(result.data?.some((t) => t.status === "ok"));
+  } catch (e) {
+    logger.error({ err: e }, "Failed to dispatch absence push (will fall back to email)");
+    return false;
+  }
+}
 function getBaseUrl2() {
   const d = process.env.REPLIT_DOMAINS;
   if (d) return `https://${d.split(",")[0].trim()}`;
@@ -70006,16 +70164,23 @@ async function processAbsenceScheduler() {
     if (absReq.ownerNotifCount >= MAX_NOTIFICATIONS) {
       try {
         await transitionToBeneficiaryConfirmation(absReq.id);
-        await sendBeneficiaryOwnerAbsent(
+        const pushOk = await sendPushToUserByEmail(
           absReq.beneficiaryEmail,
-          absReq.ownerName || absReq.ownerEmail
+          "\u062A\u0646\u0628\u064A\u0647 \u0623\u0645\u0646\u064A \u062D\u0631\u062C",
+          "\u0645\u0631\u0651\u062A 48 \u0633\u0627\u0639\u0629 \u062F\u0648\u0646 \u0631\u062F \u0645\u0646 \u0635\u0627\u062D\u0628 \u0627\u0644\u062E\u0632\u0646\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u062F\u062E\u0648\u0644 \u0644\u0644\u062A\u0637\u0628\u064A\u0642 \u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u0625\u062C\u0631\u0627\u0621\u0627\u062A."
         );
+        if (!pushOk) {
+          await sendBeneficiaryOwnerAbsent(
+            absReq.beneficiaryEmail,
+            absReq.ownerName || absReq.ownerEmail
+          );
+        }
         logger.info(
-          { requestId: absReq.id, ownerEmail: absReq.ownerEmail },
+          { requestId: absReq.id, ownerEmail: absReq.ownerEmail, viaPush: pushOk },
           "Absence scheduler: 48h elapsed, awaiting beneficiary confirmation"
         );
       } catch (err) {
-        logger.error({ err, requestId: absReq.id }, "Absence scheduler: beneficiary-absent email failed");
+        logger.error({ err, requestId: absReq.id }, "Absence scheduler: beneficiary-absent alert failed");
       }
       continue;
     }
@@ -70023,16 +70188,23 @@ async function processAbsenceScheduler() {
     const nextCount = absReq.ownerNotifCount + 1;
     const aliveUrl = absReq.ownerAliveToken ? `${getBaseUrl2()}/api/absence/owner-alive/${absReq.ownerAliveToken}` : "";
     try {
-      await sendOwnerNotification(
+      const pushOk = await sendPushToUserByEmail(
         absReq.ownerEmail,
-        absReq.ownerName || absReq.ownerEmail,
-        absReq.beneficiaryName || "\u0627\u0644\u0645\u0633\u062A\u0641\u064A\u062F",
-        nextCount,
-        aliveUrl
+        "\u{1F6E1}\uFE0F \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u062D\u0636\u0648\u0631 \u0645\u0637\u0644\u0648\u0628",
+        `\u0645\u0631\u0651\u062A ${nextCount * 3} \u0633\u0627\u0639\u0627\u062A \u062F\u0648\u0646 \u062A\u0623\u0643\u064A\u062F \u062D\u0636\u0648\u0631\u0643. \u0627\u0641\u062A\u062D \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0623\u0648 \u0627\u0636\u063A\u0637 \u0631\u0627\u0628\u0637 \u0627\u0644\u0623\u0645\u0627\u0646 \u0644\u062A\u0623\u0643\u064A\u062F \u0623\u0646\u0643 \u0628\u062E\u064A\u0631.`
       );
+      if (!pushOk) {
+        await sendOwnerNotification(
+          absReq.ownerEmail,
+          absReq.ownerName || absReq.ownerEmail,
+          absReq.beneficiaryName || "\u0627\u0644\u0645\u0633\u062A\u0641\u064A\u062F",
+          nextCount,
+          aliveUrl
+        );
+      }
       await recordOwnerNotification(absReq.id, nextCount);
       logger.info(
-        { requestId: absReq.id, ownerEmail: absReq.ownerEmail, notifCount: nextCount },
+        { requestId: absReq.id, ownerEmail: absReq.ownerEmail, notifCount: nextCount, viaPush: pushOk },
         "Absence scheduler: owner notification sent"
       );
     } catch (err) {
@@ -70049,7 +70221,7 @@ async function processAbsenceScheduler() {
 }
 var absenceSchedulerMutex = new Mutex();
 var ABSENCE_SCHEDULER_LOCK_ID = 42;
-async function runAbsenceScheduler() {
+async function runAbsenceSchedulerTick() {
   let release;
   try {
     release = await tryAcquire(absenceSchedulerMutex).acquire();
@@ -70091,10 +70263,6 @@ async function runAbsenceScheduler() {
     release?.();
   }
 }
-setInterval(() => {
-  void runAbsenceScheduler();
-}, 3 * 60 * 1e3);
-logger.info("Absence scheduler started (interval: 3 min)");
 router7.post("/initiate", requireAuth, validateBody(absenceBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const {
@@ -70120,16 +70288,23 @@ router7.post("/initiate", requireAuth, validateBody(absenceBody), requireVaultPa
     if (absReq.ownerNotifCount === 0) {
       const aliveUrl = absReq.ownerAliveToken ? `${getBaseUrl2()}/api/absence/owner-alive/${absReq.ownerAliveToken}` : "";
       try {
-        await sendOwnerNotification(
+        const pushOk = await sendPushToUserByEmail(
           ownerEmail,
-          ownerName || ownerEmail,
-          beneficiaryName || "\u0627\u0644\u0645\u0633\u062A\u0641\u064A\u062F",
-          1,
-          aliveUrl
+          "\u{1F6E1}\uFE0F \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u062D\u0636\u0648\u0631 \u0645\u0637\u0644\u0648\u0628",
+          "\u062A\u0645 \u0628\u062F\u0621 \u0628\u0631\u0648\u062A\u0648\u0643\u0648\u0644 \u0627\u0644\u0637\u0648\u0627\u0631\u0626 \u0639\u0644\u0649 \u062E\u0632\u0646\u062A\u0643. \u0627\u0641\u062A\u062D \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0623\u0648 \u0627\u0636\u063A\u0637 \u0631\u0627\u0628\u0637 \u0627\u0644\u0623\u0645\u0627\u0646 \u0644\u062A\u0623\u0643\u064A\u062F \u0623\u0646\u0643 \u0628\u062E\u064A\u0631."
         );
+        if (!pushOk) {
+          await sendOwnerNotification(
+            ownerEmail,
+            ownerName || ownerEmail,
+            beneficiaryName || "\u0627\u0644\u0645\u0633\u062A\u0641\u064A\u062F",
+            1,
+            aliveUrl
+          );
+        }
         await recordOwnerNotification(absReq.id, 1);
         req.log.info(
-          { requestId: absReq.id, ownerEmail },
+          { requestId: absReq.id, ownerEmail, viaPush: pushOk },
           "Absence: immediate owner notification sent"
         );
       } catch (mailErr) {
@@ -70395,7 +70570,7 @@ router7.post("/cancel", requireAuth, validateBody(ownerOnlyBody), requireOwner()
 var absence_default = router7;
 
 // src/routes/pin-reset.ts
-var import_express9 = __toESM(require_express2(), 1);
+var import_express10 = __toESM(require_express2(), 1);
 import crypto6 from "crypto";
 
 // src/lib/pinResetStore.ts
@@ -70514,7 +70689,7 @@ async function getGuardianDecisions(requestId) {
 }
 
 // src/routes/pin-reset.ts
-var router8 = (0, import_express9.Router)();
+var router8 = (0, import_express10.Router)();
 var resetTokens = /* @__PURE__ */ new Map();
 setInterval(() => {
   const now = Date.now();
@@ -70724,7 +70899,7 @@ router8.post("/complete", requireAuth, requireVaultParticipant(), async (req, re
 var pin_reset_default = router8;
 
 // src/routes/recovery-email.ts
-var import_express10 = __toESM(require_express2(), 1);
+var import_express11 = __toESM(require_express2(), 1);
 import crypto8 from "crypto";
 
 // src/lib/recoveryEmailStore.ts
@@ -70804,7 +70979,7 @@ async function verifyRecoveryEmailMatch(userId, email2) {
 }
 
 // src/routes/recovery-email.ts
-var router9 = (0, import_express10.Router)();
+var router9 = (0, import_express11.Router)();
 var recoveryTokens = /* @__PURE__ */ new Map();
 setInterval(() => {
   const now = Date.now();
@@ -70903,9 +71078,9 @@ router9.post("/complete", requireAuth, validateBody(recoveryCompleteBody), async
 var recovery_email_default = router9;
 
 // src/routes/waitlist.ts
-var import_express11 = __toESM(require_express2(), 1);
+var import_express12 = __toESM(require_express2(), 1);
 import crypto9 from "node:crypto";
-var router10 = (0, import_express11.Router)();
+var router10 = (0, import_express12.Router)();
 var CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1e3;
 var LAUNCH_DISCOUNT_PERCENT = 50;
 var LAUNCH_LIMIT = 500;
@@ -71107,9 +71282,9 @@ router10.get(
 var waitlist_default = router10;
 
 // src/routes/subscriptions.ts
-var import_express12 = __toESM(require_express2(), 1);
+var import_express13 = __toESM(require_express2(), 1);
 import { createHmac, timingSafeEqual } from "node:crypto";
-var router11 = (0, import_express12.Router)();
+var router11 = (0, import_express13.Router)();
 var SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 function parseSignatureHeader(header) {
   const parts = new Map(
@@ -71286,7 +71461,7 @@ router11.post("/webhook", async (req, res) => {
 var subscriptions_default = router11;
 
 // src/routes/index.ts
-var router12 = (0, import_express13.Router)();
+var router12 = (0, import_express14.Router)();
 router12.use(health_default);
 router12.use("/email", email_default);
 router12.use("/invite", invite_default);
@@ -71301,6 +71476,35 @@ router12.use("/subscriptions", subscriptions_default);
 logger.info("[DIAGNOSTIC] API Routes registered successfully.");
 logger.info("[DIAGNOSTIC] Recovery Email route is ACTIVE at: /api/recovery-email");
 var routes_default = router12;
+
+// src/routes/cron.ts
+var import_express15 = __toESM(require_express2(), 1);
+var router13 = (0, import_express15.Router)();
+router13.get("/absence-tick", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const expectedSecret = process.env.CRON_SECRET;
+  if (!expectedSecret) {
+    logger.error("CRON_SECRET is not set in environment variables! Blocking cron execution.");
+    return res.status(500).json({ error: "Server misconfiguration" });
+  }
+  if (authHeader !== `Bearer ${expectedSecret}`) {
+    logger.warn({ ip: req.ip }, "Unauthorized attempt to trigger absence cron");
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    logger.info("Vercel Cron triggered: Running absence scheduler tick...");
+    const result = await runAbsenceSchedulerTick();
+    res.json({
+      success: true,
+      message: "Absence scheduler completed",
+      stats: result
+    });
+  } catch (err) {
+    logger.error({ err }, "Absence scheduler crashed during cron execution");
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+var cron_default = router13;
 
 // ../../node_modules/.pnpm/httpxy@0.5.5/node_modules/httpxy/dist/index.mjs
 import httpNative, { request } from "node:http";
@@ -72256,11 +72460,11 @@ function parsePathRewriteRules(rewriteConfig) {
 var debug4 = Debug.extend("router");
 async function getTarget(req, res, config) {
   let newTarget;
-  const router13 = config.router;
-  if (isPlainObject(router13)) {
-    newTarget = getTargetFromProxyTable(req, router13);
-  } else if (typeof router13 === "function") {
-    newTarget = await router13(req, res, config);
+  const router14 = config.router;
+  if (isPlainObject(router14)) {
+    newTarget = getTargetFromProxyTable(req, router14);
+  } else if (typeof router14 === "function") {
+    newTarget = await router14(req, res, config);
   }
   return newTarget;
 }
@@ -72566,7 +72770,7 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
-var app = (0, import_express14.default)();
+var app = (0, import_express16.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(clerkMiddleware());
@@ -72615,13 +72819,79 @@ app.use(helmet({
 }));
 app.use(
   "/api/subscriptions/webhook",
-  import_express14.default.raw({ type: "application/json", limit: "1mb", inflate: false })
+  import_express16.default.raw({ type: "application/json", limit: "1mb", inflate: false })
 );
-app.use(import_express14.default.json());
-app.use(import_express14.default.urlencoded({ extended: true }));
+app.use(import_express16.default.json());
+app.use(import_express16.default.urlencoded({ extended: true }));
 app.use("/api/", generalLimiter);
+app.use("/api/cron", cron_default);
+app.post("/api/push/register", async (req, res) => {
+  try {
+    const schema = external_exports.object({
+      expoPushToken: external_exports.string().min(1),
+      platform: external_exports.enum(["ios", "android"]).optional()
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: "Invalid payload" });
+      return;
+    }
+    const { expoPushToken, platform } = parsed.data;
+    const authReq = req;
+    const userId = authReq.auth?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+    const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? "unknown"))).limit(1);
+    const now = Date.now();
+    if (existing.length > 0) {
+      await db.update(userPushTokensTable).set({
+        token: expoPushToken,
+        updatedAt: now,
+        lastSeenAt: now
+      }).where(eq(userPushTokensTable.id, existing[0].id));
+    } else {
+      await db.insert(userPushTokensTable).values({
+        userId,
+        token: expoPushToken,
+        platform: platform ?? "unknown",
+        createdAt: now,
+        updatedAt: now,
+        lastSeenAt: now
+      });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Push register error:", err);
+    res.status(500).json({ success: false, error: "Internal error" });
+  }
+});
+app.post("/api/push/notify", async (req, res) => {
+  try {
+    const { token: token2, title, body } = req.body;
+    if (!token2 || !title || !body) {
+      res.status(400).json({ success: false, error: "Missing fields" });
+      return;
+    }
+    const response = await fetch("https://api.expo.io/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: token2, title, body, sound: null })
+    });
+    const result = await response.json();
+    if (result.data?.[0]?.status === "ok") {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ success: false, error: "Expo API failed", details: result });
+    }
+  } catch (err) {
+    console.error("Push notify error:", err);
+    res.status(500).json({ success: false, error: "Internal error" });
+  }
+});
 app.use("/api", routes_default);
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.json({ status: "ok", message: "Auryx API is running \u{1F680}", endpoints: "/api/v1/*" });
 });
 var corsErrorHandler = (error, _req, res, next) => {
