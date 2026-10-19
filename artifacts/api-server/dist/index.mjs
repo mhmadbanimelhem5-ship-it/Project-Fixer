@@ -72845,7 +72845,6 @@ app.post("/api/push/register", async (req, res) => {
       await db.update(userPushTokensTable).set({
         token: expoPushToken,
         updatedAt: now,
-        // ✅ تجاوز TypeScript
         lastSeenAt: now
       }).where(eq(userPushTokensTable.id, existing[0].id));
     } else {
@@ -72871,20 +72870,40 @@ app.post("/api/push/notify", async (req, res) => {
       res.status(400).json({ success: false, error: "Missing fields" });
       return;
     }
+    console.log("\u{1F680} [PUSH] Attempting to send to:", token2);
     const response = await fetch("https://api.expo.io/v2/push/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: token2, title, body, sound: null })
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        to: token2,
+        title,
+        body,
+        sound: "default"
+        // تم التغيير من null إلى default لضمان عمل الصوت
+      })
     });
     const result = await response.json();
+    console.log("\u{1F4E1} [PUSH] Expo API Status:", response.status);
+    console.log("\u{1F4E6} [PUSH] Expo API Response:", JSON.stringify(result));
     if (result.data?.[0]?.status === "ok") {
       res.json({ success: true });
     } else {
-      res.status(500).json({ success: false, error: "Expo API failed", details: result });
+      res.status(500).json({
+        success: false,
+        error: "Expo API failed",
+        details: result
+      });
     }
   } catch (err) {
-    console.error("Push notify error:", err);
-    res.status(500).json({ success: false, error: "Internal error" });
+    console.error("\u274C [PUSH] Critical Error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Internal error",
+      details: err instanceof Error ? err.message : String(err)
+    });
   }
 });
 app.use("/api", routes_default);

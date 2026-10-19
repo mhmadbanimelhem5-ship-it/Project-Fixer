@@ -110,7 +110,7 @@ app.post("/api/push/register", async (req: Request, res: Response) => {
       await db.update(userPushTokensTable)
         .set({ 
           token: expoPushToken, 
-          updatedAt: now as any, // ✅ تجاوز TypeScript
+          updatedAt: now as any, 
           lastSeenAt: now as any 
         } as any)
         .where(eq(userPushTokensTable.id, existing[0].id));
@@ -131,6 +131,7 @@ app.post("/api/push/register", async (req: Request, res: Response) => {
   }
 });
 
+// ✅ النسخة المحسّنة مع سجلات تشخيصية كاملة
 app.post("/api/push/notify", async (req: Request, res: Response) => {
   try {
     const { token, title, body } = req.body;
@@ -138,20 +139,44 @@ app.post("/api/push/notify", async (req: Request, res: Response) => {
       res.status(400).json({ success: false, error: "Missing fields" });
       return;
     }
+
+    console.log("🚀 [PUSH] Attempting to send to:", token);
+
     const response = await fetch("https://api.expo.io/v2/push/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: token, title, body, sound: null }),
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({ 
+        to: token, 
+        title, 
+        body, 
+        sound: "default" // تم التغيير من null إلى default لضمان عمل الصوت
+      }),
     });
-    const result = await response.json() as { data?: Array<{ status: string }> };
+
+    const result = await response.json() as any;
+
+    console.log("📡 [PUSH] Expo API Status:", response.status);
+    console.log("📦 [PUSH] Expo API Response:", JSON.stringify(result));
+
     if (result.data?.[0]?.status === "ok") {
       res.json({ success: true });
     } else {
-      res.status(500).json({ success: false, error: "Expo API failed", details: result });
+      res.status(500).json({ 
+        success: false, 
+        error: "Expo API failed", 
+        details: result 
+      });
     }
   } catch (err) {
-    console.error("Push notify error:", err);
-    res.status(500).json({ success: false, error: "Internal error" });
+    console.error("❌ [PUSH] Critical Error:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: "Internal error",
+      details: err instanceof Error ? err.message : String(err)
+    });
   }
 });
 
