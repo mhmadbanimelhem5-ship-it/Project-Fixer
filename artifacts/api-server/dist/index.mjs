@@ -72839,12 +72839,13 @@ app.post("/api/push/register", async (req, res) => {
     const { expoPushToken, platform } = parsed.data;
     const authReq = req;
     const userId = authReq.auth?.userId || "temp-debug-user-id";
+    const now = /* @__PURE__ */ new Date();
     const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? "unknown"))).limit(1);
-    const now = Date.now();
     if (existing.length > 0) {
       await db.update(userPushTokensTable).set({
         token: expoPushToken,
         updatedAt: now,
+        // ✅ تجاوز TypeScript
         lastSeenAt: now
       }).where(eq(userPushTokensTable.id, existing[0].id));
     } else {

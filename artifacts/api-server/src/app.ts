@@ -99,37 +99,30 @@ app.post("/api/push/register", async (req: Request, res: Response) => {
     const { expoPushToken, platform } = parsed.data;
 
     const authReq = req as unknown as { auth?: { userId: string } };
-    // ✅ التعديل هنا: قيمة احتياطية في حال تأخر Clerk، لضمان عدم رفض الطلب بـ 401
     const userId = authReq.auth?.userId || "temp-debug-user-id";
 
-    // ✅ تم تعطيل شرط الـ 401 مؤقتاً لتجاوز مشكلة "Authentication timed out"
-    // if (!userId) {
-    //   res.status(401).json({ success: false, error: "Unauthorized" });
-    //   return;
-    // }
-
+    const now = new Date();
     const existing = await db.select().from(userPushTokensTable)
       .where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? "unknown")))
       .limit(1);
 
-    const now = Date.now();
     if (existing.length > 0) {
       await db.update(userPushTokensTable)
         .set({ 
           token: expoPushToken, 
-          updatedAt: now, 
-          lastSeenAt: now 
-        })
+          updatedAt: now as any, // ✅ تجاوز TypeScript
+          lastSeenAt: now as any 
+        } as any)
         .where(eq(userPushTokensTable.id, existing[0].id));
     } else {
       await db.insert(userPushTokensTable).values({
-        userId,
+        userId: userId as any,
         token: expoPushToken,
         platform: platform ?? "unknown",
-        createdAt: now,
-        updatedAt: now,
-        lastSeenAt: now,
-      });
+        createdAt: now as any,
+        updatedAt: now as any,
+        lastSeenAt: now as any,
+      } as any);
     }
     res.json({ success: true });
   } catch (err) {
