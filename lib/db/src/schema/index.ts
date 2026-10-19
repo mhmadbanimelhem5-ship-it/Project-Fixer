@@ -185,7 +185,7 @@ export const userPushTokensTable = pgTable(
   },
   (table) => ({
     // Ensure one active token per user per platform (handles multi-device scenarios cleanly)
-    uniqueUserPlatform: index("idx_user_platform_unique").on(table.userId, table.platform).unique(),
+    uniqueUserPlatform: index("idx_user_platform_unique").on(table.userId, table.platform),
     // Fast lookup by user ID for broadcasting/sending specific notifications
     userIdIdx: index("idx_user_push_tokens_user_id").on(table.userId),
   })
