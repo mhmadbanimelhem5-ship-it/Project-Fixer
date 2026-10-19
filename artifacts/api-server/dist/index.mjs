@@ -72871,32 +72871,54 @@ app.post("/api/push/notify", async (req, res) => {
       return;
     }
     console.log("\u{1F680} [PUSH] Attempting to send to:", token2);
-    const response = await fetch("https://api.expo.io/v2/push/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        to: token2,
-        title,
-        body,
-        sound: "default"
-        // تم التغيير من null إلى default لضمان عمل الصوت
-      })
-    });
-    const result = await response.json();
-    console.log("\u{1F4E1} [PUSH] Expo API Status:", response.status);
-    console.log("\u{1F4E6} [PUSH] Expo API Response:", JSON.stringify(result));
-    if (result.data?.[0]?.status === "ok") {
-      res.json({ success: true });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: "Expo API failed",
-        details: result
-      });
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`\u{1F504} [PUSH] Attempt ${attempt}/3`);
+        const response = await fetch("https://api.expo.io/v2/push/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Connection": "keep-alive"
+          },
+          body: JSON.stringify({
+            to: token2,
+            title,
+            body,
+            sound: "default"
+          }),
+          // إضافة مهلة 5 ثوانٍ لمنع التعليق
+          signal: AbortSignal.timeout(5e3)
+        });
+        const result = await response.json();
+        console.log("\u{1F4E1} [PUSH] Expo API Status:", response.status);
+        console.log("\u{1F4E6} [PUSH] Expo API Response:", JSON.stringify(result));
+        if (result.data?.[0]?.status === "ok") {
+          res.json({ success: true });
+          return;
+        } else {
+          res.status(500).json({
+            success: false,
+            error: "Expo API failed",
+            details: result
+          });
+          return;
+        }
+      } catch (fetchError) {
+        lastError = fetchError;
+        console.warn(`\u26A0\uFE0F [PUSH] Attempt ${attempt} failed:`, fetchError.message);
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        }
+      }
     }
+    console.error("\u274C [PUSH] All 3 attempts failed. Last error:", lastError);
+    res.status(500).json({
+      success: false,
+      error: "Failed to connect to Expo API after 3 attempts",
+      details: lastError instanceof Error ? lastError.message : String(lastError)
+    });
   } catch (err) {
     console.error("\u274C [PUSH] Critical Error:", err);
     res.status(500).json({
