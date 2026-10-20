@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "buildCommand": "cd artifacts/api-server && node build.mjs && cd ../.. && ls -la api",
+  "buildCommand": "cd artifacts/api-server && pnpm install && node build.mjs && cd ../.. && ls -la api",
   "rewrites": [
     {
       "source": "/(.*)",
