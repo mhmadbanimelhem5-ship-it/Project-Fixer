@@ -11,6 +11,20 @@ import { logger } from "./lib/logger";
 import { generalLimiter } from "./middleware/rateLimit";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkProxyMiddleware, CLERK_PROXY_PATH } from "./middleware/clerkProxyMiddleware";
+import * as admin from "firebase-admin"; // ✅ إضافة مكتبة Firebase
+
+// ✅ تهيئة Firebase Admin مرة واحدة فقط بأمان من متغير البيئة
+if (!admin.apps.length) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("✅ Firebase Admin initialized successfully");
+  } catch (error) {
+    console.error("❌ Failed to initialize Firebase Admin. Check FIREBASE_SERVICE_ACCOUNT env var:", error);
+  }
+}
 
 const app: Express = express();
 
@@ -131,7 +145,7 @@ app.post("/api/push/register", async (req: Request, res: Response) => {
   }
 });
 
-// ✅ النسخة المحسّنة: سجلات تشخيصية كاملة + منطق إعادة المحاولة (Retry) للتغلب على أخطاء DNS في Vercel
+// ✅ مسار الإشعارات باستخدام Firebase Admin SDK (حل إنتاجي دائم ومتين)
 app.post("/api/push/notify", async (req: Request, res: Response) => {
   try {
     const { token, title, body } = req.body;
@@ -140,72 +154,26 @@ app.post("/api/push/notify", async (req: Request, res: Response) => {
       return;
     }
 
-    console.log("🚀 [PUSH] Attempting to send to:", token);
+    console.log("🚀 [FCM] Attempting to send notification to:", token);
 
-    let lastError: any;
-    // محاولة الاتصال حتى 3 مرات في حال فشل الشبكة مؤقتاً
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        console.log(`🔄 [PUSH] Attempt ${attempt}/3`);
+    const message = {
+      notification: {
+        title,
+        body,
+      },
+      token: token, // Firebase يتعرف تلقائياً على توكنات Expo/FCM
+    };
 
-        const response = await fetch("https://api.expo.io/v2/push/send", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "Connection": "keep-alive"
-          },
-          body: JSON.stringify({ 
-            to: token, 
-            title, 
-            body, 
-            sound: "default"
-          }),
-          // إضافة مهلة 5 ثوانٍ لمنع التعليق
-          signal: AbortSignal.timeout(5000)
-        });
+    const response = await admin.messaging().send(message);
 
-        const result = await response.json() as any;
+    console.log("✅ [FCM] Success! Message ID:", response);
+    res.json({ success: true, messageId: response });
 
-        console.log("📡 [PUSH] Expo API Status:", response.status);
-        console.log("📦 [PUSH] Expo API Response:", JSON.stringify(result));
-
-        if (result.data?.[0]?.status === "ok") {
-          res.json({ success: true });
-          return; // نجاح، اخرج من الدالة
-        } else {
-          res.status(500).json({ 
-            success: false, 
-            error: "Expo API failed", 
-            details: result 
-          });
-          return; // فشل مع وجود رد، اخرج من الدالة
-        }
-      } catch (fetchError: any) {
-        lastError = fetchError;
-        console.warn(`⚠️ [PUSH] Attempt ${attempt} failed:`, fetchError.message);
-
-        // انتظار قصير قبل المحاولة التالية (500ms, 1000ms)
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-        }
-      }
-    }
-
-    // إذا فشلت جميع المحاولات الثلاث
-    console.error("❌ [PUSH] All 3 attempts failed. Last error:", lastError);
+  } catch (error: any) {
+    console.error("❌ [FCM] Error sending notification:", error);
     res.status(500).json({ 
       success: false, 
-      error: "Failed to connect to Expo API after 3 attempts",
-      details: lastError instanceof Error ? lastError.message : String(lastError)
-    });
-
-  } catch (err) {
-    console.error("❌ [PUSH] Critical Error:", err);
-    res.status(500).json({ 
-      success: false, 
-      error: "Internal error",
-      details: err instanceof Error ? err.message : String(err)
+      error: error.message || "FCM send failed" 
     });
   }
 });
