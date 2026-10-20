@@ -21409,7 +21409,7 @@ var require_application = __commonJS({
       return this;
     };
     app2.render = function render2(name, options, callback) {
-      var cache = this.cache;
+      var cache2 = this.cache;
       var done = callback;
       var engines = this.engines;
       var opts = options;
@@ -21423,7 +21423,7 @@ var require_application = __commonJS({
         renderOptions.cache = this.enabled("view cache");
       }
       if (renderOptions.cache) {
-        view = cache[name];
+        view = cache2[name];
       }
       if (!view) {
         var View3 = this.get("view");
@@ -21439,7 +21439,7 @@ var require_application = __commonJS({
           return done(err);
         }
         if (renderOptions.cache) {
-          cache[name] = view;
+          cache2[name] = view;
         }
       }
       tryRender(view, renderOptions, done);
@@ -27167,12 +27167,12 @@ var require_levels = __commonJS({
     function genLsCache(instance) {
       const formatter = instance[formattersSym].level;
       const { labels } = instance.levels;
-      const cache = {};
+      const cache2 = {};
       for (const label in labels) {
         const level = formatter(labels[label], Number(label));
-        cache[label] = JSON.stringify(level).slice(0, -1);
+        cache2[label] = JSON.stringify(level).slice(0, -1);
       }
-      instance[lsCacheSym] = cache;
+      instance[lsCacheSym] = cache2;
       return instance;
     }
     function isStandardLevel(level, useOnlyCustomLevels) {
@@ -44503,7 +44503,7 @@ var TypeOverrides = import_lib.default.TypeOverrides;
 var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/entity.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/entity.js
 var entityKind = /* @__PURE__ */ Symbol.for("drizzle:entityKind");
 function is(value, type) {
   if (!value || typeof value !== "object") {
@@ -44529,7 +44529,7 @@ function is(value, type) {
   return false;
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/logger.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/logger.js
 var ConsoleLogWriter = class {
   static [entityKind] = "ConsoleLogWriter";
   write(message) {
@@ -44560,7 +44560,7 @@ var NoopLogger = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/query-promise.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/query-promise.js
 var QueryPromise = class {
   static [entityKind] = "QueryPromise";
   [Symbol.toStringTag] = "QueryPromise";
@@ -44584,7 +44584,7 @@ var QueryPromise = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/column.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/column.js
 var Column = class {
   constructor(table, config) {
     this.table = table;
@@ -44635,7 +44635,7 @@ var Column = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/column-builder.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/column-builder.js
 var ColumnBuilder = class {
   static [entityKind] = "ColumnBuilder";
   config;
@@ -44738,10 +44738,10 @@ var ColumnBuilder = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/table.utils.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/table.utils.js
 var TableName = /* @__PURE__ */ Symbol.for("drizzle:Name");
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/foreign-keys.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/foreign-keys.js
 var ForeignKeyBuilder = class {
   static [entityKind] = "PgForeignKeyBuilder";
   /** @internal */
@@ -44798,12 +44798,12 @@ var ForeignKey = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/tracing-utils.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/tracing-utils.js
 function iife(fn, ...args) {
   return fn(...args);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/unique-constraint.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/unique-constraint.js
 function uniqueKeyName(table, columns) {
   return `${table[TableName]}_${columns.join("_")}_unique`;
 }
@@ -44853,7 +44853,7 @@ var UniqueConstraint = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/utils/array.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/utils/array.js
 function parsePgArrayValue(arrayString, startFrom, inQuotes) {
   for (let i = startFrom; i < arrayString.length; i++) {
     const char2 = arrayString[i];
@@ -44929,7 +44929,7 @@ function makePgArray(array) {
   }).join(",")}}`;
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/common.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/common.js
 var PgColumnBuilder = class extends ColumnBuilder {
   foreignKeyConfigs = [];
   static [entityKind] = "PgColumnBuilder";
@@ -45113,7 +45113,7 @@ var PgArray = class _PgArray extends PgColumn {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/enum.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/enum.js
 var PgEnumObjectColumnBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgEnumObjectColumnBuilder";
   constructor(name, enumInstance) {
@@ -45171,7 +45171,7 @@ var PgEnumColumn = class extends PgColumn {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/subquery.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/subquery.js
 var Subquery = class {
   static [entityKind] = "Subquery";
   constructor(sql2, fields, alias, isWith = false, usedTables = []) {
@@ -45192,10 +45192,10 @@ var WithSubquery = class extends Subquery {
   static [entityKind] = "WithSubquery";
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/version.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/version.js
 var version = "0.45.2";
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/tracing.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/tracing.js
 var otel;
 var rawTracer;
 var tracer = {
@@ -45230,10 +45230,10 @@ var tracer = {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/view-common.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/view-common.js
 var ViewBaseConfig = /* @__PURE__ */ Symbol.for("drizzle:ViewBaseConfig");
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/table.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/table.js
 var Schema = /* @__PURE__ */ Symbol.for("drizzle:Schema");
 var Columns = /* @__PURE__ */ Symbol.for("drizzle:Columns");
 var ExtraConfigColumns = /* @__PURE__ */ Symbol.for("drizzle:ExtraConfigColumns");
@@ -45295,7 +45295,7 @@ function getTableUniqueName(table) {
   return `${table[Schema] ?? "public"}.${table[TableName]}`;
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/sql/sql.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/sql/sql.js
 var FakePrimitiveParam = class {
   static [entityKind] = "FakePrimitiveParam";
 };
@@ -45689,7 +45689,7 @@ Subquery.prototype.getSQL = function() {
   return new SQL([this]);
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/alias.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/alias.js
 var ColumnAliasProxyHandler = class {
   constructor(table) {
     this.table = table;
@@ -45785,7 +45785,7 @@ function mapColumnsInSQLToAlias(query, alias) {
   }));
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/selection-proxy.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/selection-proxy.js
 var SelectionProxyHandler = class _SelectionProxyHandler {
   static [entityKind] = "SelectionProxyHandler";
   config;
@@ -45853,7 +45853,7 @@ var SelectionProxyHandler = class _SelectionProxyHandler {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/utils.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/utils.js
 function mapResultRow(columns, row, joinsNotNullableMap) {
   const nullifyMap = {};
   const result = columns.reduce(
@@ -46004,7 +46004,7 @@ function isConfig(data) {
 }
 var textDecoder = typeof TextDecoder === "undefined" ? null : new TextDecoder();
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/int.common.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/int.common.js
 var PgIntColumnBaseBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgIntColumnBaseBuilder";
   generatedAlwaysAsIdentity(sequence) {
@@ -46043,7 +46043,7 @@ var PgIntColumnBaseBuilder = class extends PgColumnBuilder {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/bigint.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/bigint.js
 var PgBigInt53Builder = class extends PgIntColumnBaseBuilder {
   static [entityKind] = "PgBigInt53Builder";
   constructor(name) {
@@ -46097,7 +46097,7 @@ function bigint(a, b) {
   return new PgBigInt64Builder(name);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/bigserial.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/bigserial.js
 var PgBigSerial53Builder = class extends PgColumnBuilder {
   static [entityKind] = "PgBigSerial53Builder";
   constructor(name) {
@@ -46157,7 +46157,7 @@ function bigserial(a, b) {
   return new PgBigSerial64Builder(name);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/boolean.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/boolean.js
 var PgBooleanBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgBooleanBuilder";
   constructor(name) {
@@ -46178,7 +46178,7 @@ function boolean(name) {
   return new PgBooleanBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/char.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/char.js
 var PgCharBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgCharBuilder";
   constructor(name, config) {
@@ -46207,7 +46207,7 @@ function char(a, b = {}) {
   return new PgCharBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/cidr.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/cidr.js
 var PgCidrBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgCidrBuilder";
   constructor(name) {
@@ -46228,7 +46228,7 @@ function cidr(name) {
   return new PgCidrBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/custom.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/custom.js
 var PgCustomColumnBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgCustomColumnBuilder";
   constructor(name, fieldConfig, customTypeParams) {
@@ -46272,7 +46272,7 @@ function customType(customTypeParams) {
   };
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/date.common.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/date.common.js
 var PgDateColumnBaseBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgDateColumnBaseBuilder";
   defaultNow() {
@@ -46280,7 +46280,7 @@ var PgDateColumnBaseBuilder = class extends PgColumnBuilder {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/date.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/date.js
 var PgDateBuilder = class extends PgDateColumnBaseBuilder {
   static [entityKind] = "PgDateBuilder";
   constructor(name) {
@@ -46335,7 +46335,7 @@ function date(a, b) {
   return new PgDateStringBuilder(name);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/double-precision.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/double-precision.js
 var PgDoublePrecisionBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgDoublePrecisionBuilder";
   constructor(name) {
@@ -46365,7 +46365,7 @@ function doublePrecision(name) {
   return new PgDoublePrecisionBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/inet.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/inet.js
 var PgInetBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgInetBuilder";
   constructor(name) {
@@ -46386,7 +46386,7 @@ function inet(name) {
   return new PgInetBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/integer.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/integer.js
 var PgIntegerBuilder = class extends PgIntColumnBaseBuilder {
   static [entityKind] = "PgIntegerBuilder";
   constructor(name) {
@@ -46413,7 +46413,7 @@ function integer(name) {
   return new PgIntegerBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/interval.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/interval.js
 var PgIntervalBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgIntervalBuilder";
   constructor(name, intervalConfig) {
@@ -46440,7 +46440,7 @@ function interval(a, b = {}) {
   return new PgIntervalBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/json.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/json.js
 var PgJsonBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgJsonBuilder";
   constructor(name) {
@@ -46477,7 +46477,7 @@ function json(name) {
   return new PgJsonBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/jsonb.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/jsonb.js
 var PgJsonbBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgJsonbBuilder";
   constructor(name) {
@@ -46514,7 +46514,7 @@ function jsonb(name) {
   return new PgJsonbBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/line.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/line.js
 var PgLineBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgLineBuilder";
   constructor(name) {
@@ -46575,7 +46575,7 @@ function line(a, b) {
   return new PgLineABCBuilder(name);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/macaddr.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/macaddr.js
 var PgMacaddrBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgMacaddrBuilder";
   constructor(name) {
@@ -46596,7 +46596,7 @@ function macaddr(name) {
   return new PgMacaddrBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/macaddr8.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/macaddr8.js
 var PgMacaddr8Builder = class extends PgColumnBuilder {
   static [entityKind] = "PgMacaddr8Builder";
   constructor(name) {
@@ -46617,7 +46617,7 @@ function macaddr8(name) {
   return new PgMacaddr8Builder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/numeric.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/numeric.js
 var PgNumericBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgNumericBuilder";
   constructor(name, precision, scale) {
@@ -46734,7 +46734,7 @@ function numeric(a, b) {
   return mode === "number" ? new PgNumericNumberBuilder(name, config?.precision, config?.scale) : mode === "bigint" ? new PgNumericBigIntBuilder(name, config?.precision, config?.scale) : new PgNumericBuilder(name, config?.precision, config?.scale);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/point.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/point.js
 var PgPointTupleBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgPointTupleBuilder";
   constructor(name) {
@@ -46801,7 +46801,7 @@ function point(a, b) {
   return new PgPointObjectBuilder(name);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/postgis_extension/utils.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/postgis_extension/utils.js
 function hexToBytes(hex) {
   const bytes = [];
   for (let c = 0; c < hex.length; c += 2) {
@@ -46840,7 +46840,7 @@ function parseEWKB(hex) {
   throw new Error("Unsupported geometry type");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/postgis_extension/geometry.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/postgis_extension/geometry.js
 var PgGeometryBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgGeometryBuilder";
   constructor(name) {
@@ -46900,7 +46900,7 @@ function geometry(a, b) {
   return new PgGeometryObjectBuilder(name);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/real.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/real.js
 var PgRealBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgRealBuilder";
   constructor(name, length) {
@@ -46931,7 +46931,7 @@ function real(name) {
   return new PgRealBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/serial.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/serial.js
 var PgSerialBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgSerialBuilder";
   constructor(name) {
@@ -46954,7 +46954,7 @@ function serial(name) {
   return new PgSerialBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/smallint.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/smallint.js
 var PgSmallIntBuilder = class extends PgIntColumnBaseBuilder {
   static [entityKind] = "PgSmallIntBuilder";
   constructor(name) {
@@ -46981,7 +46981,7 @@ function smallint(name) {
   return new PgSmallIntBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/smallserial.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/smallserial.js
 var PgSmallSerialBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgSmallSerialBuilder";
   constructor(name) {
@@ -47007,7 +47007,7 @@ function smallserial(name) {
   return new PgSmallSerialBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/text.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/text.js
 var PgTextBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgTextBuilder";
   constructor(name, config) {
@@ -47031,7 +47031,7 @@ function text(a, b = {}) {
   return new PgTextBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/time.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/time.js
 var PgTimeBuilder = class extends PgDateColumnBaseBuilder {
   constructor(name, withTimezone, precision) {
     super(name, "string", "PgTime");
@@ -47065,7 +47065,7 @@ function time(a, b = {}) {
   return new PgTimeBuilder(name, config.withTimezone ?? false, config.precision);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/timestamp.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/timestamp.js
 var PgTimestampBuilder = class extends PgDateColumnBaseBuilder {
   static [entityKind] = "PgTimestampBuilder";
   constructor(name, withTimezone, precision) {
@@ -47146,7 +47146,7 @@ function timestamp(a, b = {}) {
   return new PgTimestampBuilder(name, config?.withTimezone ?? false, config?.precision);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/uuid.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/uuid.js
 var PgUUIDBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgUUIDBuilder";
   constructor(name) {
@@ -47173,7 +47173,7 @@ function uuid(name) {
   return new PgUUIDBuilder(name ?? "");
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/varchar.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/varchar.js
 var PgVarcharBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgVarcharBuilder";
   constructor(name, config) {
@@ -47202,7 +47202,7 @@ function varchar(a, b = {}) {
   return new PgVarcharBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/bit.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/bit.js
 var PgBinaryVectorBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgBinaryVectorBuilder";
   constructor(name, config) {
@@ -47229,7 +47229,7 @@ function bit(a, b) {
   return new PgBinaryVectorBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/halfvec.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/halfvec.js
 var PgHalfVectorBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgHalfVectorBuilder";
   constructor(name, config) {
@@ -47262,7 +47262,7 @@ function halfvec(a, b) {
   return new PgHalfVectorBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/sparsevec.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/sparsevec.js
 var PgSparseVectorBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgSparseVectorBuilder";
   constructor(name, config) {
@@ -47289,7 +47289,7 @@ function sparsevec(a, b) {
   return new PgSparseVectorBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/vector.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/vector_extension/vector.js
 var PgVectorBuilder = class extends PgColumnBuilder {
   static [entityKind] = "PgVectorBuilder";
   constructor(name, config) {
@@ -47322,7 +47322,7 @@ function vector(a, b) {
   return new PgVectorBuilder(name, config);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/all.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/columns/all.js
 function getPgColumnBuilders() {
   return {
     bigint,
@@ -47360,7 +47360,7 @@ function getPgColumnBuilders() {
   };
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/table.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/table.js
 var InlineForeignKeys = /* @__PURE__ */ Symbol.for("drizzle:PgInlineForeignKeys");
 var EnableRLS = /* @__PURE__ */ Symbol.for("drizzle:EnableRLS");
 var PgTable = class extends Table {
@@ -47416,7 +47416,7 @@ var pgTable = (name, columns, extraConfig) => {
   return pgTableWithSchema(name, columns, extraConfig, void 0);
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/indexes.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/indexes.js
 var IndexBuilderOn = class {
   constructor(unique, name) {
     this.unique = unique;
@@ -47525,7 +47525,7 @@ function index(name) {
   return new IndexBuilderOn(false, name);
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/primary-keys.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/primary-keys.js
 function primaryKey(...config) {
   if (config[0].columns) {
     return new PrimaryKeyBuilder(config[0].columns, config[0].name);
@@ -47561,7 +47561,7 @@ var PrimaryKey = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/casing.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/casing.js
 function toSnakeCase(input) {
   const words = input.replace(/['\u2019]/g, "").match(/[\da-z]+|[A-Z]+(?![a-z])|[A-Z][\da-z]+/g) ?? [];
   return words.map((word) => word.toLowerCase()).join("_");
@@ -47613,7 +47613,7 @@ var CasingCache = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/errors.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/errors.js
 var DrizzleError = class extends Error {
   static [entityKind] = "DrizzleError";
   constructor({ message, cause }) {
@@ -47640,7 +47640,7 @@ var TransactionRollbackError = class extends DrizzleError {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/sql/expressions/conditions.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/sql/expressions/conditions.js
 function bindIfParam(value, column) {
   if (isDriverValueEncoder(column) && !isSQLWrapper(value) && !is(value, Param) && !is(value, Placeholder) && !is(value, Column) && !is(value, Table) && !is(value, View)) {
     return new Param(value, column);
@@ -47755,7 +47755,7 @@ function notIlike(column, value) {
   return sql`${column} not ilike ${value}`;
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/sql/expressions/select.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/sql/expressions/select.js
 function asc(column) {
   return sql`${column} asc`;
 }
@@ -47763,7 +47763,7 @@ function desc(column) {
   return sql`${column} desc`;
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/relations.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/relations.js
 var Relation = class {
   constructor(sourceTable, referencedTable, relationName) {
     this.sourceTable = sourceTable;
@@ -48024,12 +48024,12 @@ function mapRelationalRow(tablesConfig, tableConfig, row, buildQueryResultSelect
   return result;
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/view-base.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/view-base.js
 var PgViewBase = class extends View {
   static [entityKind] = "PgViewBase";
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/dialect.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/dialect.js
 var PgDialect = class {
   static [entityKind] = "PgDialect";
   /** @internal */
@@ -49134,7 +49134,7 @@ var PgDialect = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/query-builders/query-builder.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/query-builders/query-builder.js
 var TypedQueryBuilder = class {
   static [entityKind] = "TypedQueryBuilder";
   /** @internal */
@@ -49143,7 +49143,7 @@ var TypedQueryBuilder = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/select.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/select.js
 var PgSelectBuilder = class {
   static [entityKind] = "PgSelectBuilder";
   fields;
@@ -49959,7 +49959,7 @@ var intersectAll = createSetOperator("intersect", true);
 var except = createSetOperator("except", false);
 var exceptAll = createSetOperator("except", true);
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/query-builder.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/query-builder.js
 var QueryBuilder = class {
   static [entityKind] = "PgQueryBuilder";
   dialect;
@@ -50046,7 +50046,7 @@ var QueryBuilder = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/utils.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/utils.js
 function extractUsedTable(table) {
   if (is(table, PgTable)) {
     return [table[Schema] ? `${table[Schema]}.${table[Table.Symbol.BaseName]}` : table[Table.Symbol.BaseName]];
@@ -50060,7 +50060,7 @@ function extractUsedTable(table) {
   return [];
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/delete.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/delete.js
 var PgDeleteBase = class extends QueryPromise {
   constructor(table, session, dialect, withList) {
     super();
@@ -50156,7 +50156,7 @@ var PgDeleteBase = class extends QueryPromise {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/insert.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/insert.js
 var PgInsertBuilder = class {
   constructor(table, session, dialect, withList, overridingSystemValue_) {
     this.table = table;
@@ -50349,7 +50349,7 @@ var PgInsertBase = class extends QueryPromise {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/refresh-materialized-view.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/refresh-materialized-view.js
 var PgRefreshMaterializedView = class extends QueryPromise {
   constructor(view, session, dialect) {
     super();
@@ -50403,7 +50403,7 @@ var PgRefreshMaterializedView = class extends QueryPromise {
   };
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/update.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/update.js
 var PgUpdateBuilder = class {
   constructor(table, session, dialect, withList) {
     this.table = table;
@@ -50615,7 +50615,7 @@ var PgUpdateBase = class extends QueryPromise {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/count.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/count.js
 var PgCountBuilder = class _PgCountBuilder extends SQL {
   constructor(params) {
     super(_PgCountBuilder.buildEmbeddedCount(params.source, params.filters).queryChunks);
@@ -50666,7 +50666,7 @@ var PgCountBuilder = class _PgCountBuilder extends SQL {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/query.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/query.js
 var RelationalQueryBuilder = class {
   constructor(fullSchema, schema, tableNamesMap, table, tableConfig, dialect, session) {
     this.fullSchema = fullSchema;
@@ -50779,7 +50779,7 @@ var PgRelationalQuery = class extends QueryPromise {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/raw.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/query-builders/raw.js
 var PgRaw = class extends QueryPromise {
   constructor(execute, sql2, query, mapBatchResult) {
     super();
@@ -50808,7 +50808,7 @@ var PgRaw = class extends QueryPromise {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/db.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/db.js
 var PgDatabase = class {
   constructor(dialect, session, schema) {
     this.dialect = dialect;
@@ -51087,7 +51087,7 @@ var PgDatabase = class {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/cache/core/cache.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/cache/core/cache.js
 var Cache = class {
   static [entityKind] = "Cache";
 };
@@ -51114,14 +51114,14 @@ async function hashQuery(sql2, params) {
   return hashHex;
 }
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/session.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/pg-core/session.js
 var PgPreparedQuery = class {
-  constructor(query, cache, queryMetadata, cacheConfig) {
+  constructor(query, cache2, queryMetadata, cacheConfig) {
     this.query = query;
-    this.cache = cache;
+    this.cache = cache2;
     this.queryMetadata = queryMetadata;
     this.cacheConfig = cacheConfig;
-    if (cache && cache.strategy() === "all" && cacheConfig === void 0) {
+    if (cache2 && cache2.strategy() === "all" && cacheConfig === void 0) {
       this.cacheConfig = { enable: true, autoInvalidate: true };
     }
     if (!this.cacheConfig?.enable) {
@@ -51274,11 +51274,11 @@ var PgTransaction = class extends PgDatabase {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/node-postgres/session.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/node-postgres/session.js
 var { Pool: Pool2, types: types2 } = esm_default;
 var NodePgPreparedQuery = class extends PgPreparedQuery {
-  constructor(client, queryString, params, logger3, cache, queryMetadata, cacheConfig, fields, name, _isResponseInArrayMode, customResultMapper) {
-    super({ sql: queryString, params }, cache, queryMetadata, cacheConfig);
+  constructor(client, queryString, params, logger3, cache2, queryMetadata, cacheConfig, fields, name, _isResponseInArrayMode, customResultMapper) {
+    super({ sql: queryString, params }, cache2, queryMetadata, cacheConfig);
     this.client = client;
     this.queryString = queryString;
     this.params = params;
@@ -51490,7 +51490,7 @@ var NodePgTransaction = class _NodePgTransaction extends PgTransaction {
   }
 };
 
-// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/node-postgres/driver.js
+// ../../node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_@types+pg@8.20.0_pg@8.22.0/node_modules/drizzle-orm/node-postgres/driver.js
 var NodePgDriver = class {
   constructor(client, dialect, options = {}) {
     this.client = client;
@@ -58535,7 +58535,7 @@ var waitlistLimiter = rate_limit_default({
   }
 });
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/underscore.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/underscore.mjs
 function snakeToCamel(str2) {
   return str2 ? str2.replace(/([-_][a-z])/g, (match2) => match2.toUpperCase().replace(/-|_/, "")) : "";
 }
@@ -58578,7 +58578,7 @@ function isTruthy(value) {
   return false;
 }
 
-// ../../node_modules/.pnpm/@clerk+express@2.1.77_express@5.2.1/node_modules/@clerk/express/dist/utils-CvHFXZw4.mjs
+// ../../node_modules/.pnpm/@clerk+express@2.1.47_express@5.2.1/node_modules/@clerk/express/dist/utils-DGuD2i81.mjs
 import { Readable } from "stream";
 var clerkAuthBrand = /* @__PURE__ */ Symbol.for("@clerk/express.auth");
 var brandRequestAuth = (authHandler) => Object.assign(authHandler, { [clerkAuthBrand]: true });
@@ -58609,7 +58609,7 @@ var loadApiEnv = () => {
     jwtKey: process.env.CLERK_JWT_KEY || "",
     sdkMetadata: {
       name: "@clerk/express",
-      version: "2.1.77",
+      version: "2.1.47",
       environment: process.env.NODE_ENV
     },
     telemetry: {
@@ -58648,7 +58648,7 @@ var requestToProxyRequest = (req) => {
   });
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/runtimeEnvironment-CTVGzENl.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/runtimeEnvironment-CTVGzENl.mjs
 var automatedEnvironmentVariables = [
   "CI",
   "CONTINUOUS_INTEGRATION",
@@ -58682,7 +58682,7 @@ var isProductionEnvironment = () => {
   return false;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/deprecated.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/deprecated.mjs
 var displayedWarnings = /* @__PURE__ */ new Set();
 var deprecated = (fnName, warning, key) => {
   const hideWarning = isTestEnvironment() || isProductionEnvironment();
@@ -58693,7 +58693,7 @@ var deprecated = (fnName, warning, key) => {
 ${warning}`);
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/constants.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/constants.mjs
 var LEGACY_DEV_INSTANCE_SUFFIXES = [
   ".lcl.dev",
   ".lclstage.dev",
@@ -58727,41 +58727,21 @@ var STAGING_FAPI_URL = "https://frontend-api.clerkstage.dev";
 var PROD_FAPI_URL = "https://frontend-api.clerk.dev";
 var DEFAULT_PROXY_PATH = "/__clerk";
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/keySetupGuidance-NjzfRCzi.mjs
-var existingAppSteps = `To use an existing Clerk app, run:
-npx clerk@latest link
-npx clerk@latest env pull
-
-For production keys, run:
-npx clerk@latest env pull --instance prod`;
-var dashboardFallback = `Or copy keys from https://dashboard.clerk.com/~/api-keys into your .env file.`;
-var keySetupGuidance = `To create a new Clerk app, run:
-npx clerk@latest init
-
-'npx clerk@latest init' does not need a Clerk account and writes temporary dev keys.
-
-${existingAppSteps}
-
-${dashboardFallback}`;
-var existingAppKeyGuidance = `${existingAppSteps}
-
-${dashboardFallback}`;
-
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicAtob.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicAtob.mjs
 var isomorphicAtob = (data) => {
   if (typeof atob !== "undefined" && typeof atob === "function") return atob(data);
   else if (typeof globalThis.Buffer !== "undefined") return globalThis.Buffer.from(data, "base64").toString();
   return data;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicBtoa.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/isomorphicBtoa.mjs
 var isomorphicBtoa = (data) => {
   if (typeof btoa !== "undefined" && typeof btoa === "function") return btoa(data);
   else if (typeof globalThis.Buffer !== "undefined") return globalThis.Buffer.from(data).toString("base64");
   return data;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/keys.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/keys.mjs
 var PUBLISHABLE_KEY_LIVE_PREFIX = "pk_live_";
 var PUBLISHABLE_KEY_TEST_PREFIX = "pk_test_";
 function isValidDecodedPublishableKey(decoded) {
@@ -58773,12 +58753,8 @@ function isValidDecodedPublishableKey(decoded) {
 function parsePublishableKey(key, options = {}) {
   key = key || "";
   if (!key || !isPublishableKey(key)) {
-    if (options.fatal && !key) throw new Error(`Publishable key is missing.
-
-${keySetupGuidance}`);
-    if (options.fatal && !isPublishableKey(key)) throw new Error(`Publishable key not valid (expected format: pk_test_... or pk_live_...).
-
-${keySetupGuidance}`);
+    if (options.fatal && !key) throw new Error("Publishable key is missing. Ensure that your publishable key is correctly configured. Double-check your environment configuration for your keys, or access them here: https://dashboard.clerk.com/last-active?path=api-keys");
+    if (options.fatal && !isPublishableKey(key)) throw new Error("Publishable key not valid.");
     return null;
   }
   const instanceType = key.startsWith(PUBLISHABLE_KEY_LIVE_PREFIX) ? "production" : "development";
@@ -58786,15 +58762,11 @@ ${keySetupGuidance}`);
   try {
     decodedFrontendApi = isomorphicAtob(key.split("_")[2]);
   } catch {
-    if (options.fatal) throw new Error(`Publishable key not valid: Failed to decode key.
-
-${keySetupGuidance}`);
+    if (options.fatal) throw new Error("Publishable key not valid: Failed to decode key.");
     return null;
   }
   if (!isValidDecodedPublishableKey(decodedFrontendApi)) {
-    if (options.fatal) throw new Error(`Publishable key not valid: Decoded key has invalid format.
-
-${keySetupGuidance}`);
+    if (options.fatal) throw new Error("Publishable key not valid: Decoded key has invalid format.");
     return null;
   }
   let frontendApi = decodedFrontendApi.slice(0, -1);
@@ -58853,7 +58825,7 @@ var getSuffixedCookieName = (cookieName, cookieSuffix) => {
   return `${cookieName}_${cookieSuffix}`;
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/retry.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/retry.mjs
 var defaultOptions = {
   initialDelay: 125,
   maxDelayBetweenRetries: 0,
@@ -58904,7 +58876,7 @@ var retry = async (callback, options = {}) => {
   }
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/url.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/url.mjs
 function isLegacyDevAccountPortalOrigin(host) {
   return LEGACY_DEV_INSTANCE_SUFFIXES.some((legacyDevSuffix) => {
     return host.startsWith("accounts.") && host.endsWith(legacyDevSuffix);
@@ -58915,20 +58887,8 @@ function isCurrentDevAccountPortalOrigin(host) {
     return host.endsWith(currentDevSuffix) && !host.endsWith(".clerk" + currentDevSuffix);
   });
 }
-var createDynamicParamParser = ({ regex }) => ({ urlWithParam, entity }) => {
-  const match2 = regex.exec(urlWithParam);
-  if (match2) {
-    const key = match2[1];
-    if (key in entity) {
-      const value = entity[key];
-      return urlWithParam.replace(match2[0], value);
-    }
-  }
-  return urlWithParam;
-};
-var populateParamFromObject = createDynamicParamParser({ regex: /:(\w+)/ });
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/clerkRuntimeError-DlesLWqO.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/clerkRuntimeError-DlesLWqO.mjs
 function createErrorTypeGuard(ErrorClass) {
   function typeGuard(error) {
     const target = error ?? this;
@@ -58993,7 +58953,7 @@ var ClerkRuntimeError = class ClerkRuntimeError2 extends ClerkError {
 };
 var isClerkRuntimeError = createErrorTypeGuard(ClerkRuntimeError);
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/error-DXioMHds.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/error-uYOdvTDm.mjs
 var ClerkAPIError = class {
   static kind = "ClerkAPIError";
   code;
@@ -59014,14 +58974,7 @@ var ClerkAPIError = class {
         plan: json2.meta?.plan,
         isPlanUpgradePossible: json2.meta?.is_plan_upgrade_possible,
         seatsQuantityToAdd: json2.meta?.seats_quantity_to_add,
-        seatsQuantity: json2.meta?.seats_quantity,
-        traceId: json2.meta?.trace_id,
-        kind: json2.meta?.kind,
-        title: json2.meta?.title,
-        description: json2.meta?.description,
-        linkUrl: json2.meta?.link_url,
-        linkText: json2.meta?.link_text,
-        data: json2.meta?.data
+        seatsQuantity: json2.meta?.seats_quantity
       }
     };
     this.code = parsedError.code;
@@ -59069,15 +59022,9 @@ Clerk Trace ID: ${this.clerkTraceId}`;
 var isClerkAPIResponseError = createErrorTypeGuard(ClerkAPIResponseError);
 var DefaultMessages = Object.freeze({
   InvalidProxyUrlErrorMessage: `The proxyUrl passed to Clerk is invalid. The expected value for proxyUrl is an absolute URL or a relative path with a leading '/'. (key={{url}})`,
-  InvalidPublishableKeyErrorMessage: `The publishableKey passed to Clerk is invalid (key={{key}}, expected format: pk_test_... or pk_live_...).
-
-${keySetupGuidance}`,
-  MissingPublishableKeyErrorMessage: `Clerk keys are missing from your environment.
-
-${keySetupGuidance}`,
-  MissingSecretKeyErrorMessage: `Missing secretKey.
-
-${existingAppKeyGuidance}`,
+  InvalidPublishableKeyErrorMessage: `The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key={{key}})`,
+  MissingPublishableKeyErrorMessage: `Missing publishableKey. You can get your key at https://dashboard.clerk.com/last-active?path=api-keys.`,
+  MissingSecretKeyErrorMessage: `Missing secretKey. You can get your key at https://dashboard.clerk.com/last-active?path=api-keys.`,
   MissingClerkProvider: `{{source}} can only be used within the <ClerkProvider /> component. Learn more: https://clerk.com/docs/components/clerk-provider`
 });
 function buildErrorThrower({ packageName, customMessages }) {
@@ -59126,11 +59073,11 @@ function buildErrorThrower({ packageName, customMessages }) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
 var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
 var { isDevOrStagingUrl } = createDevOrStagingUrlCache();
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-RZ7A7F6X.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-RZ7A7F6X.mjs
 var TokenVerificationErrorCode = {
   InvalidSecretKey: "clerk_key_invalid"
 };
@@ -59203,10 +59150,10 @@ var _MachineTokenVerificationError = class _MachineTokenVerificationError2 exten
 _MachineTokenVerificationError.kind = "MachineTokenVerificationError";
 var MachineTokenVerificationError = _MachineTokenVerificationError;
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/runtime/node/crypto.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/runtime/node/crypto.mjs
 import { webcrypto } from "node:crypto";
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-OBKCLPTQ.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-7MALS3EJ.mjs
 var globalFetch = fetch.bind(globalThis);
 var runtime = {
   crypto: webcrypto,
@@ -59347,27 +59294,6 @@ var assertAudienceClaim = (aud, audience) => {
         )}".`
       });
     }
-  }
-};
-var assertOAuthAudienceClaim = (aud, audience) => {
-  const audienceList = [audience].flat().filter((a) => !!a);
-  if (audienceList.length === 0) {
-    return;
-  }
-  const audFromToken = aud ? [aud].flat() : void 0;
-  if (!isArrayString(audFromToken) || audFromToken.some((a) => a.length === 0)) {
-    throw new TokenVerificationError({
-      reason: TokenVerificationErrorReason.TokenVerificationFailed,
-      message: `Invalid OAuth audience claim (aud) ${JSON.stringify(aud)}. Expected a non-empty string or a non-empty array of non-empty strings.`
-    });
-  }
-  if (!audFromToken.some((a) => audienceList.includes(a))) {
-    throw new TokenVerificationError({
-      reason: TokenVerificationErrorReason.TokenVerificationFailed,
-      message: `OAuth audience mismatch. Verification expected audience ${JSON.stringify(
-        audienceList
-      )}, but incoming token has aud ${JSON.stringify(aud)}.`
-    });
   }
 };
 var assertHeaderType = (typ, allowedTypes) => {
@@ -59534,21 +59460,9 @@ function decodeJwt(token2) {
   }
   const [rawHeader, rawPayload, rawSignature] = tokenParts;
   const decoder = new TextDecoder();
-  let header, payload, signature;
-  try {
-    header = JSON.parse(decoder.decode(base64url.parse(rawHeader, { loose: true })));
-    payload = JSON.parse(decoder.decode(base64url.parse(rawPayload, { loose: true })));
-    signature = base64url.parse(rawSignature, { loose: true });
-  } catch {
-    return {
-      errors: [
-        new TokenVerificationError({
-          reason: TokenVerificationErrorReason.TokenInvalid,
-          message: `Invalid JWT form. The header, payload, or signature could not be decoded.`
-        })
-      ]
-    };
-  }
+  const header = JSON.parse(decoder.decode(base64url.parse(rawHeader, { loose: true })));
+  const payload = JSON.parse(decoder.decode(base64url.parse(rawPayload, { loose: true })));
+  const signature = base64url.parse(rawSignature, { loose: true });
   const data = {
     header,
     payload,
@@ -59613,7 +59527,7 @@ async function verifyJwt(token2, options) {
   return { data: payload };
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-TOROEX6P.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-TOROEX6P.mjs
 var __create2 = Object.create;
 var __defProp2 = Object.defineProperty;
 var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
@@ -59648,13 +59562,13 @@ var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/buildAccountsBaseUrl.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/buildAccountsBaseUrl.mjs
 function buildAccountsBaseUrl(frontendApi) {
   if (!frontendApi) return "";
   return `https://${frontendApi.replace(/clerk\.accountsstage\./, "accountsstage.").replace(/clerk\.accounts\.|clerk\./, "accounts.")}`;
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/logger.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/logger.mjs
 var loggedMessages = /* @__PURE__ */ new Set();
 var logger2 = {
   /**
@@ -59673,7 +59587,7 @@ var logger2 = {
   }
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/proxy.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/proxy.mjs
 function isValidProxyUrl(key) {
   if (!key) return true;
   return isHttpOrHttps(key) || isProxyUrlRelative(key);
@@ -59712,7 +59626,7 @@ function getAutoProxyUrlFromEnvironment({ publishableKey, hasDomain = false, has
   return AUTO_PROXY_PATH;
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/authorization.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/authorization.mjs
 var TYPES_TO_OBJECTS = {
   strict_mfa: {
     afterMinutes: 10,
@@ -59882,27 +59796,7 @@ var createCheckAuthorization = (options) => {
   };
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/jwtPayloadParser.mjs
-var decimalToBinaryBits = (decimal, minimumLength) => {
-  if (!/^\d+$/.test(decimal)) return;
-  let remaining = decimal.replace(/^0+/, "") || "0";
-  const bits = [];
-  while (remaining !== "0") {
-    let quotient = "";
-    let remainder = 0;
-    for (let i = 0; i < remaining.length; i++) {
-      const value = remainder * 10 + remaining.charCodeAt(i) - 48;
-      const quotientDigit = Math.floor(value / 2);
-      if (quotient || quotientDigit !== 0) quotient += quotientDigit;
-      remainder = value % 2;
-    }
-    bits.push(remainder);
-    remaining = quotient || "0";
-  }
-  if (bits.length === 0) bits.push(0);
-  while (bits.length < minimumLength) bits.push(0);
-  return bits;
-};
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/jwtPayloadParser.mjs
 var parsePermissions = ({ per, fpm }) => {
   if (!per || !fpm) return {
     permissions: [],
@@ -59911,7 +59805,7 @@ var parsePermissions = ({ per, fpm }) => {
   const permissions = per.split(",").map((p) => p.trim());
   return {
     permissions,
-    featurePermissionMap: fpm.split(",").map((permission) => decimalToBinaryBits(permission.trim(), permissions.length) ?? [])
+    featurePermissionMap: fpm.split(",").map((permission) => Number.parseInt(permission.trim(), 10)).map((permission) => permission.toString(2).padStart(permissions.length, "0").split("").map((bit2) => Number.parseInt(bit2, 10)).reverse()).filter(Boolean)
   };
 };
 function buildOrgPermissions({ features, permissions, featurePermissionMap }) {
@@ -59922,7 +59816,7 @@ function buildOrgPermissions({ features, permissions, featurePermissionMap }) {
     if (featureIndex >= featurePermissionMap.length) continue;
     const permissionBits = featurePermissionMap[featureIndex];
     if (!permissionBits) continue;
-    for (let permIndex = 0; permIndex < permissionBits.length && permIndex < permissions.length; permIndex++) if (permissionBits[permIndex] === 1) orgPermissions.push(`org:${feature}:${permissions[permIndex]}`);
+    for (let permIndex = 0; permIndex < permissionBits.length; permIndex++) if (permissionBits[permIndex] === 1) orgPermissions.push(`org:${feature}:${permissions[permIndex]}`);
   }
   return orgPermissions;
 }
@@ -59972,7 +59866,7 @@ var __experimental_JWTPayloadToAuthObjectProperties = (claims) => {
   };
 };
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/pathToRegexp-C-7qTA7_.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/pathToRegexp-C-7qTA7_.mjs
 function _(r) {
   for (var n = [], e = 0; e < r.length; ) {
     var a = r[e];
@@ -60209,7 +60103,7 @@ ${e.message}`);
   }
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-KO7J5H4N.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-NOLGLCE3.mjs
 var require_dist5 = __commonJS2({
   "../../node_modules/.pnpm/cookie@1.1.1/node_modules/cookie/dist/index.js"(exports) {
     "use strict";
@@ -60459,7 +60353,7 @@ var require_dist5 = __commonJS2({
 });
 var API_URL = "https://api.clerk.com";
 var API_VERSION = "v1";
-var USER_AGENT = `${"@clerk/backend"}@${"3.23.1"}`;
+var USER_AGENT = `${"@clerk/backend"}@${"3.13.2"}`;
 var MAX_CACHE_LAST_UPDATED_AT_SECONDS = 5 * 60;
 var SUPPORTED_BAPI_VERSION = "2026-05-12";
 var Attributes = {
@@ -60773,9 +60667,6 @@ var AuthenticateContext = class {
     }
     const { data, errors } = decodeJwt(token2);
     if (errors) {
-      return false;
-    }
-    if (typeof data.payload.iss !== "string") {
       return false;
     }
     const tokenIssuer = data.payload.iss.replace(/https?:\/\//gi, "");
@@ -61171,24 +61062,24 @@ var DomainAPI = class extends AbstractAPI {
     });
   }
   /**
-   * Deletes a domain for the instance. The active domain cannot be deleted.
-   * @param domainId - The ID of the domain to delete.
+   * Deletes a satellite domain for the instance. It is currently not possible to delete the instance's primary domain.
+   * @param satelliteDomainId - The ID of the satellite domain to delete.
    * @returns The [`DeletedObject`](https://clerk.com/docs/reference/backend/types/deleted-object).
    */
-  async delete(domainId) {
-    return this.deleteDomain(domainId);
+  async delete(satelliteDomainId) {
+    return this.deleteDomain(satelliteDomainId);
   }
   /**
-   * Deletes a domain for the instance. The active domain cannot be deleted.
-   * @param domainId - The ID of the domain to delete.
+   * Deletes a satellite domain for the instance.
+   * @param satelliteDomainId - The ID of the satellite domain to delete.
    * @returns The [`DeletedObject`](https://clerk.com/docs/reference/backend/types/deleted-object).
    * @deprecated Use `delete()` instead.
    */
-  async deleteDomain(domainId) {
-    this.requireId(domainId);
+  async deleteDomain(satelliteDomainId) {
+    this.requireId(satelliteDomainId);
     return this.request({
       method: "DELETE",
-      path: joinPaths(basePath9, domainId)
+      path: joinPaths(basePath9, satelliteDomainId)
     });
   }
 };
@@ -61243,58 +61134,7 @@ var EmailAddressAPI = class extends AbstractAPI {
     });
   }
 };
-var Email = class _Email {
-  constructor(id, fromEmailName, emailAddressId, toEmailAddress, subject, body, bodyPlain, status, slug, data, deliveredByClerk, userId, suppressionReason) {
-    this.id = id;
-    this.fromEmailName = fromEmailName;
-    this.emailAddressId = emailAddressId;
-    this.toEmailAddress = toEmailAddress;
-    this.subject = subject;
-    this.body = body;
-    this.bodyPlain = bodyPlain;
-    this.status = status;
-    this.slug = slug;
-    this.data = data;
-    this.deliveredByClerk = deliveredByClerk;
-    this.userId = userId;
-    this.suppressionReason = suppressionReason;
-  }
-  static fromJSON(data) {
-    return new _Email(
-      data.id,
-      data.from_email_name,
-      data.email_address_id,
-      data.to_email_address,
-      data.subject,
-      data.body,
-      data.body_plain,
-      data.status,
-      data.slug,
-      data.data,
-      data.delivered_by_clerk,
-      data.user_id,
-      data.suppression_reason
-    );
-  }
-};
 var basePath11 = "/email";
-var idempotencyKeyPattern = /^[a-zA-Z0-9_-]{1,255}$/;
-function validateIdempotencyKey(idempotencyKey) {
-  if (idempotencyKey !== void 0 && (typeof idempotencyKey !== "string" || !idempotencyKeyPattern.test(idempotencyKey))) {
-    throw new Error(
-      "Idempotency key must contain only ASCII letters, digits, underscores, and hyphens and cannot exceed 255 characters."
-    );
-  }
-}
-function emailBody(params) {
-  const { to, replyTo, ...rest } = params;
-  const { userId, ...recipient } = to;
-  return {
-    ...rest,
-    to: { ...recipient, ...userId !== void 0 ? { user_id: userId } : {} },
-    ...replyTo !== void 0 ? { reply_to: replyTo } : {}
-  };
-}
 var EmailApi = class extends AbstractAPI {
   /**
    * @experimental This method calls an internal, not-yet-public endpoint and is
@@ -61302,108 +61142,18 @@ var EmailApi = class extends AbstractAPI {
    * the SDK version to avoid breaking changes.
    *
    * Sends a transactional email.
-   *
-   * @param params - The recipient, sender, subject, and content of the email.
-   * @param options - Optional request settings, including an idempotency key.
-   * @returns The stored email and its current send status.
-   * @throws If the idempotency key does not match the supported format.
-   * @example
-   * ```ts
-   * const email = await clerkClient.emails.create(
-   *   {
-   *     to: { address: 'customer@example.com' },
-   *     from: { address: 'support@example.com' },
-   *     subject: 'Your receipt',
-   *     html: '<p>Thanks for your order.</p>',
-   *   },
-   *   { idempotencyKey: 'order_123_receipt' },
-   * );
-   * ```
    */
-  async create(params, options = {}) {
-    const { idempotencyKey } = options;
-    validateIdempotencyKey(idempotencyKey);
+  async create(params) {
     return this.request({
       method: "POST",
       path: basePath11,
-      bodyParams: emailBody(params),
-      ...idempotencyKey !== void 0 ? { headerParams: { "Idempotency-Key": idempotencyKey } } : {}
-    });
-  }
-  /**
-   * @experimental Submit 1–100 emails, returning one result per input in order.
-   * Each message commits independently. Use a stable `idempotencyKey` on each
-   * item to safely retry an interrupted batch or retry through `emails.create`.
-   * Reuse a key only with identical message parameters. The SDK does not retry
-   * the batch automatically.
-   * Item errors are returned alongside successes; request-level errors throw.
-   *
-   * @param messages - The emails to send, each with an optional idempotency key.
-   * @returns One success or error result per input, in input order.
-   * @throws If the batch size or an idempotency key is invalid, or the request fails.
-   * @example
-   * ```ts
-   * const results = await clerkClient.emails.createBatch([
-   *   {
-   *     to: { address: 'customer@example.com' },
-   *     from: { address: 'support@example.com' },
-   *     subject: 'Your receipt',
-   *     text: 'Thanks for your order.',
-   *     idempotencyKey: 'order_123_receipt',
-   *   },
-   * ]);
-   * for (const result of results) {
-   *   if (result.email) {
-   *     console.log(result.index, result.email.id);
-   *   } else {
-   *     console.error(result.index, result.statusCode, result.errors);
-   *   }
-   * }
-   * ```
-   */
-  async createBatch(messages) {
-    if (messages.length < 1 || messages.length > 100) {
-      throw new Error("A batch must contain between 1 and 100 messages.");
-    }
-    for (const message of messages) {
-      validateIdempotencyKey(message.idempotencyKey);
-    }
-    const results = await this.request({
-      method: "POST",
-      path: `${basePath11}/batch`,
-      bodyParams: {
-        messages: messages.map(({ idempotencyKey, ...params }) => ({
-          ...emailBody(params),
-          ...idempotencyKey !== void 0 ? { idempotency_key: idempotencyKey } : {}
-        }))
+      bodyParams: params,
+      options: {
+        // Snakecase nested keys too, so a `to: { userId }` recipient is sent as
+        // `to: { user_id }` on the wire (the default only snakecases top-level
+        // keys, which would leave the nested `userId` untouched).
+        deepSnakecaseBodyParamKeys: true
       }
-    });
-    return results.map(
-      (result) => result.email ? { index: result.index, email: Email.fromJSON(result.email), statusCode: result.status_code } : {
-        index: result.index,
-        errors: (result.errors || []).map(parseError),
-        statusCode: result.status_code,
-        retryAfterSeconds: result.retry_after_seconds
-      }
-    );
-  }
-  /**
-   * Returns Clerk's stored send state for a transactional email. `accepted`
-   * means the provider accepted the request; it does not prove delivery.
-   *
-   * @param emailId - The ID returned when the email was created.
-   * @returns The stored email and its current send status.
-   * @throws If `emailId` is empty.
-   * @example
-   * ```ts
-   * const email = await clerkClient.emails.get('ema_123');
-   * ```
-   */
-  async get(emailId) {
-    this.requireId(emailId);
-    return this.request({
-      method: "GET",
-      path: `${basePath11}/${emailId}`
     });
   }
 };
@@ -61478,32 +61228,12 @@ var EnterpriseConnectionAPI = class extends AbstractAPI {
 };
 var basePath13 = "/oauth_applications/access_tokens";
 var IdPOAuthAccessTokenApi = class extends AbstractAPI {
-  /**
-   * Verifies an OAuth access token with the Clerk Backend API. If an audience is provided, at least one expected audience must match the token's `aud` claim. Without an audience, the SDK does not check the `aud` claim.
-   *
-   * @param accessToken - The OAuth access token to verify.
-   * @param options - Optional verification options. `audience` can be one expected audience or an array of acceptable audiences.
-   * @returns The verified `IdPOAuthAccessToken` resource, including its audience when present.
-   * @throws `ClerkAPIResponseError` if the Backend API rejects the token or request.
-   * @throws `TokenVerificationError` if an expected audience is provided but the token has no `aud` claim or none of its audiences match.
-   *
-   * @example
-   * ### Verify a token for an API
-   *
-   * ```ts
-   * const token = await clerkClient.idPOAuthAccessToken.verify(accessToken, {
-   *   audience: 'https://api.example.com',
-   * });
-   * ```
-   */
-  async verify(accessToken, options = {}) {
-    const verifiedToken = await this.request({
+  async verify(accessToken) {
+    return this.request({
       method: "POST",
       path: joinPaths(basePath13, "verify"),
       bodyParams: { access_token: accessToken }
     });
-    assertOAuthAudienceClaim(verifiedToken.aud, options.audience);
-    return verifiedToken;
   }
 };
 var basePath14 = "/instance";
@@ -61613,22 +61343,6 @@ var InvitationAPI = class extends AbstractAPI {
     return this.request({
       method: "POST",
       path: joinPaths(basePath15, invitationId, "revoke")
-    });
-  }
-  /**
-   * Permanently deletes the given invitation and the copies of the invitation email Clerk stored for its recipient.
-   *
-   * Unlike revoking, deleting removes the invitation record itself, which helps honor a data erasure request from someone who was invited but never signed up. Other records that contain the same email address, such as users or organization invitations, are not affected.
-   *
-   * Invitations of any status can be deleted.
-   * @param invitationId - The ID of the invitation to delete.
-   * @returns The [`DeletedObject`](https://clerk.com/docs/reference/backend/types/deleted-object) object.
-   */
-  async deleteInvitation(invitationId) {
-    this.requireId(invitationId);
-    return this.request({
-      method: "DELETE",
-      path: joinPaths(basePath15, invitationId)
     });
   }
 };
@@ -61752,23 +61466,8 @@ var MachineApi = class extends AbstractAPI {
     });
   }
 };
-function toActor(value, nestedLevels) {
-  if (typeof value !== "object" || value === null) {
-    return void 0;
-  }
-  const { iss, sub, act } = value;
-  if (typeof sub !== "string") {
-    return void 0;
-  }
-  const nested = nestedLevels > 0 ? toActor(act, nestedLevels - 1) : void 0;
-  return {
-    ...typeof iss === "string" ? { iss } : {},
-    sub,
-    ...nested ? { act: nested } : {}
-  };
-}
 var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
-  constructor(id, clientId, type, subject, scopes, revoked, revocationReason, expired, expiration, createdAt, updatedAt, aud, act) {
+  constructor(id, clientId, type, subject, scopes, revoked, revocationReason, expired, expiration, createdAt, updatedAt) {
     this.id = id;
     this.clientId = clientId;
     this.type = type;
@@ -61780,8 +61479,6 @@ var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
     this.expiration = expiration;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
-    this.aud = aud;
-    this.act = act;
   }
   static fromJSON(data) {
     return new _IdPOAuthAccessToken(
@@ -61795,15 +61492,12 @@ var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
       data.expired,
       data.expiration,
       data.created_at,
-      data.updated_at,
-      data.aud,
-      toActor(data.act, 1)
+      data.updated_at
     );
   }
   /**
    * Creates an IdPOAuthAccessToken from a JWT payload.
    * Maps standard JWT claims and OAuth-specific fields to token properties.
-   * The raw JWT `aud` claim can be a string, string[], or undefined. It is normalized to string[].
    */
   static fromJwtPayload(payload, clockSkewInMs = 5e3) {
     const oauthPayload = payload;
@@ -61820,10 +61514,8 @@ var IdPOAuthAccessToken = class _IdPOAuthAccessToken {
       // milliseconds: expiration, converted from JWT exp claim
       payload.iat * 1e3,
       // milliseconds: createdAt, converted from JWT iat claim
-      payload.iat * 1e3,
+      payload.iat * 1e3
       // milliseconds: updatedAt, no JWT equivalent, defaults to iat
-      oauthPayload.aud === void 0 ? void 0 : [oauthPayload.aud].flat(),
-      toActor(oauthPayload.act, 1)
     );
   }
 };
@@ -61885,29 +61577,17 @@ var M2MToken = class _M2MToken {
     );
   }
 };
-var JWT_CATEGORY_SESSION_TOKEN = "cl_B7d4PD111AAA";
-var JWT_CATEGORY_M2M_TOKEN = "cl_B7d4PD333AAA";
-var JWT_CATEGORY_IGNORE = "cl_I7d4PD111III";
-function isNonSessionJwtCategory(cat) {
-  return cat !== void 0 && cat !== JWT_CATEGORY_SESSION_TOKEN && cat !== JWT_CATEGORY_IGNORE;
+var cache = {};
+var lastUpdatedAt = 0;
+function getFromCache(kid) {
+  return cache[kid];
 }
-function hasNonSessionJwtCategory(token2) {
-  const { data, errors } = decodeJwt(token2);
-  return !errors && isNonSessionJwtCategory(data?.header?.cat);
+function getCacheValues() {
+  return Object.values(cache);
 }
-var remoteCaches = /* @__PURE__ */ new Map();
-function getRemoteCache(scope) {
-  let cache = remoteCaches.get(scope);
-  if (!cache) {
-    for (const [key, entry] of remoteCaches) {
-      if (cacheHasExpired(entry)) {
-        remoteCaches.delete(key);
-      }
-    }
-    cache = { keys: {}, lastUpdatedAt: 0 };
-    remoteCaches.set(scope, cache);
-  }
-  return cache;
+function setInCache(cacheKey, jwk, shouldExpire = true) {
+  cache[cacheKey] = jwk;
+  lastUpdatedAt = shouldExpire ? Date.now() : -1;
 }
 var PEM_HEADER = "-----BEGIN PUBLIC KEY-----";
 var PEM_TRAILER = "-----END PUBLIC KEY-----";
@@ -61915,6 +61595,11 @@ var RSA_PREFIX = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA";
 var RSA_SUFFIX = "IDAQAB";
 function loadClerkJwkFromPem(params) {
   const { kid, pem } = params;
+  const prefixedKid = `local-${kid}`;
+  const cachedJwk = getFromCache(prefixedKid);
+  if (cachedJwk) {
+    return cachedJwk;
+  }
   if (!pem) {
     throw new TokenVerificationError({
       action: TokenVerificationErrorAction.SetClerkJWTKey,
@@ -61923,13 +61608,13 @@ function loadClerkJwkFromPem(params) {
     });
   }
   const modulus = pem.replace(/\r\n|\n|\r/g, "").replace(PEM_HEADER, "").replace(PEM_TRAILER, "").replace(RSA_PREFIX, "").replace(RSA_SUFFIX, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const jwk = { kid: `local-${kid}`, kty: "RSA", alg: "RS256", n: modulus, e: "AQAB" };
+  const jwk = { kid: prefixedKid, kty: "RSA", alg: "RS256", n: modulus, e: "AQAB" };
+  setInCache(prefixedKid, jwk, false);
   return jwk;
 }
 async function loadClerkJWKFromRemote(params) {
   const { secretKey, apiUrl = API_URL, apiVersion = API_VERSION, kid, skipJwksCache } = params;
-  const cache = getRemoteCache(`${apiUrl}|${apiVersion}|${secretKey ?? ""}`);
-  if (skipJwksCache || cacheHasExpired(cache) || !cache.keys[kid]) {
+  if (skipJwksCache || cacheHasExpired() || !getFromCache(kid)) {
     if (!secretKey) {
       throw new TokenVerificationError({
         action: TokenVerificationErrorAction.ContactSupport,
@@ -61946,16 +61631,15 @@ async function loadClerkJWKFromRemote(params) {
         reason: TokenVerificationErrorReason.RemoteJWKFailedToLoad
       });
     }
-    keys.forEach((key) => {
-      cache.keys[key.kid] = key;
-    });
-    cache.lastUpdatedAt = Date.now();
+    keys.forEach((key) => setInCache(key.kid, key));
   }
-  const jwk = cache.keys[kid];
+  const jwk = getFromCache(kid);
   if (!jwk) {
+    const cacheValues = getCacheValues();
+    const jwkKeys = cacheValues.map((jwk2) => jwk2.kid).sort().join(", ");
     throw new TokenVerificationError({
       action: `Go to your Dashboard and validate your secret and public keys are correct. ${TokenVerificationErrorAction.ContactSupport} if the issue persists.`,
-      message: `Unable to find a signing key in JWKS that matches the kid='${kid}' of the provided session token. Please make sure that the __session cookie or the HTTP authorization header contain a Clerk-generated session JWT.`,
+      message: `Unable to find a signing key in JWKS that matches the kid='${kid}' of the provided session token. Please make sure that the __session cookie or the HTTP authorization header contain a Clerk-generated session JWT. The following kid is available: ${jwkKeys}`,
       reason: TokenVerificationErrorReason.JWKKidMismatch
     });
   }
@@ -61998,10 +61682,13 @@ async function fetchJWKSFromBAPI(apiUrl, key, apiVersion) {
   }
   return response.json();
 }
-function cacheHasExpired(cache) {
-  const isExpired = Date.now() - cache.lastUpdatedAt >= MAX_CACHE_LAST_UPDATED_AT_SECONDS * 1e3;
+function cacheHasExpired() {
+  if (lastUpdatedAt === -1) {
+    return false;
+  }
+  const isExpired = Date.now() - lastUpdatedAt >= MAX_CACHE_LAST_UPDATED_AT_SECONDS * 1e3;
   if (isExpired) {
-    cache.keys = {};
+    cache = {};
   }
   return isExpired;
 }
@@ -62015,6 +61702,7 @@ var M2M_TOKEN_PREFIX = "mt_";
 var M2M_SUBJECT_PREFIX = "mch_";
 var OAUTH_TOKEN_PREFIX = "oat_";
 var API_KEY_PREFIX = "ak_";
+var JWT_CATEGORY_M2M_TOKEN = "cl_B7d4PD333AAA";
 var MACHINE_TOKEN_PREFIXES = [M2M_TOKEN_PREFIX, OAUTH_TOKEN_PREFIX, API_KEY_PREFIX];
 var JwtFormatRegExp = /^[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+$/;
 function isJwtFormat(token2) {
@@ -62077,17 +61765,6 @@ var isTokenTypeAccepted = (tokenType, acceptsToken) => {
 var MACHINE_TOKEN_TYPES = /* @__PURE__ */ new Set([TokenType.ApiKey, TokenType.M2MToken, TokenType.OAuthToken]);
 function isMachineTokenType(type) {
   return MACHINE_TOKEN_TYPES.has(type);
-}
-function getOAuthAudienceVerificationError(aud, audience) {
-  try {
-    assertOAuthAudienceClaim(aud, audience);
-  } catch (error) {
-    return new MachineTokenVerificationError({
-      code: MachineTokenVerificationErrorCode.TokenVerificationFailed,
-      message: error.message
-    });
-  }
-  return void 0;
 }
 async function resolveKeyAndVerifyJwt(token2, kid, options, headerType) {
   try {
@@ -62153,18 +61830,9 @@ async function verifyM2MJwt(token2, decoded, options) {
   };
 }
 async function verifyOAuthJwt(token2, decoded, options) {
-  const { audience, ...jwtOptions } = options;
-  const result = await resolveKeyAndVerifyJwt(token2, decoded.header.kid, jwtOptions, OAUTH_ACCESS_TOKEN_TYPES);
+  const result = await resolveKeyAndVerifyJwt(token2, decoded.header.kid, options, OAUTH_ACCESS_TOKEN_TYPES);
   if ("error" in result) {
     return { data: void 0, tokenType: TokenType.OAuthToken, errors: [result.error] };
-  }
-  const audienceError = getOAuthAudienceVerificationError(result.payload.aud, audience);
-  if (audienceError) {
-    return {
-      data: void 0,
-      tokenType: TokenType.OAuthToken,
-      errors: [audienceError]
-    };
   }
   return {
     data: IdPOAuthAccessToken.fromJwtPayload(result.payload, options.clockSkewInMs),
@@ -63286,7 +62954,7 @@ var UserAPI = class extends AbstractAPI {
    *
    * Your settings in the [Clerk Dashboard](https://dashboard.clerk.com) determine how you should setup your user model. Anything **Required** will need to be provided when creating a user. Trying to add a field that isn't enabled will result in an error.
    *
-   * By default, email addresses and phone numbers created using this method are verified automatically. Use `emailAddressIdentificationStatus` and `phoneNumberIdentificationStatus` to create any of them as reserved. Reserved identifiers are unverified, but they can still be used for sign-in and cannot be claimed by another user.
+   * Any email address and phone number created using this method will be automatically verified.
    *
    * > [!CAUTION]
    * >
@@ -63482,37 +63150,6 @@ var UserAPI = class extends AbstractAPI {
       queryParams
     });
   }
-  /**
-   * Removes the password credential from the given user. This is a privileged operation and does not require the user's current password. Password removal is allowed even when the user has no other sign-in method configured.
-   *
-   * By default, existing sessions remain active. Set `signOutOfOtherSessions` to `true` to revoke sessions active when the request is processed.
-   * @param userId - The ID of the user whose password to remove.
-   * @param params - Options for the request.
-   * @returns The updated [`User`](https://clerk.com/docs/reference/backend/types/backend-user).
-   * @example
-   * ### Keep existing sessions active
-   *
-   * ```ts
-   * const user = await clerkClient.users.removePassword('user_123');
-   * ```
-   *
-   * @example
-   * ### Revoke existing sessions
-   *
-   * ```ts
-   * const user = await clerkClient.users.removePassword('user_123', {
-   *   signOutOfOtherSessions: true,
-   * });
-   * ```
-   */
-  async removePassword(userId, params = {}) {
-    this.requireId(userId);
-    return this.request({
-      method: "POST",
-      path: joinPaths(basePath33, userId, "remove_password"),
-      bodyParams: params
-    });
-  }
   /** Check that the user's password matches the supplied input. Useful for custom auth flows and re-verification. */
   async verifyPassword(params) {
     const { userId, password } = params;
@@ -63556,7 +63193,7 @@ var UserAPI = class extends AbstractAPI {
     });
   }
   /**
-   * Locks the given [`User`](https://clerk.com/docs/reference/backend/types/backend-user), which means that they are not allowed to sign in again until the lock expires or is manually unlocked. By default, lockout duration is 1 hour, but it can be configured in the application's [**System**](https://dashboard.clerk.com/~/protect/rules) settings under **Protect** > **Rules**. See the [guide on user locks](https://clerk.com/docs/guides/secure/user-lockout).
+   * Locks the given [`User`](https://clerk.com/docs/reference/backend/types/backend-user), which means that they are not allowed to sign in again until the lock expires or is manually unlocked. By default, lockout duration is 1 hour, but it can be configured in the application's [**Attack protection**](https://dashboard.clerk.com/~/protect/attack-protection) settings. See the [guide on user locks](https://clerk.com/docs/guides/secure/user-lockout).
    * @param userId - The ID of the user to lock.
    */
   async lockUser(userId) {
@@ -64263,6 +63900,38 @@ var Domain = class _Domain {
     );
   }
 };
+var Email = class _Email {
+  constructor(id, fromEmailName, emailAddressId, toEmailAddress, subject, body, bodyPlain, status, slug, data, deliveredByClerk, userId) {
+    this.id = id;
+    this.fromEmailName = fromEmailName;
+    this.emailAddressId = emailAddressId;
+    this.toEmailAddress = toEmailAddress;
+    this.subject = subject;
+    this.body = body;
+    this.bodyPlain = bodyPlain;
+    this.status = status;
+    this.slug = slug;
+    this.data = data;
+    this.deliveredByClerk = deliveredByClerk;
+    this.userId = userId;
+  }
+  static fromJSON(data) {
+    return new _Email(
+      data.id,
+      data.from_email_name,
+      data.email_address_id,
+      data.to_email_address,
+      data.subject,
+      data.body,
+      data.body_plain,
+      data.status,
+      data.slug,
+      data.data,
+      data.delivered_by_clerk,
+      data.user_id
+    );
+  }
+};
 var IdentificationLink = class _IdentificationLink {
   constructor(id, type) {
     this.id = id;
@@ -64369,89 +64038,9 @@ var BillingPlan = class _BillingPlan {
     );
   }
 };
-var billingMoneyAmountFromJSON = (amount) => ({
-  amount: amount.amount,
-  amountFormatted: amount.amount_formatted,
-  currency: amount.currency,
-  currencySymbol: amount.currency_symbol
-});
-var billingPerUnitTotalsFromJSON = (perUnitTotals) => perUnitTotals.map((perUnitTotal) => ({
-  name: perUnitTotal.name,
-  blockSize: perUnitTotal.block_size,
-  tiers: perUnitTotal.tiers.map((tier) => ({
-    quantity: tier.quantity,
-    feePerBlock: billingMoneyAmountFromJSON(tier.fee_per_block),
-    total: billingMoneyAmountFromJSON(tier.total)
-  }))
-}));
-var billingCreditsFromJSON = (credits) => ({
-  proration: credits.proration ? {
-    amount: billingMoneyAmountFromJSON(credits.proration.amount),
-    cycleDaysRemaining: credits.proration.cycle_days_remaining,
-    cycleDaysTotal: credits.proration.cycle_days_total,
-    cycleRemainingPercent: credits.proration.cycle_remaining_percent
-  } : null,
-  payer: credits.payer ? {
-    remainingBalance: billingMoneyAmountFromJSON(credits.payer.remaining_balance),
-    appliedAmount: billingMoneyAmountFromJSON(credits.payer.applied_amount)
-  } : null,
-  total: billingMoneyAmountFromJSON(credits.total)
-});
-var billingAppliedDiscountFromJSON = (discount) => ({
-  amount: billingMoneyAmountFromJSON(discount.amount),
-  discountId: discount.discount_id,
-  name: discount.name,
-  effect: discount.effect,
-  percentOff: discount.percent_off,
-  amountOff: discount.amount_off ? billingMoneyAmountFromJSON(discount.amount_off) : void 0,
-  promoCode: discount.promo_code,
-  cyclesRemaining: discount.cycles_remaining,
-  durationInCycles: discount.duration_in_cycles
-});
-var billingDiscountsFromJSON = (discounts) => ({
-  proration: discounts.proration ? {
-    amount: billingMoneyAmountFromJSON(discounts.proration.amount),
-    cycleDaysPassed: discounts.proration.cycle_days_passed,
-    cycleDaysTotal: discounts.proration.cycle_days_total,
-    cyclePassedPercent: discounts.proration.cycle_passed_percent
-  } : null,
-  discount: discounts.discount ? billingAppliedDiscountFromJSON(discounts.discount) : void 0,
-  total: billingMoneyAmountFromJSON(discounts.total)
-});
-var billingPeriodTotalsFromJSON = (totals) => ({
-  subtotal: billingMoneyAmountFromJSON(totals.subtotal),
-  baseFee: billingMoneyAmountFromJSON(totals.base_fee),
-  taxTotal: billingMoneyAmountFromJSON(totals.tax_total),
-  grandTotal: billingMoneyAmountFromJSON(totals.grand_total),
-  perUnitTotals: totals.per_unit_totals ? billingPerUnitTotalsFromJSON(totals.per_unit_totals) : void 0
-});
-var billingTotalsFromJSON = (totals) => ({
-  subtotal: billingMoneyAmountFromJSON(totals.subtotal),
-  baseFee: totals.base_fee ? billingMoneyAmountFromJSON(totals.base_fee) : null,
-  taxTotal: billingMoneyAmountFromJSON(totals.tax_total),
-  grandTotal: billingMoneyAmountFromJSON(totals.grand_total),
-  totalDueAfterFreeTrial: totals.total_due_after_free_trial ? billingMoneyAmountFromJSON(totals.total_due_after_free_trial) : totals.total_due_after_free_trial,
-  credit: totals.credit ? billingMoneyAmountFromJSON(totals.credit) : totals.credit,
-  credits: totals.credits ? billingCreditsFromJSON(totals.credits) : null,
-  discounts: totals.discounts ? billingDiscountsFromJSON(totals.discounts) : null,
-  pastDue: totals.past_due ? billingMoneyAmountFromJSON(totals.past_due) : totals.past_due,
-  totalDueNow: totals.total_due_now ? billingMoneyAmountFromJSON(totals.total_due_now) : void 0,
-  perUnitTotals: totals.per_unit_totals ? billingPerUnitTotalsFromJSON(totals.per_unit_totals) : void 0,
-  totalsDuePerPeriod: totals.totals_due_per_period ? billingPeriodTotalsFromJSON(totals.totals_due_per_period) : void 0,
-  totalDuePerPeriod: totals.total_due_per_period ? billingMoneyAmountFromJSON(totals.total_due_per_period) : void 0
-});
-var billingSubscriptionItemSeatsFromJSON = (seats) => ({
-  quantity: seats.quantity,
-  tiers: seats.tiers ? seats.tiers.map((tier) => ({
-    quantity: tier.quantity,
-    feePerBlock: billingMoneyAmountFromJSON(tier.fee_per_block),
-    total: billingMoneyAmountFromJSON(tier.total)
-  })) : void 0
-});
 var BillingSubscriptionItem = class _BillingSubscriptionItem {
-  constructor(id, instanceId, status, planPeriod, periodStart, nextPayment, amount, plan, planId, priceId, createdAt, updatedAt, periodEnd, canceledAt, pastDueAt, endedAt, payerId, isFreeTrial, lifetimePaid, seats) {
+  constructor(id, status, planPeriod, periodStart, nextPayment, amount, plan, planId, createdAt, updatedAt, periodEnd, canceledAt, pastDueAt, endedAt, payerId, isFreeTrial, lifetimePaid) {
     this.id = id;
-    this.instanceId = instanceId;
     this.status = status;
     this.planPeriod = planPeriod;
     this.periodStart = periodStart;
@@ -64459,7 +64048,6 @@ var BillingSubscriptionItem = class _BillingSubscriptionItem {
     this.amount = amount;
     this.plan = plan;
     this.planId = planId;
-    this.priceId = priceId;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.periodEnd = periodEnd;
@@ -64469,26 +64057,28 @@ var BillingSubscriptionItem = class _BillingSubscriptionItem {
     this.payerId = payerId;
     this.isFreeTrial = isFreeTrial;
     this.lifetimePaid = lifetimePaid;
-    this.seats = seats;
   }
   static fromJSON(data) {
-    const nextPayment = data.next_payment ? {
-      amount: billingMoneyAmountFromJSON(data.next_payment.amount),
-      date: data.next_payment.date,
-      perUnitTotals: data.next_payment.per_unit_totals ? billingPerUnitTotalsFromJSON(data.next_payment.per_unit_totals) : void 0,
-      totals: data.next_payment.totals ? billingTotalsFromJSON(data.next_payment.totals) : void 0
-    } : data.next_payment;
+    function formatAmountJSON(amount) {
+      if (!amount) {
+        return amount;
+      }
+      return {
+        amount: amount.amount,
+        amountFormatted: amount.amount_formatted,
+        currency: amount.currency,
+        currencySymbol: amount.currency_symbol
+      };
+    }
     return new _BillingSubscriptionItem(
       data.id,
-      data.instance_id,
       data.status,
       data.plan_period,
       data.period_start,
-      nextPayment,
-      data.amount ? billingMoneyAmountFromJSON(data.amount) : void 0,
+      data.next_payment,
+      formatAmountJSON(data.amount) ?? void 0,
       data.plan ? BillingPlan.fromJSON(data.plan) : null,
       data.plan_id ?? null,
-      data.price_id ?? null,
       data.created_at,
       data.updated_at,
       data.period_end,
@@ -64497,15 +64087,13 @@ var BillingSubscriptionItem = class _BillingSubscriptionItem {
       data.ended_at,
       data.payer_id,
       data.is_free_trial,
-      data.lifetime_paid ? billingMoneyAmountFromJSON(data.lifetime_paid) : void 0,
-      data.seats ? billingSubscriptionItemSeatsFromJSON(data.seats) : void 0
+      formatAmountJSON(data.lifetime_paid) ?? void 0
     );
   }
 };
 var BillingSubscription = class _BillingSubscription {
-  constructor(id, instanceId, status, payerId, createdAt, updatedAt, activeAt, pastDueAt, subscriptionItems, nextPayment, eligibleForFreeTrial) {
+  constructor(id, status, payerId, createdAt, updatedAt, activeAt, pastDueAt, subscriptionItems, nextPayment, eligibleForFreeTrial) {
     this.id = id;
-    this.instanceId = instanceId;
     this.status = status;
     this.payerId = payerId;
     this.createdAt = createdAt;
@@ -64519,13 +64107,15 @@ var BillingSubscription = class _BillingSubscription {
   static fromJSON(data) {
     const nextPayment = data.next_payment ? {
       date: data.next_payment.date,
-      amount: billingMoneyAmountFromJSON(data.next_payment.amount),
-      perUnitTotals: data.next_payment.per_unit_totals ? billingPerUnitTotalsFromJSON(data.next_payment.per_unit_totals) : void 0,
-      totals: data.next_payment.totals ? billingTotalsFromJSON(data.next_payment.totals) : void 0
+      amount: {
+        amount: data.next_payment.amount.amount,
+        amountFormatted: data.next_payment.amount.amount_formatted,
+        currency: data.next_payment.amount.currency,
+        currencySymbol: data.next_payment.amount.currency_symbol
+      }
     } : null;
     return new _BillingSubscription(
       data.id,
-      data.instance_id,
       data.status,
       data.payer_id,
       data.created_at,
@@ -64606,45 +64196,8 @@ var EnterpriseAccount = class _EnterpriseAccount {
     );
   }
 };
-var SamlConnectionIdpCertificate = class _SamlConnectionIdpCertificate {
-  constructor(certificate, issuedAt, expiresAt) {
-    this.certificate = certificate;
-    this.issuedAt = issuedAt;
-    this.expiresAt = expiresAt;
-  }
-  static fromJSON(data) {
-    return new _SamlConnectionIdpCertificate(data.certificate, data.issued_at, data.expires_at);
-  }
-};
-var EnterpriseConnectionSamlConnectionLoginHint = class _EnterpriseConnectionSamlConnectionLoginHint {
-  constructor(mode, source) {
-    this.mode = mode;
-    this.source = source;
-  }
-  static fromJSON(data) {
-    return new _EnterpriseConnectionSamlConnectionLoginHint(data.mode, data.source);
-  }
-};
-var EnterpriseConnectionCustomAttribute = class _EnterpriseConnectionCustomAttribute {
-  constructor(name, key, ssoPath, scimPath, multiValued) {
-    this.name = name;
-    this.key = key;
-    this.ssoPath = ssoPath;
-    this.scimPath = scimPath;
-    this.multiValued = multiValued;
-  }
-  static fromJSON(data) {
-    return new _EnterpriseConnectionCustomAttribute(
-      data.name,
-      data.key,
-      data.sso_path,
-      data.scim_path,
-      data.multi_valued
-    );
-  }
-};
 var EnterpriseConnectionSamlConnection = class _EnterpriseConnectionSamlConnection {
-  constructor(id, name, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, syncUserAttributes, allowSubdomains, allowIdpInitiated, active, forceAuthn, loginHint, idpCertificates) {
+  constructor(id, name, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, syncUserAttributes, allowSubdomains, allowIdpInitiated) {
     this.id = id;
     this.name = name;
     this.idpEntityId = idpEntityId;
@@ -64660,10 +64213,6 @@ var EnterpriseConnectionSamlConnection = class _EnterpriseConnectionSamlConnecti
     this.syncUserAttributes = syncUserAttributes;
     this.allowSubdomains = allowSubdomains;
     this.allowIdpInitiated = allowIdpInitiated;
-    this.active = active;
-    this.forceAuthn = forceAuthn;
-    this.loginHint = loginHint;
-    this.idpCertificates = idpCertificates;
   }
   static fromJSON(data) {
     return new _EnterpriseConnectionSamlConnection(
@@ -64681,16 +64230,12 @@ var EnterpriseConnectionSamlConnection = class _EnterpriseConnectionSamlConnecti
       data.sp_metadata_url,
       data.sync_user_attributes,
       data.allow_subdomains,
-      data.allow_idp_initiated,
-      data.active,
-      data.force_authn,
-      EnterpriseConnectionSamlConnectionLoginHint.fromJSON(data.login_hint),
-      (data.idp_certificates ?? []).map((certificate) => SamlConnectionIdpCertificate.fromJSON(certificate))
+      data.allow_idp_initiated
     );
   }
 };
 var EnterpriseConnectionOauthConfig = class _EnterpriseConnectionOauthConfig {
-  constructor(id, name, clientId, discoveryUrl, logoPublicUrl, createdAt, updatedAt, providerKey, authUrl, tokenUrl, userInfoUrl, requiresPkce) {
+  constructor(id, name, clientId, discoveryUrl, logoPublicUrl, createdAt, updatedAt) {
     this.id = id;
     this.name = name;
     this.clientId = clientId;
@@ -64698,11 +64243,6 @@ var EnterpriseConnectionOauthConfig = class _EnterpriseConnectionOauthConfig {
     this.logoPublicUrl = logoPublicUrl;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
-    this.providerKey = providerKey;
-    this.authUrl = authUrl;
-    this.tokenUrl = tokenUrl;
-    this.userInfoUrl = userInfoUrl;
-    this.requiresPkce = requiresPkce;
   }
   static fromJSON(data) {
     return new _EnterpriseConnectionOauthConfig(
@@ -64712,17 +64252,12 @@ var EnterpriseConnectionOauthConfig = class _EnterpriseConnectionOauthConfig {
       data.discovery_url,
       data.logo_public_url,
       data.created_at,
-      data.updated_at,
-      data.provider_key,
-      data.auth_url,
-      data.token_url,
-      data.user_info_url,
-      data.requires_pkce
+      data.updated_at
     );
   }
 };
 var EnterpriseConnection = class _EnterpriseConnection {
-  constructor(id, name, domains, organizationId, active, syncUserAttributes, allowSubdomains, disableAdditionalIdentifications, createdAt, updatedAt, samlConnection, oauthConfig, provider, logoPublicUrl, allowOrganizationAccountLinking, authenticatable, disableJitProvisioning, customAttributes) {
+  constructor(id, name, domains, organizationId, active, syncUserAttributes, allowSubdomains, disableAdditionalIdentifications, createdAt, updatedAt, samlConnection, oauthConfig) {
     this.id = id;
     this.name = name;
     this.domains = domains;
@@ -64735,19 +64270,13 @@ var EnterpriseConnection = class _EnterpriseConnection {
     this.updatedAt = updatedAt;
     this.samlConnection = samlConnection;
     this.oauthConfig = oauthConfig;
-    this.provider = provider;
-    this.logoPublicUrl = logoPublicUrl;
-    this.allowOrganizationAccountLinking = allowOrganizationAccountLinking;
-    this.authenticatable = authenticatable;
-    this.disableJitProvisioning = disableJitProvisioning;
-    this.customAttributes = customAttributes;
   }
   static fromJSON(data) {
     return new _EnterpriseConnection(
       data.id,
       data.name,
       data.domains,
-      data.organization_id ?? null,
+      data.organization_id,
       data.active,
       data.sync_user_attributes,
       data.allow_subdomains,
@@ -64755,13 +64284,7 @@ var EnterpriseConnection = class _EnterpriseConnection {
       data.created_at,
       data.updated_at,
       data.saml_connection != null ? EnterpriseConnectionSamlConnection.fromJSON(data.saml_connection) : null,
-      data.oauth_config != null ? EnterpriseConnectionOauthConfig.fromJSON(data.oauth_config) : null,
-      data.provider,
-      data.logo_public_url,
-      data.allow_organization_account_linking,
-      data.authenticatable,
-      data.disable_jit_provisioning,
-      data.custom_attributes?.map((attr) => EnterpriseConnectionCustomAttribute.fromJSON(attr))
+      data.oauth_config != null ? EnterpriseConnectionOauthConfig.fromJSON(data.oauth_config) : null
     );
   }
 };
@@ -65435,7 +64958,7 @@ var RoleSet = class _RoleSet {
   }
 };
 var SamlConnection = class _SamlConnection {
-  constructor(id, name, domain, organizationId, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, active, provider, userCount, syncUserAttributes, allowSubdomains, allowIdpInitiated, createdAt, updatedAt, attributeMapping, idpCertificates) {
+  constructor(id, name, domain, organizationId, idpEntityId, idpSsoUrl, idpCertificate, idpCertificateIssuedAt, idpCertificateExpiresAt, idpMetadataUrl, idpMetadata, acsUrl, spEntityId, spMetadataUrl, active, provider, userCount, syncUserAttributes, allowSubdomains, allowIdpInitiated, createdAt, updatedAt, attributeMapping) {
     this.id = id;
     this.name = name;
     this.domain = domain;
@@ -65459,7 +64982,6 @@ var SamlConnection = class _SamlConnection {
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.attributeMapping = attributeMapping;
-    this.idpCertificates = idpCertificates;
   }
   static fromJSON(data) {
     return new _SamlConnection(
@@ -65485,8 +65007,7 @@ var SamlConnection = class _SamlConnection {
       data.allow_idp_initiated,
       data.created_at,
       data.updated_at,
-      data.attribute_mapping && AttributeMapping.fromJSON(data.attribute_mapping),
-      (data.idp_certificates ?? []).map((certificate) => SamlConnectionIdpCertificate.fromJSON(certificate))
+      data.attribute_mapping && AttributeMapping.fromJSON(data.attribute_mapping)
     );
   }
 };
@@ -65633,7 +65154,7 @@ var Web3Wallet = class _Web3Wallet {
   }
 };
 var User = class _User {
-  constructor(id, passwordEnabled, totpEnabled, backupCodeEnabled, twoFactorEnabled, banned, locked, createdAt, updatedAt, imageUrl, hasImage, primaryEmailAddressId, primaryPhoneNumberId, primaryWeb3WalletId, lastSignInAt, externalId, username, firstName, lastName, publicMetadata = {}, privateMetadata = {}, unsafeMetadata = {}, emailAddresses = [], phoneNumbers = [], web3Wallets = [], externalAccounts = [], enterpriseAccounts = [], lastActiveAt, createOrganizationEnabled, createOrganizationsLimit = null, deleteSelfEnabled, legalAcceptedAt, locale, timezone = null) {
+  constructor(id, passwordEnabled, totpEnabled, backupCodeEnabled, twoFactorEnabled, banned, locked, createdAt, updatedAt, imageUrl, hasImage, primaryEmailAddressId, primaryPhoneNumberId, primaryWeb3WalletId, lastSignInAt, externalId, username, firstName, lastName, publicMetadata = {}, privateMetadata = {}, unsafeMetadata = {}, emailAddresses = [], phoneNumbers = [], web3Wallets = [], externalAccounts = [], enterpriseAccounts = [], lastActiveAt, createOrganizationEnabled, createOrganizationsLimit = null, deleteSelfEnabled, legalAcceptedAt, locale) {
     this.id = id;
     this.passwordEnabled = passwordEnabled;
     this.totpEnabled = totpEnabled;
@@ -65667,7 +65188,6 @@ var User = class _User {
     this.deleteSelfEnabled = deleteSelfEnabled;
     this.legalAcceptedAt = legalAcceptedAt;
     this.locale = locale;
-    this.timezone = timezone;
     this._raw = null;
   }
   get raw() {
@@ -65707,8 +65227,7 @@ var User = class _User {
       data.create_organizations_limit,
       data.delete_self_enabled,
       data.legal_accepted_at,
-      data.locale,
-      data.timezone
+      data.locale
     );
     res._raw = data;
     return res;
@@ -66547,8 +66066,11 @@ var ClerkRequest = class extends Request {
     return value?.split(",")[0];
   }
   parseCookies(req) {
-    const cookiesRecord = (0, import_cookie.parse)(req.headers.get("cookie") || "");
+    const cookiesRecord = (0, import_cookie.parse)(this.decodeCookieValue(req.headers.get("cookie") || ""));
     return new Map(Object.entries(cookiesRecord));
+  }
+  decodeCookieValue(str2) {
+    return str2 ? str2.replace(/(%[0-9A-Z]{2})+/g, decodeURIComponent) : str2;
   }
 };
 var createClerkRequest = (...args) => {
@@ -66654,21 +66176,9 @@ async function verifyM2MToken(token2, options) {
 async function verifyOAuthToken(accessToken, options) {
   try {
     const client = createBackendApiClient(options);
-    const verifiedToken = await client.idPOAuthAccessToken.verify(accessToken, { audience: options.audience });
+    const verifiedToken = await client.idPOAuthAccessToken.verify(accessToken);
     return { data: verifiedToken, tokenType: TokenType.OAuthToken, errors: void 0 };
   } catch (err) {
-    if (err instanceof TokenVerificationError) {
-      return {
-        data: void 0,
-        tokenType: TokenType.OAuthToken,
-        errors: [
-          new MachineTokenVerificationError({
-            code: MachineTokenVerificationErrorCode.TokenVerificationFailed,
-            message: err.message
-          })
-        ]
-      };
-    }
     return handleClerkAPIError(TokenType.OAuthToken, err, "OAuth token not found");
   }
 }
@@ -66739,13 +66249,6 @@ async function verifyHandshakeJwt(token2, { key }) {
   const { typ, alg } = header;
   assertHeaderType(typ);
   assertHeaderAlgorithm(alg);
-  if (isNonSessionJwtCategory(header.cat)) {
-    throw new TokenVerificationError({
-      action: TokenVerificationErrorAction.EnsureClerkJWT,
-      reason: TokenVerificationErrorReason.TokenInvalid,
-      message: "Invalid handshake token category."
-    });
-  }
   const { data: signatureValid, errors: signatureErrors } = await hasValidSignature(decoded, key);
   if (signatureErrors) {
     throw new TokenVerificationError({
@@ -67335,7 +66838,7 @@ var authenticateRequest = (async (request2, options) => {
   }
   async function authenticateRequestWithTokenInHeader() {
     const { tokenInHeader } = authenticateContext;
-    if (isMachineJwt(tokenInHeader) || hasNonSessionJwtCategory(tokenInHeader)) {
+    if (isMachineJwt(tokenInHeader)) {
       return signedOut({
         tokenType: TokenType.SessionToken,
         authenticateContext,
@@ -67457,11 +66960,7 @@ var authenticateRequest = (async (request2, options) => {
     if (decodedErrors) {
       return handleSessionTokenError(decodedErrors[0], "cookie");
     }
-    if (
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      isMachineJwt(authenticateContext.sessionTokenInCookie) || // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      hasNonSessionJwtCategory(authenticateContext.sessionTokenInCookie)
-    ) {
+    if (isMachineJwt(authenticateContext.sessionTokenInCookie)) {
       return signedOut({
         tokenType: TokenType.SessionToken,
         authenticateContext,
@@ -67640,14 +67139,6 @@ var authenticateRequest = (async (request2, options) => {
         token: tokenInHeader
       });
     }
-    if (hasNonSessionJwtCategory(tokenInHeader)) {
-      return signedOut({
-        tokenType: TokenType.SessionToken,
-        authenticateContext,
-        reason: AuthErrorReason.TokenTypeMismatch,
-        message: ""
-      });
-    }
     const { data, errors } = await verifyToken(tokenInHeader, authenticateContext);
     if (errors) {
       return handleSessionTokenError(errors[0], "header");
@@ -67735,7 +67226,7 @@ function createAuthenticateRequest(params) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/chunk-P263NW7Z.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/chunk-P263NW7Z.mjs
 function withLegacyReturn(cb) {
   return async (...args) => {
     const { data, errors } = await cb(...args);
@@ -67746,7 +67237,7 @@ function withLegacyReturn(cb) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/telemetry-9C6N5ppw.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/telemetry-9C6N5ppw.mjs
 var PROCESS_FLAG = /* @__PURE__ */ Symbol.for("@clerk/shared.telemetryNoticeShown");
 var NOTICE_LINES = [
   "Attention: Clerk collects telemetry data from its SDKs when connected to development instances.",
@@ -67788,8 +67279,8 @@ var DEFAULT_CACHE_TTL_MS = 864e5;
 var TelemetryEventThrottler = class {
   #cache;
   #cacheTtl = DEFAULT_CACHE_TTL_MS;
-  constructor(cache) {
-    this.#cache = cache;
+  constructor(cache2) {
+    this.#cache = cache2;
   }
   isEventThrottled(payload) {
     const now = Date.now();
@@ -67828,18 +67319,18 @@ var LocalStorageThrottlerCache = class {
   }
   setItem(key, value) {
     try {
-      const cache = this.#getCache();
-      cache[key] = value;
-      localStorage.setItem(this.#storageKey, JSON.stringify(cache));
+      const cache2 = this.#getCache();
+      cache2[key] = value;
+      localStorage.setItem(this.#storageKey, JSON.stringify(cache2));
     } catch (err) {
       if (err instanceof DOMException && (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED") && localStorage.length > 0) localStorage.removeItem(this.#storageKey);
     }
   }
   removeItem(key) {
     try {
-      const cache = this.#getCache();
-      delete cache[key];
-      localStorage.setItem(this.#storageKey, JSON.stringify(cache));
+      const cache2 = this.#getCache();
+      delete cache2[key];
+      localStorage.setItem(this.#storageKey, JSON.stringify(cache2));
     } catch {
     }
   }
@@ -67911,8 +67402,8 @@ var TelemetryCollector = class {
     const parsedKey = parsePublishableKey(options.publishableKey);
     if (parsedKey) this.#metadata.instanceType = parsedKey.instanceType;
     if (options.secretKey) this.#metadata.secretKey = options.secretKey.substring(0, 16);
-    const cache = LocalStorageThrottlerCache.isSupported() ? new LocalStorageThrottlerCache() : new InMemoryThrottlerCache();
-    this.#eventThrottler = new TelemetryEventThrottler(cache);
+    const cache2 = LocalStorageThrottlerCache.isSupported() ? new LocalStorageThrottlerCache() : new InMemoryThrottlerCache();
+    this.#eventThrottler = new TelemetryEventThrottler(cache2);
     maybeShowTelemetryNotice({ skip: !this.isEnabled });
   }
   get isEnabled() {
@@ -68107,7 +67598,7 @@ var TelemetryCollector = class {
   }
 };
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/index.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/index.mjs
 var verifyToken2 = withLegacyReturn(verifyToken);
 function createClerkClient(options) {
   const opts = { ...options };
@@ -68127,10 +67618,10 @@ function createClerkClient(options) {
   };
 }
 
-// ../../node_modules/.pnpm/@clerk+express@2.1.77_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
+// ../../node_modules/.pnpm/@clerk+express@2.1.47_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
 import { Readable as Readable2 } from "stream";
 
-// ../../node_modules/.pnpm/@clerk+backend@3.23.1/node_modules/@clerk/backend/dist/proxy.mjs
+// ../../node_modules/.pnpm/@clerk+backend@3.13.2/node_modules/@clerk/backend/dist/proxy.mjs
 var HOP_BY_HOP_HEADERS = /* @__PURE__ */ new Set([
   "connection",
   "keep-alive",
@@ -68333,14 +67824,14 @@ async function clerkFrontendApiProxy(request2, options) {
   }
 }
 
-// ../../node_modules/.pnpm/@clerk+shared@4.39.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/handleValueOrFn-CKEDuW4I.mjs
+// ../../node_modules/.pnpm/@clerk+shared@4.25.8_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/@clerk/shared/dist/_chunks/handleValueOrFn-CKEDuW4I.mjs
 function handleValueOrFn(value, url, defaultValue) {
   if (typeof value === "function") return value(url);
   if (typeof value !== "undefined") return value;
   if (typeof defaultValue !== "undefined") return defaultValue;
 }
 
-// ../../node_modules/.pnpm/@clerk+express@2.1.77_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
+// ../../node_modules/.pnpm/@clerk+express@2.1.47_express@5.2.1/node_modules/@clerk/express/dist/index.mjs
 var clerkClientSingleton = {};
 var clerkClient = new Proxy(clerkClientSingleton, {
   get(_target, property) {
@@ -68351,7 +67842,7 @@ var clerkClient = new Proxy(clerkClientSingleton, {
     };
     const client = createClerkClient({
       ...env,
-      userAgent: `@clerk/express@2.1.77`
+      userAgent: `@clerk/express@2.1.47`
     });
     if (env.secretKey) clerkClientSingleton = client;
     return client[property];
@@ -68383,7 +67874,7 @@ Check if signInUrl is missing from your configuration or if it is not an absolut
 var authenticateRequest2 = (opts) => {
   const { clerkClient: clerkClient2, request: request2, options } = opts;
   const { clerkClient: _clerkClient, debug: _debug, frontendApiProxy: _frontendApiProxy, isSatellite: isSatelliteInput, domain: domainInput, signInUrl: signInUrlInput, proxyUrl: proxyUrlInput, secretKey: secretKeyInput, machineSecretKey: machineSecretKeyInput, publishableKey: publishableKeyInput, ...restOptions } = options || {};
-  const clerkRequest = opts.clerkRequest ?? createClerkRequest(incomingMessageToRequest(request2));
+  const clerkRequest = createClerkRequest(incomingMessageToRequest(request2));
   const env = {
     ...loadApiEnv(),
     ...loadClientEnv()
@@ -68430,7 +67921,7 @@ var resolveDefaultClerkClient = (options) => {
     ...loadClientEnv(),
     ...options.apiUrl ? { apiUrl: options.apiUrl } : {},
     ...options.apiVersion ? { apiVersion: options.apiVersion } : {},
-    userAgent: `@clerk/express@2.1.77`
+    userAgent: `@clerk/express@2.1.47`
   });
 };
 var authenticateAndDecorateRequest = (options = {}) => {
@@ -68440,13 +67931,6 @@ var authenticateAndDecorateRequest = (options = {}) => {
   const middleware = async (request2, response, next) => {
     if (requestHasAuthObject(request2)) return next();
     if ("auth" in request2) logger2.warnOnce("Clerk: another middleware has already set `req.auth` on this request. Clerk authentication will run anyway and overwrite it. To use another auth library alongside Clerk, configure it to store its state on a different request property.");
-    let clerkRequest;
-    try {
-      clerkRequest = createClerkRequest(incomingMessageToRequest(request2));
-    } catch {
-      response.status(400).end();
-      return;
-    }
     const env = {
       ...loadApiEnv(),
       ...loadClientEnv()
@@ -68454,22 +67938,9 @@ var authenticateAndDecorateRequest = (options = {}) => {
     const publishableKey = options.publishableKey || env.publishableKey;
     const secretKey = options.secretKey || env.secretKey;
     if (frontendApiProxy) {
-      let requestUrl;
-      try {
-        requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
-      } catch {
-        response.status(400).end();
-        return;
-      }
+      const requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
       if ((typeof frontendApiProxy.enabled === "function" ? frontendApiProxy.enabled(requestUrl) : frontendApiProxy.enabled) && (requestUrl.pathname === proxyPath || requestUrl.pathname.startsWith(proxyPath + "/"))) {
-        let proxyRequest;
-        try {
-          proxyRequest = requestToProxyRequest(request2);
-        } catch {
-          response.status(400).end();
-          return;
-        }
-        const proxyResponse = await clerkFrontendApiProxy(proxyRequest, {
+        const proxyResponse = await clerkFrontendApiProxy(requestToProxyRequest(request2), {
           proxyPath,
           publishableKey,
           secretKey
@@ -68495,13 +67966,7 @@ var authenticateAndDecorateRequest = (options = {}) => {
     }
     let resolvedOptions = options;
     if (frontendApiProxy && !options.proxyUrl) {
-      let requestUrl;
-      try {
-        requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
-      } catch {
-        response.status(400).end();
-        return;
-      }
+      const requestUrl = new URL(request2.originalUrl || request2.url, `http://${request2.headers.host}`);
       if (typeof frontendApiProxy.enabled === "function" ? frontendApiProxy.enabled(requestUrl) : frontendApiProxy.enabled) resolvedOptions = {
         ...options,
         proxyUrl: proxyPath
@@ -68511,8 +67976,7 @@ var authenticateAndDecorateRequest = (options = {}) => {
       const requestState = await authenticateRequest2({
         clerkClient: clerkClient2,
         request: request2,
-        options: resolvedOptions,
-        clerkRequest
+        options: resolvedOptions
       });
       const err = setResponseHeaders(requestState, response);
       if (err) return next(err);
@@ -72770,6 +72234,18 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
+import * as admin from "firebase-admin";
+if (!admin.apps.length) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("\u2705 Firebase Admin initialized successfully");
+  } catch (error) {
+    console.error("\u274C Failed to initialize Firebase Admin. Check FIREBASE_SERVICE_ACCOUNT env var:", error);
+  }
+}
 var app = (0, import_express16.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
@@ -72870,61 +72346,23 @@ app.post("/api/push/notify", async (req, res) => {
       res.status(400).json({ success: false, error: "Missing fields" });
       return;
     }
-    console.log("\u{1F680} [PUSH] Attempting to send to:", token2);
-    let lastError;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        console.log(`\u{1F504} [PUSH] Attempt ${attempt}/3`);
-        const response = await fetch("https://api.expo.io/v2/push/send", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "Connection": "keep-alive"
-          },
-          body: JSON.stringify({
-            to: token2,
-            title,
-            body,
-            sound: "default"
-          }),
-          // إضافة مهلة 5 ثوانٍ لمنع التعليق
-          signal: AbortSignal.timeout(5e3)
-        });
-        const result = await response.json();
-        console.log("\u{1F4E1} [PUSH] Expo API Status:", response.status);
-        console.log("\u{1F4E6} [PUSH] Expo API Response:", JSON.stringify(result));
-        if (result.data?.[0]?.status === "ok") {
-          res.json({ success: true });
-          return;
-        } else {
-          res.status(500).json({
-            success: false,
-            error: "Expo API failed",
-            details: result
-          });
-          return;
-        }
-      } catch (fetchError) {
-        lastError = fetchError;
-        console.warn(`\u26A0\uFE0F [PUSH] Attempt ${attempt} failed:`, fetchError.message);
-        if (attempt < 3) {
-          await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
-        }
-      }
-    }
-    console.error("\u274C [PUSH] All 3 attempts failed. Last error:", lastError);
+    console.log("\u{1F680} [FCM] Attempting to send notification to:", token2);
+    const message = {
+      notification: {
+        title,
+        body
+      },
+      token: token2
+      // Firebase يتعرف تلقائياً على توكنات Expo/FCM
+    };
+    const response = await admin.messaging().send(message);
+    console.log("\u2705 [FCM] Success! Message ID:", response);
+    res.json({ success: true, messageId: response });
+  } catch (error) {
+    console.error("\u274C [FCM] Error sending notification:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to connect to Expo API after 3 attempts",
-      details: lastError instanceof Error ? lastError.message : String(lastError)
-    });
-  } catch (err) {
-    console.error("\u274C [PUSH] Critical Error:", err);
-    res.status(500).json({
-      success: false,
-      error: "Internal error",
-      details: err instanceof Error ? err.message : String(err)
+      error: error.message || "FCM send failed"
     });
   }
 });
