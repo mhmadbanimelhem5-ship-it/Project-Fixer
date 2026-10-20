@@ -68653,6 +68653,7 @@ var invite_default = router3;
 // src/routes/push.ts
 var import_express5 = __toESM(require_express2(), 1);
 import { timingSafeEqual } from "node:crypto";
+import * as admin from "firebase-admin";
 var router4 = (0, import_express5.Router)();
 function matchesInternalSecret(provided, expected) {
   if (!provided) return false;
@@ -68676,44 +68677,36 @@ var notifyDirectSchema = external_exports.object({
   token: external_exports.string().regex(/^Exponent?PushToken\[.*\]$/, "Invalid Expo push token format"),
   title: external_exports.string().min(1),
   body: external_exports.string().min(1),
-  sound: external_exports.enum(["default", null]).nullable().optional(),
+  sound: external_exports.literal("default").nullable().optional(),
   data: external_exports.record(external_exports.any()).optional()
 });
 var notifySchema = external_exports.object({
   userId: external_exports.string().min(1),
   title: external_exports.string().min(1),
   body: external_exports.string().min(1),
-  sound: external_exports.enum(["default", null]).nullable().optional(),
+  sound: external_exports.literal("default").nullable().optional(),
   data: external_exports.record(external_exports.any()).optional()
 });
 async function sendRawPush(message) {
   try {
-    const expoResponse = await fetch("https://api.expo.io/v2/push/send", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip, deflate",
-        "Content-Type": "application/json"
+    if (!admin.apps || admin.apps.length === 0) {
+      return { success: false, error: "Firebase Admin not initialized" };
+    }
+    const fcmData = message.data ? Object.fromEntries(Object.entries(message.data).map(([k, v]) => [k, String(v)])) : void 0;
+    const fcmMessage = {
+      notification: {
+        title: message.title,
+        body: message.body
       },
-      body: JSON.stringify(message)
-    });
-    if (!expoResponse.ok) {
-      const errorText = await expoResponse.text().catch(() => String(expoResponse.status));
-      logger.error({ status: expoResponse.status, body: errorText }, "Expo Push API returned non-2xx");
-      return { success: false, error: `HTTP ${expoResponse.status}` };
-    }
-    const result = await expoResponse.json();
-    const ticket = result.data?.[0];
-    if (!ticket || ticket.status === "error") {
-      const errMsg = ticket?.message ?? "Unknown push delivery error";
-      logger.warn({ ticket }, `Push delivery failed: ${errMsg}`);
-      return { success: false, error: errMsg };
-    }
-    logger.info({ to: message.to.slice(0, 20) + "\u2026", ticketId: ticket.id }, "Push sent successfully");
-    return { success: true, ticketId: ticket.id };
+      token: message.to,
+      data: fcmData
+    };
+    const response = await admin.messaging().send(fcmMessage);
+    logger.info({ to: message.to.slice(0, 20) + "\u2026", messageId: response }, "Push sent successfully via FCM");
+    return { success: true, ticketId: response };
   } catch (e) {
-    logger.error({ err: e }, "Exception during Expo Push request");
-    return { success: false, error: "Internal Server Error" };
+    logger.error({ err: e }, "Exception during FCM Push request");
+    return { success: false, error: e.message || "Internal Server Error" };
   }
 }
 router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
@@ -68724,12 +68717,14 @@ router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
       return;
     }
     const { expoPushToken, platform } = parsed.data;
-    const userId = req.auth.userId;
+    const authReq = req;
+    const userId = authReq.auth?.userId;
     if (!userId) {
       res.status(401).json({ success: false, error: "Unauthorized" });
       return;
     }
-    const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? "unknown"))).limit(1);
+    const platformValue = platform ?? "unknown";
+    const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platformValue))).limit(1);
     if (existing.length > 0) {
       await db.update(userPushTokensTable).set({
         token: expoPushToken,
@@ -68740,7 +68735,7 @@ router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
       await db.insert(userPushTokensTable).values({
         userId,
         token: expoPushToken,
-        platform: platform ?? "unknown",
+        platform: platformValue,
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date(),
         lastSeenAt: /* @__PURE__ */ new Date()
@@ -68764,10 +68759,14 @@ router4.post("/notify", requirePushNotifyAuth, authLimiter, async (req, res, nex
       to: token2,
       title,
       body,
-      sound: sound ?? null,
+      sound: sound ?? void 0,
       data: data ?? {}
     });
-    res.json({ success: result.success, error: result.error });
+    if (result.success) {
+      res.json({ success: true, messageId: result.ticketId });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
   } catch (err) {
     next(err);
   }
@@ -68797,13 +68796,18 @@ router4.post("/internal-notify", async (req, res, next) => {
       res.json({ success: false, error: "No registered devices for this user" });
       return;
     }
-    const messages = tokensRows.map((row) => ({
-      to: row.token,
-      title,
-      body,
-      sound: sound ?? null,
-      data: { ...data, timestamp: Date.now() }
-    }));
+    const messages = tokensRows.map((row) => {
+      const msg = {
+        to: row.token,
+        title,
+        body,
+        data: { ...data ?? {}, timestamp: Date.now() }
+      };
+      if (sound !== void 0 && sound !== null) {
+        msg.sound = sound;
+      }
+      return msg;
+    });
     const results = await Promise.all(messages.map((msg) => sendRawPush(msg)));
     const successes = results.filter((r) => r.success).length;
     const failures = results.filter((r) => !r.success).length;
@@ -72249,14 +72253,14 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
-import admin from "firebase-admin";
-if (!admin.apps || admin.apps.length === 0) {
+import admin2 from "firebase-admin";
+if (!admin2.apps || admin2.apps.length === 0) {
   try {
     const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (serviceAccountStr && serviceAccountStr !== "{}") {
       const serviceAccount = JSON.parse(serviceAccountStr);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      admin2.initializeApp({
+        credential: admin2.credential.cert(serviceAccount)
       });
       console.log("\u2705 Firebase Admin initialized successfully");
     }

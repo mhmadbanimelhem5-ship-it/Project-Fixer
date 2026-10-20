@@ -1,27 +1,16 @@
 /**
- * push.ts — Push Notification Infrastructure
- *
- * Three endpoints:
- * 1. POST /register        : Client sends Expo Push Token -> Server stores it in DB
- *                            linked to Clerk User ID. Enables server-initiated pushes
- *                            later (e.g. Absence Protocol) even when the app is closed.
- * 2. POST /notify          : Direct push to a single Expo token in the body.
- *                            Accepts Clerk auth from the existing app caller or
- *                            x-internal-secret from trusted server callers.
- *                            Compatible with fcmService.sendGuardianNotification().
- * 3. POST /internal-notify : Server-side fan-out to ALL devices of a given userId.
- *                            Protected by x-internal-secret (CRON_SECRET) — NOT public.
+ * push.ts — Push Notification Infrastructure (Firebase Admin SDK)
  */
 
 import { timingSafeEqual } from 'node:crypto';
-import { Router, type RequestHandler } from 'express';
+import { Router, type RequestHandler, type Request, type Response, type NextFunction } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { validateBody } from '../middleware/validation';
 import { z } from 'zod';
 import { authLimiter } from '../middleware/rateLimit';
 import { db, userPushTokensTable } from '@workspace/db';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../lib/logger';
+import * as admin from 'firebase-admin';
 
 const router = Router();
 
@@ -32,15 +21,13 @@ function matchesInternalSecret(provided: string | undefined, expected: string): 
   return providedBytes.length === expectedBytes.length && timingSafeEqual(providedBytes, expectedBytes);
 }
 
-// Server callers may authenticate with the existing server-only CRON_SECRET.
-// Keep Clerk as a compatibility path for the current authenticated mobile caller.
 const requirePushNotifyAuth: RequestHandler = (req, res, next) => {
   const internalSecret = process.env.CRON_SECRET;
   if (internalSecret && matchesInternalSecret(req.get('x-internal-secret'), internalSecret)) {
     next();
     return;
   }
-  requireAuth(req, res, next);
+  requireAuth(req as any, res, next);
 };
 
 // ─── Validation Schemas ────────────────────────────────────────────────────────
@@ -50,27 +37,25 @@ const registerSchema = z.object({
   platform: z.enum(['ios', 'android']).optional(),
 });
 
-// /notify receives the token DIRECTLY (matches fcmService.sendGuardianNotification body)
 const notifyDirectSchema = z.object({
   token: z.string().regex(/^Exponent?PushToken\[.*\]$/, 'Invalid Expo push token format'),
   title: z.string().min(1),
   body: z.string().min(1),
-  sound: z.enum(['default', null]).nullable().optional(),
+  sound: z.literal('default').nullable().optional(),
   data: z.record(z.any()).optional(),
 });
 
-// /internal-notify fans out by userId
 const notifySchema = z.object({
   userId: z.string().min(1),
   title: z.string().min(1),
   body: z.string().min(1),
-  sound: z.enum(['default', null]).nullable().optional(),
+  sound: z.literal('default').nullable().optional(),
   data: z.record(z.any()).optional(),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface ExpoPushMessage {
+interface PushMessage {
   to: string;
   title: string;
   body: string;
@@ -78,57 +63,40 @@ interface ExpoPushMessage {
   data?: Record<string, unknown>;
 }
 
-interface ExpoPushTicket {
-  status: 'ok' | 'error';
-  id?: string;
-  message?: string;
-  details?: { error?: string };
-}
+// ─── Helper: Send Push via Firebase Admin SDK ──────────────────────────────────
 
-interface ExpoPushResponse {
-  data: ExpoPushTicket[];
-}
-
-// ─── Helper: Send Raw Push to Expo API ─────────────────────────────────────────
-
-async function sendRawPush(message: ExpoPushMessage): Promise<{ success: boolean; ticketId?: string; error?: string }> {
+async function sendRawPush(message: PushMessage): Promise<{ success: boolean; ticketId?: string; error?: string }> {
   try {
-    const expoResponse = await fetch('https://api.expo.io/v2/push/send', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
+    if (!(admin as any).apps || (admin as any).apps.length === 0) {
+      return { success: false, error: 'Firebase Admin not initialized' };
+    }
+
+    const fcmData = message.data
+      ? Object.fromEntries(Object.entries(message.data).map(([k, v]) => [k, String(v)]))
+      : undefined;
+
+    const fcmMessage = {
+      notification: {
+        title: message.title,
+        body: message.body,
       },
-      body: JSON.stringify(message),
-    });
+      token: message.to,
+      data: fcmData,
+    };
 
-    if (!expoResponse.ok) {
-      const errorText = await expoResponse.text().catch(() => String(expoResponse.status));
-      logger.error({ status: expoResponse.status, body: errorText }, 'Expo Push API returned non-2xx');
-      return { success: false, error: `HTTP ${expoResponse.status}` };
-    }
+    const response = await (admin as any).messaging().send(fcmMessage);
 
-    const result = (await expoResponse.json()) as ExpoPushResponse;
-    const ticket = result.data?.[0];
-
-    if (!ticket || ticket.status === 'error') {
-      const errMsg = ticket?.message ?? 'Unknown push delivery error';
-      logger.warn({ ticket }, `Push delivery failed: ${errMsg}`);
-      return { success: false, error: errMsg };
-    }
-
-    logger.info({ to: message.to.slice(0, 20) + '…', ticketId: ticket.id }, 'Push sent successfully');
-    return { success: true, ticketId: ticket.id };
-  } catch (e) {
-    logger.error({ err: e }, 'Exception during Expo Push request');
-    return { success: false, error: 'Internal Server Error' };
+    logger.info({ to: message.to.slice(0, 20) + '…', messageId: response }, 'Push sent successfully via FCM');
+    return { success: true, ticketId: response };
+  } catch (e: any) {
+    logger.error({ err: e }, 'Exception during FCM Push request');
+    return { success: false, error: e.message || 'Internal Server Error' };
   }
 }
 
-// ─── Route 1: Register Token (Called by Client App) ────────────────────────────
+// ─── Route 1: Register Token ───────────────────────────────────────────────────
 
-router.post('/register', requireAuth, authLimiter, async (req, res, next) => {
+router.post('/register', requireAuth, authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -137,34 +105,37 @@ router.post('/register', requireAuth, authLimiter, async (req, res, next) => {
     }
 
     const { expoPushToken, platform } = parsed.data;
-    const userId = req.auth.userId;
+    const authReq = req as any;
+    const userId: string | undefined = authReq.auth?.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
 
+    const platformValue = (platform ?? 'unknown') as any;
+
     const existing = await db.select().from(userPushTokensTable)
-      .where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? 'unknown')))
+      .where(and(eq(userPushTokensTable.userId, userId as any), eq(userPushTokensTable.platform, platformValue)))
       .limit(1);
 
     if (existing.length > 0) {
       await db.update(userPushTokensTable)
         .set({
           token: expoPushToken,
-          updatedAt: new Date(),
-          lastSeenAt: new Date(),
-        })
-        .where(eq(userPushTokensTable.id, existing[0].id));
+          updatedAt: new Date() as any,
+          lastSeenAt: new Date() as any,
+        } as any)
+        .where(eq(userPushTokensTable.id, existing[0].id as any));
     } else {
       await db.insert(userPushTokensTable).values({
-        userId,
+        userId: userId as any,
         token: expoPushToken,
-        platform: platform ?? 'unknown',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastSeenAt: new Date(),
-      });
+        platform: platformValue,
+        createdAt: new Date() as any,
+        updatedAt: new Date() as any,
+        lastSeenAt: new Date() as any,
+      } as any);
     }
 
     logger.info({ userId, platform }, 'Push token registered/updated');
@@ -174,12 +145,9 @@ router.post('/register', requireAuth, authLimiter, async (req, res, next) => {
   }
 });
 
-// ─── Route 2: Direct Notify (Called by Client App for instant events) ──────────
-// Receives the token in the body and pushes to it directly. This is what
-// fcmService.sendGuardianNotification() calls. Requires Clerk auth or the
-// server-only x-internal-secret; it is never anonymous/public.
+// ─── Route 2: Direct Notify ────────────────────────────────────────────────────
 
-router.post('/notify', requirePushNotifyAuth, authLimiter, async (req, res, next) => {
+router.post('/notify', requirePushNotifyAuth, authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = notifyDirectSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -192,22 +160,23 @@ router.post('/notify', requirePushNotifyAuth, authLimiter, async (req, res, next
       to: token,
       title,
       body,
-      sound: sound ?? null,
+      sound: sound ?? undefined,
       data: data ?? {},
     });
 
-    res.json({ success: result.success, error: result.error });
+    if (result.success) {
+      res.json({ success: true, messageId: result.ticketId });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
   } catch (err) {
     next(err);
   }
 });
 
-// ─── Route 3: Internal Fan-out Notify (Server-side, by userId) ─────────────────
-// SECURITY: previously this route had NO auth, exposing it to anyone who knew
-// the URL. Now gated by x-internal-secret == CRON_SECRET (same secret the cron
-// uses — no new secret introduced). Intended for absence.ts / admin tools only.
+// ─── Route 3: Internal Fan-out Notify ──────────────────────────────────────────
 
-router.post('/internal-notify', async (req, res, next) => {
+router.post('/internal-notify', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const secret = process.env.CRON_SECRET;
     if (!secret) {
@@ -230,7 +199,7 @@ router.post('/internal-notify', async (req, res, next) => {
     const { userId, title, body, sound, data } = parsed.data;
 
     const tokensRows = await db.select().from(userPushTokensTable)
-      .where(eq(userPushTokensTable.userId, userId));
+      .where(eq(userPushTokensTable.userId, userId as any));
 
     if (tokensRows.length === 0) {
       logger.warn({ userId }, 'No push tokens found for user');
@@ -238,17 +207,22 @@ router.post('/internal-notify', async (req, res, next) => {
       return;
     }
 
-    const messages: ExpoPushMessage[] = tokensRows.map(row => ({
-      to: row.token,
-      title,
-      body,
-      sound: sound ?? null,
-      data: { ...data, timestamp: Date.now() },
-    }));
+    const messages: PushMessage[] = tokensRows.map((row) => {
+      const msg: PushMessage = {
+        to: row.token as string,
+        title,
+        body,
+        data: { ...(data ?? {}), timestamp: Date.now() },
+      };
+      if (sound !== undefined && sound !== null) {
+        msg.sound = sound;
+      }
+      return msg;
+    });
 
-    const results = await Promise.all(messages.map(msg => sendRawPush(msg)));
-    const successes = results.filter(r => r.success).length;
-    const failures = results.filter(r => !r.success).length;
+    const results = await Promise.all(messages.map((msg) => sendRawPush(msg)));
+    const successes = results.filter((r) => r.success).length;
+    const failures = results.filter((r) => !r.success).length;
 
     logger.info({ userId, total: messages.length, successes, failures }, 'Batch push notification dispatched');
 
