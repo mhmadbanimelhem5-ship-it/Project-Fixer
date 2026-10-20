@@ -5,14 +5,16 @@
  * 1. POST /register        : Client sends Expo Push Token -> Server stores it in DB
  *                            linked to Clerk User ID. Enables server-initiated pushes
  *                            later (e.g. Absence Protocol) even when the app is closed.
- * 2. POST /notify          : Direct push to a single token provided in the body.
- *                            Used by the client app for instant events (guardian added/removed).
+ * 2. POST /notify          : Direct push to a single Expo token in the body.
+ *                            Accepts Clerk auth from the existing app caller or
+ *                            x-internal-secret from trusted server callers.
  *                            Compatible with fcmService.sendGuardianNotification().
  * 3. POST /internal-notify : Server-side fan-out to ALL devices of a given userId.
  *                            Protected by x-internal-secret (CRON_SECRET) — NOT public.
  */
 
-import { Router } from 'express';
+import { timingSafeEqual } from 'node:crypto';
+import { Router, type RequestHandler } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
 import { z } from 'zod';
@@ -22,6 +24,24 @@ import { eq, and } from 'drizzle-orm';
 import { logger } from '../lib/logger';
 
 const router = Router();
+
+function matchesInternalSecret(provided: string | undefined, expected: string): boolean {
+  if (!provided) return false;
+  const providedBytes = Buffer.from(provided, 'utf8');
+  const expectedBytes = Buffer.from(expected, 'utf8');
+  return providedBytes.length === expectedBytes.length && timingSafeEqual(providedBytes, expectedBytes);
+}
+
+// Server callers may authenticate with the existing server-only CRON_SECRET.
+// Keep Clerk as a compatibility path for the current authenticated mobile caller.
+const requirePushNotifyAuth: RequestHandler = (req, res, next) => {
+  const internalSecret = process.env.CRON_SECRET;
+  if (internalSecret && matchesInternalSecret(req.get('x-internal-secret'), internalSecret)) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+};
 
 // ─── Validation Schemas ────────────────────────────────────────────────────────
 
@@ -156,9 +176,10 @@ router.post('/register', requireAuth, authLimiter, async (req, res, next) => {
 
 // ─── Route 2: Direct Notify (Called by Client App for instant events) ──────────
 // Receives the token in the body and pushes to it directly. This is what
-// fcmService.sendGuardianNotification() calls. Protected by Clerk auth.
+// fcmService.sendGuardianNotification() calls. Requires Clerk auth or the
+// server-only x-internal-secret; it is never anonymous/public.
 
-router.post('/notify', requireAuth, authLimiter, async (req, res, next) => {
+router.post('/notify', requirePushNotifyAuth, authLimiter, async (req, res, next) => {
   try {
     const parsed = notifyDirectSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -194,7 +215,7 @@ router.post('/internal-notify', async (req, res, next) => {
       res.status(500).json({ success: false, error: 'Server misconfiguration' });
       return;
     }
-    if (req.headers['x-internal-secret'] !== secret) {
+    if (!matchesInternalSecret(req.get('x-internal-secret'), secret)) {
       logger.warn({ ip: req.ip }, 'Unauthorized attempt on /internal-notify');
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;

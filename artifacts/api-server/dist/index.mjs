@@ -33946,7 +33946,7 @@ var require_timing_safe_equal = __commonJS({
         throw new Error(msg);
       }
     }
-    function timingSafeEqual2(a, b) {
+    function timingSafeEqual3(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
@@ -33966,7 +33966,7 @@ var require_timing_safe_equal = __commonJS({
       }
       return out === 0;
     }
-    exports.timingSafeEqual = timingSafeEqual2;
+    exports.timingSafeEqual = timingSafeEqual3;
   }
 });
 
@@ -68652,7 +68652,22 @@ var invite_default = router3;
 
 // src/routes/push.ts
 var import_express5 = __toESM(require_express2(), 1);
+import { timingSafeEqual } from "node:crypto";
 var router4 = (0, import_express5.Router)();
+function matchesInternalSecret(provided, expected) {
+  if (!provided) return false;
+  const providedBytes = Buffer.from(provided, "utf8");
+  const expectedBytes = Buffer.from(expected, "utf8");
+  return providedBytes.length === expectedBytes.length && timingSafeEqual(providedBytes, expectedBytes);
+}
+var requirePushNotifyAuth = (req, res, next) => {
+  const internalSecret = process.env.CRON_SECRET;
+  if (internalSecret && matchesInternalSecret(req.get("x-internal-secret"), internalSecret)) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+};
 var registerSchema = external_exports.object({
   expoPushToken: external_exports.string().regex(/^Exponent?PushToken\[.*\]$/, "Invalid Expo push token format"),
   platform: external_exports.enum(["ios", "android"]).optional()
@@ -68737,7 +68752,7 @@ router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
     next(err);
   }
 });
-router4.post("/notify", requireAuth, authLimiter, async (req, res, next) => {
+router4.post("/notify", requirePushNotifyAuth, authLimiter, async (req, res, next) => {
   try {
     const parsed = notifyDirectSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -68765,7 +68780,7 @@ router4.post("/internal-notify", async (req, res, next) => {
       res.status(500).json({ success: false, error: "Server misconfiguration" });
       return;
     }
-    if (req.headers["x-internal-secret"] !== secret) {
+    if (!matchesInternalSecret(req.get("x-internal-secret"), secret)) {
       logger.warn({ ip: req.ip }, "Unauthorized attempt on /internal-notify");
       res.status(401).json({ success: false, error: "Unauthorized" });
       return;
@@ -70747,7 +70762,7 @@ var waitlist_default = router10;
 
 // src/routes/subscriptions.ts
 var import_express13 = __toESM(require_express2(), 1);
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 var router11 = (0, import_express13.Router)();
 var SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 function parseSignatureHeader(header) {
@@ -70776,7 +70791,7 @@ function isValidSignature(rawBody, header, secret) {
   const signedBody = Buffer.concat([Buffer.from(`${parsed.timestamp}.`, "utf8"), rawBody]);
   const expected = createHmac("sha256", secret).update(signedBody).digest();
   const received = Buffer.from(parsed.signature, "hex");
-  return received.length === expected.length && timingSafeEqual(expected, received);
+  return received.length === expected.length && timingSafeEqual2(expected, received);
 }
 function asRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
