@@ -72235,13 +72235,27 @@ function clerkProxyMiddleware() {
 
 // src/app.ts
 import * as admin from "firebase-admin";
+console.log("\u{1F50D} Checking FIREBASE_SERVICE_ACCOUNT...");
+console.log("\u{1F50D} Exists:", !!process.env.FIREBASE_SERVICE_ACCOUNT);
+console.log(" Length:", process.env.FIREBASE_SERVICE_ACCOUNT?.length || 0);
 if (!admin.apps || admin.apps.length === 0) {
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
+    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!serviceAccountStr) {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable is not set");
+    }
+    if (serviceAccountStr === "{}") {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT is empty or invalid");
+    }
+    const serviceAccount = JSON.parse(serviceAccountStr);
+    if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+      throw new Error("Invalid service account JSON - missing required fields");
+    }
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
     console.log("\u2705 Firebase Admin initialized successfully");
+    console.log("\u2705 Project ID:", serviceAccount.project_id);
   } catch (error) {
     console.error("\u274C Failed to initialize Firebase Admin:", error);
   }
@@ -72333,9 +72347,16 @@ app.post("/api/push/notify", async (req, res) => {
       res.status(400).json({ success: false, error: "Missing fields" });
       return;
     }
-    console.log("\u{1F680} [FCM] Attempting to send notification to:", token2);
-    if (typeof admin.messaging !== "function") {
-      throw new Error("Firebase Admin SDK messaging is not available. Check installation.");
+    console.log(" [FCM] Attempting to send notification to:", token2);
+    console.log("\u{1F50D} [FCM] Firebase apps:", admin.apps?.length || 0);
+    console.log("\u{1F50D} [FCM] admin.messaging exists:", typeof admin.messaging);
+    if (!admin.messaging || typeof admin.messaging !== "function") {
+      console.error("\u274C [FCM] Firebase Admin SDK not loaded properly");
+      res.status(500).json({
+        success: false,
+        error: "Firebase not initialized. Check environment variables."
+      });
+      return;
     }
     const message = {
       notification: { title, body },

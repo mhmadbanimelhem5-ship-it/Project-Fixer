@@ -13,14 +13,35 @@ import { clerkMiddleware } from "@clerk/express";
 import { clerkProxyMiddleware, CLERK_PROXY_PATH } from "./middleware/clerkProxyMiddleware";
 import * as admin from "firebase-admin";
 
-// ✅ تهيئة Firebase Admin مرة واحدة فقط بأمان
-if (!admin.apps || admin.apps.length === 0) {
+// ✅ تهيئة Firebase Admin مع تشخيص مفصل
+console.log("🔍 Checking FIREBASE_SERVICE_ACCOUNT...");
+console.log("🔍 Exists:", !!process.env.FIREBASE_SERVICE_ACCOUNT);
+console.log(" Length:", process.env.FIREBASE_SERVICE_ACCOUNT?.length || 0);
+
+if (!(admin as any).apps || (admin as any).apps.length === 0) {
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+    if (!serviceAccountStr) {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable is not set");
+    }
+
+    if (serviceAccountStr === "{}") {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT is empty or invalid");
+    }
+
+    const serviceAccount = JSON.parse(serviceAccountStr);
+
+    if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+      throw new Error("Invalid service account JSON - missing required fields");
+    }
+
+    (admin as any).initializeApp({
+      credential: (admin as any).credential.cert(serviceAccount)
     });
+
     console.log("✅ Firebase Admin initialized successfully");
+    console.log("✅ Project ID:", serviceAccount.project_id);
   } catch (error) {
     console.error("❌ Failed to initialize Firebase Admin:", error);
   }
@@ -137,11 +158,17 @@ app.post("/api/push/notify", async (req: Request, res: Response) => {
       return;
     }
 
-    console.log("🚀 [FCM] Attempting to send notification to:", token);
+    console.log(" [FCM] Attempting to send notification to:", token);
+    console.log("🔍 [FCM] Firebase apps:", (admin as any).apps?.length || 0);
+    console.log("🔍 [FCM] admin.messaging exists:", typeof (admin as any).messaging);
 
-    // فحص أمان إضافي للتأكد من تحميل المكتبة بشكل صحيح
-    if (typeof admin.messaging !== "function") {
-      throw new Error("Firebase Admin SDK messaging is not available. Check installation.");
+    if (!(admin as any).messaging || typeof (admin as any).messaging !== 'function') {
+      console.error("❌ [FCM] Firebase Admin SDK not loaded properly");
+      res.status(500).json({ 
+        success: false, 
+        error: "Firebase not initialized. Check environment variables." 
+      });
+      return;
     }
 
     const message = {
@@ -149,7 +176,7 @@ app.post("/api/push/notify", async (req: Request, res: Response) => {
       token: token,
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await (admin as any).messaging().send(message);
 
     console.log("✅ [FCM] Success! Message ID:", response);
     res.json({ success: true, messageId: response });
