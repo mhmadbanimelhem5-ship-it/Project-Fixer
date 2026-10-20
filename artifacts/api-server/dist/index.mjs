@@ -40447,6 +40447,12 @@ var helmet = Object.assign(
 // src/app.ts
 var import_pino_http = __toESM(require_logger(), 1);
 
+// src/routes/index.ts
+var import_express14 = __toESM(require_express2(), 1);
+
+// src/routes/health.ts
+var import_express = __toESM(require_express2(), 1);
+
 // ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};
 __export(external_exports, {
@@ -44487,6 +44493,56 @@ var coerce = {
   date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
 };
 var NEVER = INVALID;
+
+// ../../lib/api-zod/src/generated/api.ts
+var HealthCheckResponse = objectType({
+  "status": stringType()
+});
+var registerWaitlistBodyEmailMax = 320;
+var registerWaitlistBodyEmailRegExp = new RegExp("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+var registerWaitlistBodySourceDefault = `landing-page`;
+var registerWaitlistBodySourceMax = 80;
+var RegisterWaitlistBody = objectType({
+  "email": stringType().max(registerWaitlistBodyEmailMax).regex(registerWaitlistBodyEmailRegExp),
+  "privacyAccepted": booleanType(),
+  "source": stringType().max(registerWaitlistBodySourceMax).default(registerWaitlistBodySourceDefault)
+});
+var registerWaitlistResponseDiscountPercentMin = 0;
+var registerWaitlistResponseDiscountPercentMax = 100;
+var RegisterWaitlistResponse = objectType({
+  "accepted": booleanType(),
+  "message": stringType(),
+  "alreadyConfirmed": booleanType().optional(),
+  "eligible": booleanType().optional().describe("True only when the email has confirmed a place in the first 500."),
+  "discountPercent": numberType().min(registerWaitlistResponseDiscountPercentMin).max(registerWaitlistResponseDiscountPercentMax).optional()
+});
+var getWaitlistStatsResponseConfirmedCountMin = 0;
+var getWaitlistStatsResponseDiscountSpotsRemainingMin = 0;
+var getWaitlistStatsResponseDiscountSpotsRemainingMax = 500;
+var GetWaitlistStatsResponse = objectType({
+  "confirmedCount": numberType().min(getWaitlistStatsResponseConfirmedCountMin).describe("Number of waitlist emails confirmed so far."),
+  "discountSpotsRemaining": numberType().min(getWaitlistStatsResponseDiscountSpotsRemainingMin).max(getWaitlistStatsResponseDiscountSpotsRemainingMax).describe("Remaining confirmed places eligible for the launch discount."),
+  "discountLimit": numberType().describe("Total number of launch-discount places.")
+});
+var confirmWaitlistEmailPathTokenMin = 64;
+var confirmWaitlistEmailPathTokenMax = 64;
+var confirmWaitlistEmailPathTokenRegExp = new RegExp("^[a-fA-F0-9]{64}$");
+var ConfirmWaitlistEmailParams = objectType({
+  "token": coerce.string().min(confirmWaitlistEmailPathTokenMin).max(confirmWaitlistEmailPathTokenMax).regex(confirmWaitlistEmailPathTokenRegExp)
+});
+var ConfirmWaitlistEmailResponse = unknownType();
+var getMyWaitlistEligibilityResponseDiscountPercentMin = 0;
+var getMyWaitlistEligibilityResponseDiscountPercentMax = 100;
+var GetMyWaitlistEligibilityResponse = objectType({
+  "confirmed": booleanType(),
+  "eligible": booleanType(),
+  "confirmationRank": numberType().nullish(),
+  "discountPercent": numberType().min(getMyWaitlistEligibilityResponseDiscountPercentMin).max(getMyWaitlistEligibilityResponseDiscountPercentMax),
+  "planPrices": objectType({
+    "monthly": numberType(),
+    "annual": numberType()
+  }).optional()
+});
 
 // ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib5(), 1);
@@ -51762,62 +51818,6 @@ if (!databaseUrl) {
 }
 var pool = new Pool3({ connectionString: databaseUrl });
 var db = drizzle(pool, { schema: schema_exports });
-
-// src/routes/index.ts
-var import_express14 = __toESM(require_express2(), 1);
-
-// src/routes/health.ts
-var import_express = __toESM(require_express2(), 1);
-
-// ../../lib/api-zod/src/generated/api.ts
-var HealthCheckResponse = objectType({
-  "status": stringType()
-});
-var registerWaitlistBodyEmailMax = 320;
-var registerWaitlistBodyEmailRegExp = new RegExp("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
-var registerWaitlistBodySourceDefault = `landing-page`;
-var registerWaitlistBodySourceMax = 80;
-var RegisterWaitlistBody = objectType({
-  "email": stringType().max(registerWaitlistBodyEmailMax).regex(registerWaitlistBodyEmailRegExp),
-  "privacyAccepted": booleanType(),
-  "source": stringType().max(registerWaitlistBodySourceMax).default(registerWaitlistBodySourceDefault)
-});
-var registerWaitlistResponseDiscountPercentMin = 0;
-var registerWaitlistResponseDiscountPercentMax = 100;
-var RegisterWaitlistResponse = objectType({
-  "accepted": booleanType(),
-  "message": stringType(),
-  "alreadyConfirmed": booleanType().optional(),
-  "eligible": booleanType().optional().describe("True only when the email has confirmed a place in the first 500."),
-  "discountPercent": numberType().min(registerWaitlistResponseDiscountPercentMin).max(registerWaitlistResponseDiscountPercentMax).optional()
-});
-var getWaitlistStatsResponseConfirmedCountMin = 0;
-var getWaitlistStatsResponseDiscountSpotsRemainingMin = 0;
-var getWaitlistStatsResponseDiscountSpotsRemainingMax = 500;
-var GetWaitlistStatsResponse = objectType({
-  "confirmedCount": numberType().min(getWaitlistStatsResponseConfirmedCountMin).describe("Number of waitlist emails confirmed so far."),
-  "discountSpotsRemaining": numberType().min(getWaitlistStatsResponseDiscountSpotsRemainingMin).max(getWaitlistStatsResponseDiscountSpotsRemainingMax).describe("Remaining confirmed places eligible for the launch discount."),
-  "discountLimit": numberType().describe("Total number of launch-discount places.")
-});
-var confirmWaitlistEmailPathTokenMin = 64;
-var confirmWaitlistEmailPathTokenMax = 64;
-var confirmWaitlistEmailPathTokenRegExp = new RegExp("^[a-fA-F0-9]{64}$");
-var ConfirmWaitlistEmailParams = objectType({
-  "token": coerce.string().min(confirmWaitlistEmailPathTokenMin).max(confirmWaitlistEmailPathTokenMax).regex(confirmWaitlistEmailPathTokenRegExp)
-});
-var ConfirmWaitlistEmailResponse = unknownType();
-var getMyWaitlistEligibilityResponseDiscountPercentMin = 0;
-var getMyWaitlistEligibilityResponseDiscountPercentMax = 100;
-var GetMyWaitlistEligibilityResponse = objectType({
-  "confirmed": booleanType(),
-  "eligible": booleanType(),
-  "confirmationRank": numberType().nullish(),
-  "discountPercent": numberType().min(getMyWaitlistEligibilityResponseDiscountPercentMin).max(getMyWaitlistEligibilityResponseDiscountPercentMax),
-  "planPrices": objectType({
-    "monthly": numberType(),
-    "annual": numberType()
-  }).optional()
-});
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -72234,32 +72234,6 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
-import * as admin from "firebase-admin";
-console.log("\u{1F50D} Checking FIREBASE_SERVICE_ACCOUNT...");
-console.log("\u{1F50D} Exists:", !!process.env.FIREBASE_SERVICE_ACCOUNT);
-console.log(" Length:", process.env.FIREBASE_SERVICE_ACCOUNT?.length || 0);
-if (!admin.apps || admin.apps.length === 0) {
-  try {
-    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccountStr) {
-      throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable is not set");
-    }
-    if (serviceAccountStr === "{}") {
-      throw new Error("FIREBASE_SERVICE_ACCOUNT is empty or invalid");
-    }
-    const serviceAccount = JSON.parse(serviceAccountStr);
-    if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
-      throw new Error("Invalid service account JSON - missing required fields");
-    }
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log("\u2705 Firebase Admin initialized successfully");
-    console.log("\u2705 Project ID:", serviceAccount.project_id);
-  } catch (error) {
-    console.error("\u274C Failed to initialize Firebase Admin:", error);
-  }
-}
 var app = (0, import_express16.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
@@ -72306,73 +72280,6 @@ app.use(import_express16.default.json());
 app.use(import_express16.default.urlencoded({ extended: true }));
 app.use("/api/", generalLimiter);
 app.use("/api/cron", cron_default);
-app.post("/api/push/register", async (req, res) => {
-  try {
-    const schema = external_exports.object({
-      expoPushToken: external_exports.string().min(1),
-      platform: external_exports.enum(["ios", "android"]).optional()
-    });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ success: false, error: "Invalid payload" });
-      return;
-    }
-    const { expoPushToken, platform } = parsed.data;
-    const authReq = req;
-    const userId = authReq.auth?.userId || "temp-debug-user-id";
-    const now = /* @__PURE__ */ new Date();
-    const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? "unknown"))).limit(1);
-    if (existing.length > 0) {
-      await db.update(userPushTokensTable).set({ token: expoPushToken, updatedAt: now, lastSeenAt: now }).where(eq(userPushTokensTable.id, existing[0].id));
-    } else {
-      await db.insert(userPushTokensTable).values({
-        userId,
-        token: expoPushToken,
-        platform: platform ?? "unknown",
-        createdAt: now,
-        updatedAt: now,
-        lastSeenAt: now
-      });
-    }
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Push register error:", err);
-    res.status(500).json({ success: false, error: "Internal error" });
-  }
-});
-app.post("/api/push/notify", async (req, res) => {
-  try {
-    const { token: token2, title, body } = req.body;
-    if (!token2 || !title || !body) {
-      res.status(400).json({ success: false, error: "Missing fields" });
-      return;
-    }
-    console.log(" [FCM] Attempting to send notification to:", token2);
-    console.log("\u{1F50D} [FCM] Firebase apps:", admin.apps?.length || 0);
-    console.log("\u{1F50D} [FCM] admin.messaging exists:", typeof admin.messaging);
-    if (!admin.messaging || typeof admin.messaging !== "function") {
-      console.error("\u274C [FCM] Firebase Admin SDK not loaded properly");
-      res.status(500).json({
-        success: false,
-        error: "Firebase not initialized. Check environment variables."
-      });
-      return;
-    }
-    const message = {
-      notification: { title, body },
-      token: token2
-    };
-    const response = await admin.messaging().send(message);
-    console.log("\u2705 [FCM] Success! Message ID:", response);
-    res.json({ success: true, messageId: response });
-  } catch (error) {
-    console.error("\u274C [FCM] Error sending notification:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message || "FCM send failed"
-    });
-  }
-});
 app.use("/api", routes_default);
 app.get("/", (_req, res) => {
   res.json({ status: "ok", message: "Auryx API is running \u{1F680}", endpoints: "/api/v1/*" });
