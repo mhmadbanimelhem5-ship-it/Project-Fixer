@@ -1,4 +1,4 @@
-import express, { type ErrorRequestHandler, type Express, type Request, Response } from "express";
+import express, { type ErrorRequestHandler, type Express, type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
@@ -8,12 +8,38 @@ import { logger } from "./lib/logger";
 import { generalLimiter } from "./middleware/rateLimit";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkProxyMiddleware, CLERK_PROXY_PATH } from "./middleware/clerkProxyMiddleware";
+import admin from "firebase-admin"; // ✅ تغيير الاستيراد
+
+// ✅ 1. تهيئة Firebase Admin
+if (!(admin as any).apps || (admin as any).apps.length === 0) {
+  try {
+    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (serviceAccountStr && serviceAccountStr !== "{}") {
+      const serviceAccount = JSON.parse(serviceAccountStr);
+      (admin as any).initializeApp({
+        credential: (admin as any).credential.cert(serviceAccount)
+      });
+      console.log("✅ Firebase Admin initialized successfully");
+    }
+  } catch (error) {
+    console.error("❌ Failed to initialize Firebase Admin:", error);
+  }
+}
 
 const app: Express = express();
 app.set("trust proxy", 1);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(clerkMiddleware());
+
+// ✅ 2. الحل الجذري: استثناء مسارات الإشعارات من Clerk
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === '/api/push/notify' || req.path === '/api/push/register') {
+    return next();
+  }
+  const middleware = clerkMiddleware();
+  return middleware(req, res, next);
+});
+
 app.use(
   pinoHttp({
     logger,

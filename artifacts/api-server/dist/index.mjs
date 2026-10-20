@@ -72249,10 +72249,31 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
+import admin from "firebase-admin";
+if (!admin.apps || admin.apps.length === 0) {
+  try {
+    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (serviceAccountStr && serviceAccountStr !== "{}") {
+      const serviceAccount = JSON.parse(serviceAccountStr);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log("\u2705 Firebase Admin initialized successfully");
+    }
+  } catch (error) {
+    console.error("\u274C Failed to initialize Firebase Admin:", error);
+  }
+}
 var app = (0, import_express16.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(clerkMiddleware());
+app.use((req, res, next) => {
+  if (req.path === "/api/push/notify" || req.path === "/api/push/register") {
+    return next();
+  }
+  const middleware = clerkMiddleware();
+  return middleware(req, res, next);
+});
 app.use(
   (0, import_pino_http.default)({
     logger,
