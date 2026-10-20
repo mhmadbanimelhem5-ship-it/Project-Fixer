@@ -72235,7 +72235,7 @@ function clerkProxyMiddleware() {
 
 // src/app.ts
 import * as admin from "firebase-admin";
-if (!admin.apps.length) {
+if (!admin.apps || admin.apps.length === 0) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
     admin.initializeApp({

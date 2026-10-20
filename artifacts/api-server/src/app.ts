@@ -14,7 +14,8 @@ import { clerkProxyMiddleware, CLERK_PROXY_PATH } from "./middleware/clerkProxyM
 import * as admin from "firebase-admin"; // ✅ إضافة مكتبة Firebase
 
 // ✅ تهيئة Firebase Admin مرة واحدة فقط بأمان من متغير البيئة
-if (!admin.apps.length) {
+// التعديل هنا: فحص وجود admin.apps قبل فحص الطول لتجنب خطأ undefined
+if (!admin.apps || admin.apps.length === 0) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
     admin.initializeApp({
