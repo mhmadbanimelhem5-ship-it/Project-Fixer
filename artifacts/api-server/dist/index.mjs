@@ -26635,7 +26635,7 @@ var require_thread_stream = __commonJS({
 var require_transport = __commonJS({
   "../../node_modules/.pnpm/pino@9.14.0/node_modules/pino/lib/transport.js"(exports, module) {
     "use strict";
-    var { createRequire: createRequire3 } = __require("module");
+    var { createRequire } = __require("module");
     var getCallers = require_caller();
     var { join, isAbsolute, sep } = __require("node:path");
     var sleep3 = require_atomic_sleep();
@@ -26746,7 +26746,7 @@ var require_transport = __commonJS({
         for (const filePath of callers) {
           try {
             const context = filePath === "node:repl" ? process.cwd() + sep : filePath;
-            fixTarget2 = createRequire3(context).resolve(origin);
+            fixTarget2 = createRequire(context).resolve(origin);
             break;
           } catch (err) {
             continue;
@@ -68653,10 +68653,11 @@ var invite_default = router3;
 // src/routes/push.ts
 var import_express5 = __toESM(require_express2(), 1);
 import { timingSafeEqual } from "node:crypto";
-import { createRequire } from "node:module";
-var nodeRequire = createRequire(import.meta.url);
-var admin = nodeRequire("firebase-admin");
 var router4 = (0, import_express5.Router)();
+var EXPO_PUSH_ENDPOINTS = [
+  "https://api.expo.io/v2/push/send",
+  "https://exp.host/--/api/v2/push/send"
+];
 function matchesInternalSecret(provided, expected) {
   if (!provided) return false;
   const providedBytes = Buffer.from(provided, "utf8");
@@ -68689,27 +68690,66 @@ var notifySchema = external_exports.object({
   sound: external_exports.literal("default").nullable().optional(),
   data: external_exports.record(external_exports.any()).optional()
 });
-async function sendRawPush(message) {
+async function postWithTimeout(url, body, timeoutMs = 1e4) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    if (!admin.apps || admin.apps.length === 0) {
-      return { success: false, error: "Firebase Admin not initialized" };
-    }
-    const fcmData = message.data ? Object.fromEntries(Object.entries(message.data).map(([k, v]) => [k, String(v)])) : void 0;
-    const fcmMessage = {
-      notification: {
-        title: message.title,
-        body: message.body
-      },
-      token: message.to,
-      data: fcmData
+    const headers = {
+      Accept: "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "Content-Type": "application/json"
     };
-    const response = await admin.messaging().send(fcmMessage);
-    logger.info({ to: message.to.slice(0, 20) + "\u2026", messageId: response }, "Push sent successfully via FCM");
-    return { success: true, ticketId: response };
-  } catch (e) {
-    logger.error({ err: e }, "Exception during FCM Push request");
-    return { success: false, error: e.message || "Internal Server Error" };
+    if (process.env.EXPO_ACCESS_TOKEN) {
+      headers["Authorization"] = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`;
+    }
+    return await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
   }
+}
+async function sendRawPush(message) {
+  const payload = {
+    to: message.to,
+    title: message.title,
+    body: message.body,
+    sound: message.sound ?? "default",
+    priority: "high",
+    data: message.data ?? {}
+  };
+  let lastError = "Unknown push error";
+  for (let round = 0; round < 2; round++) {
+    for (const url of EXPO_PUSH_ENDPOINTS) {
+      try {
+        const res = await postWithTimeout(url, [payload]);
+        if (!res.ok) {
+          lastError = `HTTP ${res.status} from ${url}`;
+          logger.warn({ url, status: res.status }, "Expo endpoint non-2xx");
+          continue;
+        }
+        const result = await res.json();
+        const ticket = result?.data?.[0];
+        if (ticket?.status === "ok") {
+          logger.info({ ticketId: ticket.id, host: url }, "Push accepted by Expo Push Service");
+          return { success: true, ticketId: ticket.id };
+        }
+        lastError = ticket?.message ?? ticket?.details?.error ?? "Expo ticket error";
+        if (ticket?.details?.error === "DeviceNotRegistered") {
+          return { success: false, error: "DeviceNotRegistered" };
+        }
+      } catch (e) {
+        lastError = e?.cause?.code ?? e?.name ?? e?.message ?? "network error";
+        logger.warn({ url, err: e }, "Expo endpoint attempt failed (DNS/network)");
+      }
+    }
+    await new Promise((r) => setTimeout(r, 700));
+  }
+  logger.error({ lastError }, "All Expo push attempts failed");
+  return { success: false, error: lastError };
 }
 router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
   try {
@@ -68765,9 +68805,9 @@ router4.post("/notify", requirePushNotifyAuth, authLimiter, async (req, res, nex
       data: data ?? {}
     });
     if (result.success) {
-      res.json({ success: true, messageId: result.ticketId });
+      res.json({ success: true, ticketId: result.ticketId });
     } else {
-      res.status(500).json({ success: false, error: result.error });
+      res.status(502).json({ success: false, error: result.error });
     }
   } catch (err) {
     next(err);
@@ -72255,23 +72295,6 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
-import { createRequire as createRequire2 } from "node:module";
-var nodeRequire2 = createRequire2(import.meta.url);
-var admin2 = nodeRequire2("firebase-admin");
-if (!admin2.apps || admin2.apps.length === 0) {
-  try {
-    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (serviceAccountStr && serviceAccountStr !== "{}") {
-      const serviceAccount = JSON.parse(serviceAccountStr);
-      admin2.initializeApp({
-        credential: admin2.credential.cert(serviceAccount)
-      });
-      console.log("\u2705 Firebase Admin initialized successfully");
-    }
-  } catch (error) {
-    console.error("\u274C Failed to initialize Firebase Admin:", error);
-  }
-}
 var app = (0, import_express16.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());

@@ -1,5 +1,5 @@
 /**
- * push.ts — Push Notification Infrastructure (Firebase Admin SDK)
+ * push.ts — Push Notification Infrastructure (Expo Push Service, resilient)
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -11,12 +11,13 @@ import { db, userPushTokensTable } from '@workspace/db';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../lib/logger';
 
-// ✅ الحل الجذري لمشكلة Firebase Admin مع ESM في Vercel
-import { createRequire } from 'node:module';
-const nodeRequire = createRequire(import.meta.url);
-const admin: any = nodeRequire('firebase-admin');
-
 const router = Router();
+
+// ✅ نطاقان رسميان لخدمة Expo Push — نجربهما بالتتابع لتجاوز فشل DNS المتقطع
+const EXPO_PUSH_ENDPOINTS = [
+  'https://api.expo.io/v2/push/send',
+  'https://exp.host/--/api/v2/push/send',
+];
 
 function matchesInternalSecret(provided: string | undefined, expected: string): boolean {
   if (!provided) return false;
@@ -57,7 +58,7 @@ const notifySchema = z.object({
   data: z.record(z.any()).optional(),
 });
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface PushMessage {
   to: string;
@@ -67,36 +68,72 @@ interface PushMessage {
   data?: Record<string, unknown>;
 }
 
-// ─── Helper: Send Push via Firebase Admin SDK ──────────────────────────────────
+// ─── Resilient Sender: multi-endpoint + retry + timeout ───────────────────────
+
+async function postWithTimeout(url: string, body: unknown, timeoutMs = 10000): Promise<globalThis.Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'Accept-Encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    };
+    if (process.env.EXPO_ACCESS_TOKEN) {
+      headers['Authorization'] = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`;
+    }
+    return await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function sendRawPush(message: PushMessage): Promise<{ success: boolean; ticketId?: string; error?: string }> {
-  try {
-    // الآن admin يحتوي على الكائن الكامل بفضل createRequire
-    if (!admin.apps || admin.apps.length === 0) {
-      return { success: false, error: 'Firebase Admin not initialized' };
+  const payload = {
+    to: message.to,
+    title: message.title,
+    body: message.body,
+    sound: message.sound ?? 'default',
+    priority: 'high',
+    data: message.data ?? {},
+  };
+
+  let lastError = 'Unknown push error';
+
+  for (let round = 0; round < 2; round++) {
+    for (const url of EXPO_PUSH_ENDPOINTS) {
+      try {
+        const res = await postWithTimeout(url, [payload]);
+        if (!res.ok) {
+          lastError = `HTTP ${res.status} from ${url}`;
+          logger.warn({ url, status: res.status }, 'Expo endpoint non-2xx');
+          continue;
+        }
+        const result = (await res.json()) as any;
+        const ticket = result?.data?.[0];
+        if (ticket?.status === 'ok') {
+          logger.info({ ticketId: ticket.id, host: url }, 'Push accepted by Expo Push Service');
+          return { success: true, ticketId: ticket.id };
+        }
+        lastError = ticket?.message ?? ticket?.details?.error ?? 'Expo ticket error';
+        if (ticket?.details?.error === 'DeviceNotRegistered') {
+          return { success: false, error: 'DeviceNotRegistered' };
+        }
+      } catch (e: any) {
+        lastError = e?.cause?.code ?? e?.name ?? e?.message ?? 'network error';
+        logger.warn({ url, err: e }, 'Expo endpoint attempt failed (DNS/network)');
+      }
     }
-
-    const fcmData = message.data
-      ? Object.fromEntries(Object.entries(message.data).map(([k, v]) => [k, String(v)]))
-      : undefined;
-
-    const fcmMessage = {
-      notification: {
-        title: message.title,
-        body: message.body,
-      },
-      token: message.to,
-      data: fcmData,
-    };
-
-    const response = await admin.messaging().send(fcmMessage);
-
-    logger.info({ to: message.to.slice(0, 20) + '…', messageId: response }, 'Push sent successfully via FCM');
-    return { success: true, ticketId: response };
-  } catch (e: any) {
-    logger.error({ err: e }, 'Exception during FCM Push request');
-    return { success: false, error: e.message || 'Internal Server Error' };
+    await new Promise((r) => setTimeout(r, 700));
   }
+
+  logger.error({ lastError }, 'All Expo push attempts failed');
+  return { success: false, error: lastError };
 }
 
 // ─── Route 1: Register Token ───────────────────────────────────────────────────
@@ -170,9 +207,9 @@ router.post('/notify', requirePushNotifyAuth, authLimiter, async (req: Request, 
     });
 
     if (result.success) {
-      res.json({ success: true, messageId: result.ticketId });
+      res.json({ success: true, ticketId: result.ticketId });
     } else {
-      res.status(500).json({ success: false, error: result.error });
+      res.status(502).json({ success: false, error: result.error });
     }
   } catch (err) {
     next(err);

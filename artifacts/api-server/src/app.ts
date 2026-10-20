@@ -9,33 +9,12 @@ import { generalLimiter } from "./middleware/rateLimit";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkProxyMiddleware, CLERK_PROXY_PATH } from "./middleware/clerkProxyMiddleware";
 
-// ✅ الحل الجذري لمشكلة Firebase Admin مع ESM في Vercel
-import { createRequire } from "node:module";
-const nodeRequire = createRequire(import.meta.url);
-const admin: any = nodeRequire("firebase-admin");
-
-// ✅ 1. تهيئة Firebase Admin
-if (!admin.apps || admin.apps.length === 0) {
-  try {
-    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (serviceAccountStr && serviceAccountStr !== "{}") {
-      const serviceAccount = JSON.parse(serviceAccountStr);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      console.log("✅ Firebase Admin initialized successfully");
-    }
-  } catch (error) {
-    console.error("❌ Failed to initialize Firebase Admin:", error);
-  }
-}
-
 const app: Express = express();
 app.set("trust proxy", 1);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-// ✅ 2. الحل الجذري: استثناء مسارات الإشعارات من Clerk
+// ✅ استثناء مسارات الإشعارات من Clerk
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path === '/api/push/notify' || req.path === '/api/push/register') {
     return next();
