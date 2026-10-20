@@ -72243,7 +72243,7 @@ if (!admin.apps || admin.apps.length === 0) {
     });
     console.log("\u2705 Firebase Admin initialized successfully");
   } catch (error) {
-    console.error("\u274C Failed to initialize Firebase Admin. Check FIREBASE_SERVICE_ACCOUNT env var:", error);
+    console.error("\u274C Failed to initialize Firebase Admin:", error);
   }
 }
 var app = (0, import_express16.default)();
@@ -72255,16 +72255,10 @@ app.use(
     logger,
     serializers: {
       req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0]
-        };
+        return { id: req.id, method: req.method, url: req.url?.split("?")[0] };
       },
       res(res) {
-        return {
-          statusCode: res.statusCode
-        };
+        return { statusCode: res.statusCode };
       }
     }
   })
@@ -72293,10 +72287,7 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
-app.use(
-  "/api/subscriptions/webhook",
-  import_express16.default.raw({ type: "application/json", limit: "1mb", inflate: false })
-);
+app.use("/api/subscriptions/webhook", import_express16.default.raw({ type: "application/json", limit: "1mb", inflate: false }));
 app.use(import_express16.default.json());
 app.use(import_express16.default.urlencoded({ extended: true }));
 app.use("/api/", generalLimiter);
@@ -72318,11 +72309,7 @@ app.post("/api/push/register", async (req, res) => {
     const now = /* @__PURE__ */ new Date();
     const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platform ?? "unknown"))).limit(1);
     if (existing.length > 0) {
-      await db.update(userPushTokensTable).set({
-        token: expoPushToken,
-        updatedAt: now,
-        lastSeenAt: now
-      }).where(eq(userPushTokensTable.id, existing[0].id));
+      await db.update(userPushTokensTable).set({ token: expoPushToken, updatedAt: now, lastSeenAt: now }).where(eq(userPushTokensTable.id, existing[0].id));
     } else {
       await db.insert(userPushTokensTable).values({
         userId,
@@ -72347,13 +72334,12 @@ app.post("/api/push/notify", async (req, res) => {
       return;
     }
     console.log("\u{1F680} [FCM] Attempting to send notification to:", token2);
+    if (typeof admin.messaging !== "function") {
+      throw new Error("Firebase Admin SDK messaging is not available. Check installation.");
+    }
     const message = {
-      notification: {
-        title,
-        body
-      },
+      notification: { title, body },
       token: token2
-      // Firebase يتعرف تلقائياً على توكنات Expo/FCM
     };
     const response = await admin.messaging().send(message);
     console.log("\u2705 [FCM] Success! Message ID:", response);

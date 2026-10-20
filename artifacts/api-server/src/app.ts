@@ -11,10 +11,9 @@ import { logger } from "./lib/logger";
 import { generalLimiter } from "./middleware/rateLimit";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkProxyMiddleware, CLERK_PROXY_PATH } from "./middleware/clerkProxyMiddleware";
-import * as admin from "firebase-admin"; // ✅ إضافة مكتبة Firebase
+import * as admin from "firebase-admin";
 
-// ✅ تهيئة Firebase Admin مرة واحدة فقط بأمان من متغير البيئة
-// التعديل هنا: فحص وجود admin.apps قبل فحص الطول لتجنب خطأ undefined
+// ✅ تهيئة Firebase Admin مرة واحدة فقط بأمان
 if (!admin.apps || admin.apps.length === 0) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
@@ -23,12 +22,11 @@ if (!admin.apps || admin.apps.length === 0) {
     });
     console.log("✅ Firebase Admin initialized successfully");
   } catch (error) {
-    console.error("❌ Failed to initialize Firebase Admin. Check FIREBASE_SERVICE_ACCOUNT env var:", error);
+    console.error("❌ Failed to initialize Firebase Admin:", error);
   }
 }
 
 const app: Express = express();
-
 app.set("trust proxy", 1);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
@@ -38,16 +36,10 @@ app.use(
     logger,
     serializers: {
       req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
+        return { id: req.id, method: req.method, url: req.url?.split("?")[0] };
       },
       res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
+        return { statusCode: res.statusCode };
       },
     },
   }),
@@ -85,15 +77,10 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
-app.use(
-  "/api/subscriptions/webhook",
-  express.raw({ type: "application/json", limit: "1mb", inflate: false }),
-);
-
+app.use("/api/subscriptions/webhook", express.raw({ type: "application/json", limit: "1mb", inflate: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/", generalLimiter);
-
 app.use("/api/cron", cronRouter);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -123,11 +110,7 @@ app.post("/api/push/register", async (req: Request, res: Response) => {
 
     if (existing.length > 0) {
       await db.update(userPushTokensTable)
-        .set({ 
-          token: expoPushToken, 
-          updatedAt: now as any, 
-          lastSeenAt: now as any 
-        } as any)
+        .set({ token: expoPushToken, updatedAt: now as any, lastSeenAt: now as any } as any)
         .where(eq(userPushTokensTable.id, existing[0].id));
     } else {
       await db.insert(userPushTokensTable).values({
@@ -146,7 +129,6 @@ app.post("/api/push/register", async (req: Request, res: Response) => {
   }
 });
 
-// ✅ مسار الإشعارات باستخدام Firebase Admin SDK (حل إنتاجي دائم ومتين)
 app.post("/api/push/notify", async (req: Request, res: Response) => {
   try {
     const { token, title, body } = req.body;
@@ -157,12 +139,14 @@ app.post("/api/push/notify", async (req: Request, res: Response) => {
 
     console.log("🚀 [FCM] Attempting to send notification to:", token);
 
+    // فحص أمان إضافي للتأكد من تحميل المكتبة بشكل صحيح
+    if (typeof admin.messaging !== "function") {
+      throw new Error("Firebase Admin SDK messaging is not available. Check installation.");
+    }
+
     const message = {
-      notification: {
-        title,
-        body,
-      },
-      token: token, // Firebase يتعرف تلقائياً على توكنات Expo/FCM
+      notification: { title, body },
+      token: token,
     };
 
     const response = await admin.messaging().send(message);
