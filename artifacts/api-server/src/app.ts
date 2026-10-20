@@ -8,16 +8,20 @@ import { logger } from "./lib/logger";
 import { generalLimiter } from "./middleware/rateLimit";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkProxyMiddleware, CLERK_PROXY_PATH } from "./middleware/clerkProxyMiddleware";
-import admin from "firebase-admin"; // ✅ تغيير الاستيراد
+
+// ✅ الحل الجذري لمشكلة Firebase Admin مع ESM في Vercel
+import { createRequire } from "node:module";
+const nodeRequire = createRequire(import.meta.url);
+const admin: any = nodeRequire("firebase-admin");
 
 // ✅ 1. تهيئة Firebase Admin
-if (!(admin as any).apps || (admin as any).apps.length === 0) {
+if (!admin.apps || admin.apps.length === 0) {
   try {
     const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (serviceAccountStr && serviceAccountStr !== "{}") {
       const serviceAccount = JSON.parse(serviceAccountStr);
-      (admin as any).initializeApp({
-        credential: (admin as any).credential.cert(serviceAccount)
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
       });
       console.log("✅ Firebase Admin initialized successfully");
     }

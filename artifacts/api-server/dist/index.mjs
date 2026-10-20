@@ -26635,7 +26635,7 @@ var require_thread_stream = __commonJS({
 var require_transport = __commonJS({
   "../../node_modules/.pnpm/pino@9.14.0/node_modules/pino/lib/transport.js"(exports, module) {
     "use strict";
-    var { createRequire } = __require("module");
+    var { createRequire: createRequire3 } = __require("module");
     var getCallers = require_caller();
     var { join, isAbsolute, sep } = __require("node:path");
     var sleep3 = require_atomic_sleep();
@@ -26746,7 +26746,7 @@ var require_transport = __commonJS({
         for (const filePath of callers) {
           try {
             const context = filePath === "node:repl" ? process.cwd() + sep : filePath;
-            fixTarget2 = createRequire(context).resolve(origin);
+            fixTarget2 = createRequire3(context).resolve(origin);
             break;
           } catch (err) {
             continue;
@@ -68653,7 +68653,9 @@ var invite_default = router3;
 // src/routes/push.ts
 var import_express5 = __toESM(require_express2(), 1);
 import { timingSafeEqual } from "node:crypto";
-import * as admin from "firebase-admin";
+import { createRequire } from "node:module";
+var nodeRequire = createRequire(import.meta.url);
+var admin = nodeRequire("firebase-admin");
 var router4 = (0, import_express5.Router)();
 function matchesInternalSecret(provided, expected) {
   if (!provided) return false;
@@ -72253,7 +72255,9 @@ function clerkProxyMiddleware() {
 }
 
 // src/app.ts
-import admin2 from "firebase-admin";
+import { createRequire as createRequire2 } from "node:module";
+var nodeRequire2 = createRequire2(import.meta.url);
+var admin2 = nodeRequire2("firebase-admin");
 if (!admin2.apps || admin2.apps.length === 0) {
   try {
     const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT;

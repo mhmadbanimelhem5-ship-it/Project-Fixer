@@ -10,7 +10,11 @@ import { authLimiter } from '../middleware/rateLimit';
 import { db, userPushTokensTable } from '@workspace/db';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../lib/logger';
-import * as admin from 'firebase-admin';
+
+// ✅ الحل الجذري لمشكلة Firebase Admin مع ESM في Vercel
+import { createRequire } from 'node:module';
+const nodeRequire = createRequire(import.meta.url);
+const admin: any = nodeRequire('firebase-admin');
 
 const router = Router();
 
@@ -67,7 +71,8 @@ interface PushMessage {
 
 async function sendRawPush(message: PushMessage): Promise<{ success: boolean; ticketId?: string; error?: string }> {
   try {
-    if (!(admin as any).apps || (admin as any).apps.length === 0) {
+    // الآن admin يحتوي على الكائن الكامل بفضل createRequire
+    if (!admin.apps || admin.apps.length === 0) {
       return { success: false, error: 'Firebase Admin not initialized' };
     }
 
@@ -84,7 +89,7 @@ async function sendRawPush(message: PushMessage): Promise<{ success: boolean; ti
       data: fcmData,
     };
 
-    const response = await (admin as any).messaging().send(fcmMessage);
+    const response = await admin.messaging().send(fcmMessage);
 
     logger.info({ to: message.to.slice(0, 20) + '…', messageId: response }, 'Push sent successfully via FCM');
     return { success: true, ticketId: response };
