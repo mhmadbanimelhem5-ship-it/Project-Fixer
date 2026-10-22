@@ -69579,6 +69579,47 @@ async function countApprovals(requestId) {
 var router7 = (0, import_express8.Router)();
 var NOTIFY_INTERVAL_MS = 3 * 60 * 60 * 1e3;
 var MAX_NOTIFICATIONS = 16;
+var EXPO_PUSH_ENDPOINTS2 = [
+  "https://api.expo.io/v2/push/send",
+  "https://exp.host/--/api/v2/push/send"
+];
+async function postExpoPush(messages) {
+  for (let round = 0; round < 2; round++) {
+    for (const url of EXPO_PUSH_ENDPOINTS2) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 1e4);
+        let res;
+        try {
+          res = await fetch(url, {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Accept-Encoding": "gzip, deflate",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(messages),
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+        if (!res.ok) {
+          logger.warn({ url, status: res.status }, "Expo endpoint non-2xx (absence push)");
+          continue;
+        }
+        const result = await res.json();
+        if (result.data?.some((t) => t.status === "ok")) return true;
+        const firstErr = result.data?.[0]?.details?.error;
+        if (firstErr === "DeviceNotRegistered") return false;
+      } catch (e) {
+        logger.warn({ url, err: e }, "Expo endpoint attempt failed (absence push)");
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
 async function resolveUserIdByEmail(email2) {
   try {
     if (!email2) return null;
@@ -69603,21 +69644,7 @@ async function sendPushToUserByEmail(email2, title, body) {
       sound: null,
       data: { timestamp: Date.now(), app: "auryx", type: "absence" }
     }));
-    const expoResponse = await fetch("https://api.expo.io/v2/push/send", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip, deflate",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(messages)
-    });
-    if (!expoResponse.ok) {
-      logger.warn({ status: expoResponse.status }, "Expo Push API returned non-2xx");
-      return false;
-    }
-    const result = await expoResponse.json();
-    return Boolean(result.data?.some((t) => t.status === "ok"));
+    return await postExpoPush(messages);
   } catch (e) {
     logger.error({ err: e }, "Failed to dispatch absence push (will fall back to email)");
     return false;
@@ -69765,7 +69792,7 @@ async function runAbsenceSchedulerTick() {
       const lockResult = await tx.execute(
         sql`SELECT pg_try_advisory_lock(${ABSENCE_SCHEDULER_LOCK_ID}) AS acquired`
       );
-      const acquired = Boolean(lockResult.rows[0]?.acquired);
+      const acquired = Boolean(lockResult.rows?.[0]?.acquired);
       if (!acquired) {
         logger.info(
           { lockId: ABSENCE_SCHEDULER_LOCK_ID },
@@ -70008,7 +70035,7 @@ router7.get("/guardian-vote/:token", async (req, res, next) => {
     res.status(200).send(htmlPage("\u062A\u0645 \u0627\u0644\u062A\u0635\u0648\u064A\u062A", `
       <h2 class="green">\u2705 \u062A\u0645 \u062A\u0633\u062C\u064A\u0644 \u062A\u0635\u0648\u064A\u062A\u0643</h2>
       <p>\u0627\u062E\u062A\u0631\u062A: <strong>${label}</strong></p>
-      <p>\u0634\u0643\u0631\u0627\u064B \u0639\u0644\u0649 \u0645\u0634\u0627\u0631\u0643\u062A\u0643 \u0641\u064A \u0628\u0631\u0648\u062A\u0648\u0643\u0648\u0644 \u0627\u0644\u0623\u0645\u0627\u0646.</p>
+      <p>\u0634\u0643\u0631\u0627\u064B \u0644\u0645\u0634\u0627\u0631\u0643\u062A\u0643 \u0641\u064A \u0628\u0631\u0648\u062A\u0648\u0643\u0648\u0644 \u0627\u0644\u0623\u0645\u0627\u0646.</p>
     `));
   } catch (err) {
     next(err);
@@ -71012,21 +71039,23 @@ router13.get("/absence-tick", async (req, res) => {
     logger.error("CRON_SECRET is not set in environment variables! Blocking cron execution.");
     return res.status(500).json({ error: "Server misconfiguration" });
   }
-  if (authHeader !== `Bearer ${expectedSecret}`) {
+  const bearerOk = authHeader === `Bearer ${expectedSecret}`;
+  const internalOk = req.get("x-internal-secret") === expectedSecret;
+  if (!bearerOk && !internalOk) {
     logger.warn({ ip: req.ip }, "Unauthorized attempt to trigger absence cron");
     return res.status(401).json({ error: "Unauthorized" });
   }
   try {
-    logger.info("Vercel Cron triggered: Running absence scheduler tick...");
+    logger.info("Cron triggered: Running absence scheduler tick...");
     const result = await runAbsenceSchedulerTick();
-    res.json({
+    return res.json({
       success: true,
       message: "Absence scheduler completed",
-      stats: result
+      stats: result ?? null
     });
   } catch (err) {
     logger.error({ err }, "Absence scheduler crashed during cron execution");
-    res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 var cron_default = router13;

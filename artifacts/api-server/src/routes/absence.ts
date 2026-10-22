@@ -3,17 +3,14 @@
  *
  * Flow:
  *   1. POST /api/absence/initiate              — beneficiary starts the protocol
- *   2. Server scheduler (Vercel Cron via /api/cron/absence-tick): notifies owner every 3h for 48h
- *      - Hybrid delivery: Push first (email→userId→tokens), Email as guaranteed fallback.
- *      - Owner responds via GET /api/absence/owner-alive/:token  → cancelled
- *      - After 16 notifications (48h) with no response → pending_beneficiary_confirmation
- *   3. GET  /api/absence/status/:ownerEmail    — poll current status
- *   4. POST /api/absence/beneficiary-confirm   — beneficiary confirms after 48h wait
- *      → triggers guardian vote emails
- *   5. GET  /api/absence/guardian-vote/:token  — guardian votes approve/reject
- *   6. GET  /api/absence/vote-status/:ownerEmail — poll guardian voting progress
- *   7. POST /api/absence/start-vote            — (re-trigger guardian vote)
- *   8. POST /api/absence/cancel                — owner cancels manually from app
+ *   2. Server scheduler (/api/cron/absence-tick): notifies owner every 3h for 48h
+ *      - Hybrid delivery: Push first (resilient Expo sender), Email as fallback.
+ *   3. GET  /api/absence/owner-alive/:token    — owner responds → cancelled
+ *   4. After 16 notifications (48h) → pending_beneficiary_confirmation
+ *   5. POST /api/absence/beneficiary-confirm   — triggers guardian vote emails
+ *   6. GET  /api/absence/guardian-vote/:token  — guardian votes approve/reject
+ *   7. GET  /api/absence/vote-status/:ownerEmail
+ *   8. POST /api/absence/start-vote / POST /api/absence/cancel
  */
 
 import { Router } from 'express';
@@ -56,12 +53,59 @@ const router = Router();
 const NOTIFY_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
 const MAX_NOTIFICATIONS   = 16;                  // 48h / 3h = 16
 
+/* ─── Resilient Expo Push sender (multi-endpoint + retry + timeout) ─────────── */
+
+const EXPO_PUSH_ENDPOINTS = [
+  'https://api.expo.io/v2/push/send',
+  'https://exp.host/--/api/v2/push/send',
+];
+
+async function postExpoPush(messages: unknown[]): Promise<boolean> {
+  for (let round = 0; round < 2; round++) {
+    for (const url of EXPO_PUSH_ENDPOINTS) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        let res: globalThis.Response;
+        try {
+          res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Accept-Encoding': 'gzip, deflate',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(messages),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+
+        if (!res.ok) {
+          logger.warn({ url, status: res.status }, 'Expo endpoint non-2xx (absence push)');
+          continue;
+        }
+
+        const result = (await res.json()) as {
+          data?: Array<{ status?: string; details?: { error?: string }; message?: string }>;
+        };
+
+        if (result.data?.some((t) => t.status === 'ok')) return true;
+
+        const firstErr = result.data?.[0]?.details?.error;
+        if (firstErr === 'DeviceNotRegistered') return false;
+      } catch (e) {
+        logger.warn({ url, err: e }, 'Expo endpoint attempt failed (absence push)');
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
 /* ─── Identity bridge: email → Clerk userId → push tokens ──────────────────── */
-/**
- * The absence protocol is keyed by EMAIL (vault owner/beneficiary), but push
- * tokens are stored under the Clerk USER ID. This resolver bridges the two.
- * Returns null if no Clerk user matches — callers MUST then fall back to email.
- */
+
 async function resolveUserIdByEmail(email: string): Promise<string | null> {
   try {
     if (!email) return null;
@@ -74,12 +118,6 @@ async function resolveUserIdByEmail(email: string): Promise<string | null> {
   }
 }
 
-/**
- * Attempt a push to every registered device of the user identified by `email`.
- * Returns true only if at least one Expo ticket came back 'ok'. On ANY failure
- * (no user, no tokens, Expo error) it returns false so the caller sends email.
- * This guarantees there is never a silent miss for a security-critical alert.
- */
 async function sendPushToUserByEmail(email: string, title: string, body: string): Promise<boolean> {
   try {
     const userId = await resolveUserIdByEmail(email);
@@ -90,7 +128,7 @@ async function sendPushToUserByEmail(email: string, title: string, body: string)
       .from(userPushTokensTable)
       .where(eq(userPushTokensTable.userId, userId));
 
-    if (tokensRows.length === 0) return false; // no devices registered yet
+    if (tokensRows.length === 0) return false;
 
     const messages = tokensRows.map((row) => ({
       to: row.token,
@@ -100,23 +138,7 @@ async function sendPushToUserByEmail(email: string, title: string, body: string)
       data: { timestamp: Date.now(), app: 'auryx', type: 'absence' },
     }));
 
-    const expoResponse = await fetch('https://api.expo.io/v2/push/send', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messages),
-    });
-
-    if (!expoResponse.ok) {
-      logger.warn({ status: expoResponse.status }, 'Expo Push API returned non-2xx');
-      return false;
-    }
-
-    const result = (await expoResponse.json()) as { data?: { status?: string }[] };
-    return Boolean(result.data?.some((t) => t.status === 'ok'));
+    return await postExpoPush(messages);
   } catch (e) {
     logger.error({ err: e }, 'Failed to dispatch absence push (will fall back to email)');
     return false;
@@ -153,13 +175,12 @@ ${body}
 }
 
 // ── Shared guardian-vote helper ────────────────────────────────────────────────
-/** Create decision slots + send guardian vote emails for an absence request. */
+
 async function triggerGuardianVoteEmails(absReqId: number, ownerEmail: string): Promise<number> {
   const vault = await lookupSealedVault(ownerEmail);
   if (!vault || vault.guardianPackages.length === 0) return 0;
 
   const guardianEmails = vault.guardianPackages.map((gp) => gp.email).filter(Boolean);
-  // Must check BEFORE startGuardianVote to avoid transitioning status with 0 guardians
   if (guardianEmails.length === 0) return 0;
 
   const absReq = await getAbsenceRequestById(absReqId);
@@ -190,6 +211,7 @@ async function triggerGuardianVoteEmails(absReqId: number, ownerEmail: string): 
 }
 
 // ── Background scheduler ───────────────────────────────────────────────────────
+
 async function processAbsenceScheduler(): Promise<{ active: number; processed: number }> {
   const start = Date.now();
   logger.info({ startTime: start }, 'Absence scheduler: run started');
@@ -205,11 +227,9 @@ async function processAbsenceScheduler(): Promise<{ active: number; processed: n
     const lastSent = absReq.ownerLastNotifiedAt ?? 0;
 
     if (absReq.ownerNotifCount >= MAX_NOTIFICATIONS) {
-      // 48h elapsed with no owner response — move to beneficiary confirmation
       try {
         await transitionToBeneficiaryConfirmation(absReq.id);
 
-        // HYBRID: push the beneficiary first, email as guaranteed fallback
         const pushOk = await sendPushToUserByEmail(
           absReq.beneficiaryEmail,
           'تنبيه أمني حرج',
@@ -232,9 +252,8 @@ async function processAbsenceScheduler(): Promise<{ active: number; processed: n
       continue;
     }
 
-    if (now - lastSent < NOTIFY_INTERVAL_MS) continue; // not yet time
+    if (now - lastSent < NOTIFY_INTERVAL_MS) continue;
 
-    // Send next 3-hourly notification to owner — HYBRID (push first, email fallback)
     const nextCount = absReq.ownerNotifCount + 1;
     const aliveUrl  = absReq.ownerAliveToken
       ? `${getBaseUrl()}/api/absence/owner-alive/${absReq.ownerAliveToken}`
@@ -275,17 +294,9 @@ async function processAbsenceScheduler(): Promise<{ active: number; processed: n
   return { active: activeCount, processed };
 }
 
-// The mutex prevents overlapping ticks in one process. tryAcquire is used so a
-// second tick skips immediately rather than waiting behind a slow run.
 const absenceSchedulerMutex = new Mutex();
 const ABSENCE_SCHEDULER_LOCK_ID = 42;
 
-/**
- * Run one scheduler tick with a process-local mutex and a PostgreSQL advisory
- * lock. The advisory lock is acquired and released from the same transaction
- * connection, so separate server instances coordinate through PostgreSQL.
- * Exported so the Vercel-Cron trigger route (/api/cron/absence-tick) can call it.
- */
 export async function runAbsenceSchedulerTick(): Promise<{ active: number; processed: number } | undefined> {
   let release: (() => void) | undefined;
 
@@ -307,7 +318,7 @@ export async function runAbsenceSchedulerTick(): Promise<{ active: number; proce
       const lockResult = await tx.execute(
         sql`SELECT pg_try_advisory_lock(${ABSENCE_SCHEDULER_LOCK_ID}) AS acquired`,
       );
-      const acquired = Boolean(lockResult.rows[0]?.acquired);
+      const acquired = Boolean((lockResult as any).rows?.[0]?.acquired);
 
       if (!acquired) {
         logger.info(
@@ -333,10 +344,8 @@ export async function runAbsenceSchedulerTick(): Promise<{ active: number; proce
   }
 }
 
-// NOTE: setInterval intentionally REMOVED. It does not survive Vercel serverless.
-// The tick is invoked by /api/cron/absence-tick (GitHub Actions schedule every 5 min).
-
 // ── POST /api/absence/initiate ────────────────────────────────────────────────
+
 router.post('/initiate', requireAuth, validateBody(absenceBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const {
@@ -363,7 +372,6 @@ router.post('/initiate', requireAuth, validateBody(absenceBody), requireVaultPar
       ownerName,
     );
 
-    // Send immediate notification only on first creation (notifCount === 0)
     if (absReq.ownerNotifCount === 0) {
       const aliveUrl = absReq.ownerAliveToken
         ? `${getBaseUrl()}/api/absence/owner-alive/${absReq.ownerAliveToken}`
@@ -404,6 +412,7 @@ router.post('/initiate', requireAuth, validateBody(absenceBody), requireVaultPar
 });
 
 // ── GET /api/absence/status/:ownerEmail ───────────────────────────────────────
+
 router.get('/status/:ownerEmail', requireAuth, requireVaultParticipant(), async (req, res, next) => {
   try {
     const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
@@ -423,6 +432,7 @@ router.get('/status/:ownerEmail', requireAuth, requireVaultParticipant(), async 
 });
 
 // ── GET /api/absence/owner-alive/:token ───────────────────────────────────────
+
 router.get('/owner-alive/:token', async (req, res, next) => {
   try {
     const absReq = await getRequestByAliveToken(req.params.token);
@@ -434,7 +444,6 @@ router.get('/owner-alive/:token', async (req, res, next) => {
       return;
     }
 
-    // Owner can cancel at any point before guardian voting starts
     const cancellable = absReq.status === 'pending_owner' || absReq.status === 'pending_beneficiary_confirmation';
 
     if (!cancellable) {
@@ -451,7 +460,6 @@ router.get('/owner-alive/:token', async (req, res, next) => {
       'Absence: owner confirmed alive via email link',
     );
 
-    // Notify beneficiary that owner is alive
     try {
       await sendOwnerAliveNotification(
         absReq.beneficiaryEmail,
@@ -471,11 +479,7 @@ router.get('/owner-alive/:token', async (req, res, next) => {
 });
 
 // ── POST /api/absence/beneficiary-confirm ─────────────────────────────────────
-/**
- * Called by the beneficiary after receiving the "owner absent 48h" notification.
- * Validates the request is in pending_beneficiary_confirmation status,
- * then triggers guardian vote emails.
- */
+
 router.post('/beneficiary-confirm', requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
@@ -514,6 +518,7 @@ router.post('/beneficiary-confirm', requireAuth, validateBody(ownerOnlyBody), re
 });
 
 // ── GET /api/absence/guardian-vote/:token ─────────────────────────────────────
+
 router.get('/guardian-vote/:token', async (req, res, next) => {
   try {
     const voteParam = (req.query.vote as string | undefined)?.toLowerCase();
@@ -556,7 +561,6 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
       'Absence: guardian vote recorded',
     );
 
-    // Check if approval threshold is reached
     const vault = await lookupSealedVault(absReq.ownerEmail);
     if (vault && voteParam === 'approve') {
       const approvals = await countApprovals(slot.requestId);
@@ -592,16 +596,13 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
     res.status(200).send(htmlPage('تم التصويت', `
       <h2 class="green">✅ تم تسجيل تصويتك</h2>
       <p>اخترت: <strong>${label}</strong></p>
-      <p>شكراً على مشاركتك في بروتوكول الأمان.</p>
+      <p>شكراً لمشاركتك في بروتوكول الأمان.</p>
     `));
   } catch (err) { next(err); }
 });
 
 // ── POST /api/absence/start-vote ──────────────────────────────────────────────
-/**
- * Re-triggers guardian vote emails for an existing absence request.
- * Accepts requests in pending_guardian_vote or pending_beneficiary_confirmation status.
- */
+
 router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
@@ -617,7 +618,6 @@ router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireVaul
       return;
     }
 
-    // Only allow resending to an already-initiated vote — never bypass the 48h window.
     const absReq = await getLatestAbsenceRequest(ownerEmail);
     const validStatuses = ['pending_guardian_vote', 'pending_beneficiary_confirmation'];
     if (!absReq || !validStatuses.includes(absReq.status)) {
@@ -637,6 +637,7 @@ router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireVaul
 });
 
 // ── GET /api/absence/vote-status/:ownerEmail ───────────────────────────────────
+
 router.get('/vote-status/:ownerEmail', requireAuth, requireVaultParticipant(), async (req, res, next) => {
   try {
     const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
@@ -673,6 +674,7 @@ router.get('/vote-status/:ownerEmail', requireAuth, requireVaultParticipant(), a
 });
 
 // ── POST /api/absence/cancel ──────────────────────────────────────────────────
+
 router.post('/cancel', requireAuth, validateBody(ownerOnlyBody), requireOwner(), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
