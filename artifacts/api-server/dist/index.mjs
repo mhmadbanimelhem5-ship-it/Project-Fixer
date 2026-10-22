@@ -72328,7 +72328,7 @@ var app = (0, import_express16.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use((req, res, next) => {
-  if (req.path === "/api/push/notify" || req.path === "/api/push/register") {
+  if (req.path === "/api/push/notify") {
     return next();
   }
   const middleware = clerkMiddleware();

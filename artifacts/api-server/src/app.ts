@@ -14,9 +14,10 @@ app.set("trust proxy", 1);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-// ✅ استثناء مسارات الإشعارات من Clerk
+// ✅ استثناء /api/push/notify فقط من Clerk (لأنه يُستدعى من السيرفر بـ internal secret)
+// ⚠️ /api/push/register يبقى محمياً بـ Clerk (يحتاج userId لربط التوكن بالمستخدم)
 app.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.path === '/api/push/notify' || req.path === '/api/push/register') {
+  if (req.path === '/api/push/notify') {
     return next();
   }
   const middleware = clerkMiddleware();
