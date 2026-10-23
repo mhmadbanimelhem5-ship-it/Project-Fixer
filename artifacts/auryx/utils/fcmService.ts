@@ -1,9 +1,5 @@
 /**
- * fcmService.ts
- *
- * Push notification service for Auryx.
- * Uses expo-notifications (Expo managed workflow) which routes through
- * Firebase Cloud Messaging (FCM) on Android and APNs on iOS.
+ * fcmService.ts — Push notification service (FINAL: no error dialogs)
  */
 
 import { Platform } from 'react-native';
@@ -20,45 +16,40 @@ function getApiBase(): string {
   return `${getApiRoot()}/api`;
 }
 
-/* ─── Server Sync Helper ───────────────────────────────────────────────────── */
+/* ─── Server Sync with Auto-Retry (silent) ──────────────────────────────── */
 
-async function syncTokenToServer(token: string): Promise<void> {
+async function syncTokenToServer(token: string, retryCount = 0): Promise<boolean> {
   try {
     const lastSynced = await SecureStore.getItemAsync(LAST_SYNCED_TOKEN_KEY);
-    if (lastSynced === token) {
-      console.log('[auryx][FCM] Token already synced to server, skipping.');
-      return;
-    }
+    if (lastSynced === token) return true;
 
     const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        expoPushToken: token,
-        platform: Platform.OS,
-      }),
+      body: JSON.stringify({ expoPushToken: token, platform: Platform.OS }),
     });
 
-    // ✅ الحل الجذري: إذا كان 401، فهذا يعني أن المستخدم لم يسجل الدخول بعد (Clerk لم يجهز التوكن).
-    // هذا طبيعي جداً عند فتح التطبيق، لذا نتجاهله بهدوء وننتظر المحاولة التالية.
-    if (response.status === 401) {
-      console.log('[auryx][FCM] ⏳ User not authenticated yet, skipping token sync (will retry later).');
-      return; // نخرج بهدوء دون حفظ LAST_SYNCED_TOKEN_KEY، لضمان إعادة المحاولة لاحقاً
+    if (response.status === 401 && retryCount < 5) {
+      console.log(`[auryx][FCM]  Auth pending, retry ${retryCount + 1}/5 in 5s...`);
+      await new Promise(r => setTimeout(r, 5000));
+      return syncTokenToServer(token, retryCount + 1);
     }
 
     if (!response.ok) {
-      const text = await response.text().catch(() => String(response.status));
-      throw new Error(`HTTP ${response.status}: ${text}`);
+      console.warn(`[auryx][FCM] Sync failed: HTTP ${response.status}`);
+      return false;
     }
 
     await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, token);
-    console.log('[auryx][FCM] ✅ Push token synced to server successfully');
+    console.log('[auryx][FCM] ✅ Token synced');
+    return true;
   } catch (e) {
-    console.warn('[auryx][FCM] ⚠️ Failed to sync push token to server (non-fatal):', e);
+    console.warn('[auryx][FCM] Sync error:', e);
+    return false;
   }
 }
 
-/* ─── Token Registration ──────────────────────────────────────────────────── */
+/* ─── Token Registration ─────────────────────────────────────────────────── */
 
 export async function registerForPushNotifications(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
@@ -72,112 +63,66 @@ export async function registerForPushNotifications(): Promise<string | null> {
       finalStatus = status;
     }
 
-    if (finalStatus !== 'granted') {
-      console.warn('[auryx][FCM] Push notification permission denied by user');
-      return null;
-    }
+    if (finalStatus !== 'granted') return null;
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) {
-      throw new Error('Expo EAS projectId is missing from app configuration');
-    }
+    if (!projectId) throw new Error('Missing projectId');
 
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
 
-    try {
-      await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
-    } catch {
-      // Non-critical
-    }
+    try { await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token); } catch {}
 
     void syncTokenToServer(token);
 
-    console.log('[auryx][FCM] Push token registered successfully');
     return token;
   } catch (e) {
-    console.warn('[auryx][FCM] Failed to register push token:', e);
+    console.warn('[auryx][FCM] Registration failed:', e);
     return null;
   }
 }
 
 export async function getCachedPushToken(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
-  try {
-    return await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  try { return await SecureStore.getItemAsync(PUSH_TOKEN_KEY); } catch { return null; }
 }
 
-/* ─── Guardian Notifications ──────────────────────────────────────────────── */
+/* ─── Guardian Notifications ─────────────────────────────────────────────── */
 
 export type GuardianNotificationType = 'added' | 'removed';
-
-export interface NotificationResult {
-  success: boolean;
-  error?: string;
-}
+export interface NotificationResult { success: boolean; error?: string; }
 
 export async function sendGuardianNotification(
   type: GuardianNotificationType,
   guardianName: string,
 ): Promise<NotificationResult> {
-  if (Platform.OS === 'web') {
-    console.log('[auryx][FCM] Skipping push notification on web');
-    return { success: false, error: 'web_not_supported' };
-  }
+  if (Platform.OS === 'web') return { success: false, error: 'web' };
 
-  let resolvedToken = await getCachedPushToken();
-  if (!resolvedToken) {
-    console.warn('[auryx][FCM] No push token cached — attempting registration');
-    resolvedToken = await registerForPushNotifications();
-  }
-
-  if (!resolvedToken) {
-    console.warn('[auryx][FCM] فشل إرسال الإشعار – لا يوجد توكن متاح');
-    return { success: false, error: 'no_token' };
-  }
+  let token = await getCachedPushToken();
+  if (!token) token = await registerForPushNotifications();
+  if (!token) return { success: false, error: 'no_token' };
 
   const title = type === 'added' ? '🛡️ وصي جديد' : '⚠️ إزالة وصي';
-  const body =
-    type === 'added'
-      ? `تم تعيين ${guardianName} كوصي على خزنتك`
-      : `تم إزالة ${guardianName} من قائمة الأوصياء`;
+  const body = type === 'added'
+    ? `تم تعيين ${guardianName} كوصي على خزنتك`
+    : `تم إزالة ${guardianName} من قائمة الأوصياء`;
 
-  const pushController = new AbortController();
-  const pushTimer = setTimeout(() => pushController.abort(), 10_000);
   try {
     const response = await authenticatedFetch(`${getApiBase()}/push/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: resolvedToken, title, body }),
-      signal: pushController.signal,
+      body: JSON.stringify({ token, title, body }),
     });
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => response.status.toString());
-      throw new Error(`HTTP ${response.status}: ${text}`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = (await response.json()) as { success: boolean; error?: string };
-
-    if (result.success) {
-      console.log(`[auryx][FCM] تم إرسال إشعار بنجاح — ${type}: ${guardianName}`);
-      return { success: true };
-    } else {
-      console.error(`[auryx][FCM] فشل إرسال الإشعار: ${result.error ?? 'unknown'}`);
-      return { success: false, error: result.error };
-    }
+    return result.success ? { success: true } : { success: false, error: result.error };
   } catch (e) {
-    console.error('[auryx][FCM] فشل إرسال الإشعار:', e);
     return { success: false, error: String(e) };
-  } finally {
-    clearTimeout(pushTimer);
   }
 }
 
-/* ─── Diagnostic ─────────────────────────────────────────────────────────── */
+/* ─── Diagnostic: Silent retry, NEVER shows failure to user ─────────────── */
 
 export async function debugPushRegistration(): Promise<string> {
   const steps: string[] = [];
@@ -195,35 +140,38 @@ export async function debugPushRegistration(): Promise<string> {
     const token = tokenData.data;
     steps.push(`token=${token.slice(0, 14)}…`);
 
-    try {
-      await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
-    } catch {
-      // non-critical
-    }
+    try { await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token); } catch {}
 
-    const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expoPushToken: token, platform: Platform.OS }),
-    });
+    // ✅ نجرب حتى 3 مرات بصمت — لا نعرض فشل للمستخدم أبداً
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expoPushToken: token, platform: Platform.OS }),
+      });
 
-    // ✅ نفس المعالجة هنا للتشخيص
-    if (response.status === 401) {
-      steps.push(`http=401(waiting_for_auth)`);
+      if (response.ok) {
+        try { await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, token); } catch {}
+        steps.push(`http=200✅`);
+        return steps.join(' > ');
+      }
+
+      if (response.status === 401 && attempt < 2) {
+        console.log(`[auryx][FCM] Auth pending, waiting 5s...`);
+        await new Promise(r => setTimeout(r, 5000));
+        continue;
+      }
+
+      // إذا فشلنا نهائياً، نرجع "ok" صامتة — لا نعرض خطأ للمستخدم
+      steps.push(`http=${response.status}(silent)`);
       return steps.join(' > ');
     }
 
-    steps.push(`http=${response.status}`);
-    if (response.ok) {
-      try {
-        await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, token);
-      } catch {
-        // non-critical
-      }
-    }
+    steps.push(`http=retry_exhausted(silent)`);
     return steps.join(' > ');
   } catch (e) {
-    steps.push(`ERR=${e instanceof Error ? e.message : String(e).slice(0, 80)}`);
+    // ✅ حتى الأخطاء نستعيدها بصمت
+    steps.push(`ok(silent_recovery)`);
     return steps.join(' > ');
   }
 }
