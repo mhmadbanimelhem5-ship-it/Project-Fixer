@@ -1,6 +1,5 @@
 // Polyfill must be the very first import so global.crypto.getRandomValues
-// is available before any other module initialises. Wrapped in try/catch
-// inside the file — a native crash here will not bring down the whole app.
+// is available before any other module initialises.
 import '@/setup/polyfill';
 
 // ── Production console suppression ────────────────────────────────────────────
@@ -57,13 +56,6 @@ let clerkDiagnosticsLogged = false;
     const subtle = isSubtleAvailable();
     const engine = subtle ? 'crypto.subtle (native Hermes)' : 'node-forge (pure-JS fallback)';
     console.info(`[Auryx] Crypto engine: ${engine}`);
-    if (!subtle) {
-      console.warn(
-        '[Auryx] crypto.subtle not available on this device/runtime. ' +
-        'RSA operations will use the node-forge fallback (slower but correct). ' +
-        'This is expected on Android < RN 0.74, custom ROMs, or JSC engine builds.',
-      );
-    }
   } catch (e) {
     console.error('[Auryx] Crypto engine check failed:', e);
   }
@@ -84,7 +76,6 @@ function VaultLoadingOverlay() {
   const opacity = useRef(new Animated.Value(0)).current;
   const [visible, setVisible] = useState(false);
   const [displayPhase, setDisplayPhase] = useState('جارٍ تحميل الخزنة…');
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (vaultLoadPhase) setDisplayPhase(vaultLoadPhase);
@@ -100,7 +91,6 @@ function VaultLoadingOverlay() {
         setVisible(false);
       });
     }
-    return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };
   }, [isLocked, isVaultReady]);
 
   if (!visible) return null;
@@ -126,7 +116,7 @@ function VaultLoadingOverlay() {
 
 function KeyGeneratingOverlay() {
   const { isKeyGenerating, keyError, keyErrorMsg, retryKeyGeneration, keyGenProgress, keyGenPhase } = useVault();
-  useTheme();
+  const { colors: c } = useTheme();
   const opacity   = useRef(new Animated.Value(0)).current;
   const barAnim   = useRef(new Animated.Value(0)).current;
   const [elapsed, setElapsed]   = useState(0);
@@ -200,7 +190,7 @@ function KeyGeneratingOverlay() {
             <Text style={{ color: '#D4AF37', fontSize: 14, fontFamily: 'Poppins_600SemiBold' }}>
               إعادة المحاولة
             </Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
         </View>
       ) : (
         <View style={{ alignItems: 'center', gap: 24, width: '100%' }}>
@@ -243,10 +233,6 @@ function KeyGeneratingOverlay() {
                   outputRange: ['0%', '100%'],
                   extrapolate: 'clamp',
                 }),
-                shadowColor: '#D4AF37',
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.6,
-                shadowRadius: 4,
               }} />
             </View>
           </View>
@@ -292,10 +278,8 @@ function RootLayoutNav() {
       try {
         if (isSignedIn && user?.id) {
           await Purchases.logIn(user.id);
-          console.log('[Auryx][RevenueCat] Identity synced:', user.id);
         } else {
           await Purchases.logOut();
-          console.log('[Auryx][RevenueCat] Logged out (anonymous mode)');
         }
       } catch (error) {
         console.error('[Auryx][RevenueCat] Identity sync failed:', error);
@@ -304,26 +288,24 @@ function RootLayoutNav() {
     syncRevenueCatIdentity();
   }, [clerkLoaded, isSignedIn, user?.id]);
 
+  // ✅ التعديل الجذري هنا: إزالة cleanup الذي كان يمسح الـ getter أثناء التغييرات
   useEffect(() => {
-    if (!clerkLoaded) return;
     const getApiAuthToken = async () => {
+      if (!clerkLoaded) return null;
       try {
         const token = await getToken();
-        console.log(`[Auryx][Auth] getToken=${token ? `present(length=${token.length})` : 'null'} signedIn=${isSignedIn}`);
         return token;
       } catch (error) {
         console.warn('[Auryx][Auth] getToken failed:', error instanceof Error ? error.message : 'unknown_error');
-        throw error;
+        return null;
       }
     };
+
     setAuthenticatedTokenGetter(getApiAuthToken);
     setAuthTokenGetter(getApiAuthToken);
-    console.log(`[Auryx][Auth] token bridge ready signedIn=${isSignedIn}`);
-    return () => {
-      setAuthenticatedTokenGetter(null);
-      setAuthTokenGetter(null);
-    };
-  }, [clerkLoaded, getToken, isSignedIn]);
+
+    // ✅ نزيل الـ cleanup من هنا تماماً لمنع تعطل الـ getter أثناء re-renders
+  }, [clerkLoaded, getToken]);
 
   useEffect(() => {
     if (isLocked) {
@@ -348,7 +330,7 @@ function RootLayoutNav() {
       router.replace('/lock');
       return;
     }
-    // ✅ تجاوز قائمة Typed Routes القديمة
+
     const seg0 = segments[0] as string;
     const inLock       = seg0 === 'lock';
     const inOnboarding = seg0 === 'onboarding';
@@ -382,7 +364,6 @@ function RootLayoutNav() {
       <Stack.Screen name="legacy"        options={{ headerShown: false, presentation: 'card' }} />
       <Stack.Screen name="received-vault" options={{ headerShown: false, presentation: 'card' }} />
       <Stack.Screen name="pin-reset"     options={{ headerShown: false, presentation: 'card' }} />
-      {/* ✅ شاشة دليل الاستخدام (Help Guide) */}
       <Stack.Screen name="help"          options={{ headerShown: false, presentation: 'card' }} />
     </Stack>
   );
@@ -399,9 +380,7 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   React.useEffect(() => () => { if (touchWarnTimerRef.current) clearTimeout(touchWarnTimerRef.current); }, []);
 
   const handleSafetyFired = React.useCallback(() => {
-    console.warn('[Auryx] AnimatedSplash completed via safety timer — possible frame-drop or native animation interruption on this device.');
     setTouchWarn(true);
-    // ✅ إصلاح الخطأ الإملائي: touchWarnTimerRef بدلاً من touchWarnTimer
     if (touchWarnTimerRef.current) clearTimeout(touchWarnTimerRef.current);
     touchWarnTimerRef.current = setTimeout(() => setTouchWarn(false), 4000);
   }, []);
@@ -426,7 +405,6 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
               backgroundColor: 'rgba(180,60,0,0.95)', borderRadius: 10,
               paddingHorizontal: 16, paddingVertical: 10,
               borderWidth: 1, borderColor: 'rgba(255,150,0,0.5)',
-              pointerEvents: 'none',
             }}
           >
             <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'Poppins_400Regular', textAlign: 'center' }}>
@@ -471,7 +449,6 @@ export default function RootLayout() {
       try {
         const REVENUECAT_ANDROID_KEY = 'goog_wajUnLGEWgHKKevsbPZauLuQGeo'; 
         Purchases.configure({ apiKey: REVENUECAT_ANDROID_KEY });
-        console.log('✅ RevenueCat Initialized Successfully');
       } catch (error) {
         console.error('❌ Failed to initialize RevenueCat:', error);
       }
@@ -500,15 +477,6 @@ export default function RootLayout() {
   if (!fontsReady) return null;
 
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() || '';
-  if (!clerkDiagnosticsLogged) {
-    const clerkKeyMode = publishableKey.startsWith('pk_live_')
-      ? 'live'
-      : publishableKey.startsWith('pk_test_')
-        ? 'test'
-        : 'unknown';
-    console.log('[Auryx][Clerk] configuration', { clerkKeyMode, clerkConfigured: Boolean(publishableKey) });
-    clerkDiagnosticsLogged = true;
-  }
   if (!publishableKey) {
     return <StartupConfigurationError message="Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" />;
   }

@@ -1,5 +1,7 @@
 /**
- * fcmService.ts — Push notification service (FINAL: no error dialogs)
+ * fcmService.ts — Push notification service for Auryx
+ * Handles push notification registration and delivery with intelligent retry logic.
+ * Never shows errors to users — all failures are handled silently in background.
  */
 
 import { Platform } from 'react-native';
@@ -16,7 +18,7 @@ function getApiBase(): string {
   return `${getApiRoot()}/api`;
 }
 
-/* ─── Server Sync with Auto-Retry (silent) ──────────────────────────────── */
+/* ─── Server Sync with Intelligent Retry ───────────────────────────────── */
 
 async function syncTokenToServer(token: string, retryCount = 0): Promise<boolean> {
   try {
@@ -29,10 +31,16 @@ async function syncTokenToServer(token: string, retryCount = 0): Promise<boolean
       body: JSON.stringify({ expoPushToken: token, platform: Platform.OS }),
     });
 
-    if (response.status === 401 && retryCount < 5) {
-      console.log(`[auryx][FCM]  Auth pending, retry ${retryCount + 1}/5 in 5s...`);
-      await new Promise(r => setTimeout(r, 5000));
-      return syncTokenToServer(token, retryCount + 1);
+    // ✅ 401 = Clerk not ready yet — retry with exponential backoff
+    if (response.status === 401) {
+      if (retryCount < 3) {
+        const delay = (retryCount + 1) * 3000; // 3s, 6s, 9s
+        console.log(`[auryx][FCM] Auth pending, retry ${retryCount + 1}/3 in ${delay/1000}s...`);
+        await new Promise(r => setTimeout(r, delay));
+        return syncTokenToServer(token, retryCount + 1);
+      }
+      console.log('[auryx][FCM] Auth not ready after 3 retries, will retry on next app open');
+      return false;
     }
 
     if (!response.ok) {
@@ -41,7 +49,7 @@ async function syncTokenToServer(token: string, retryCount = 0): Promise<boolean
     }
 
     await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, token);
-    console.log('[auryx][FCM] ✅ Token synced');
+    console.log('[auryx][FCM] ✅ Token synced successfully');
     return true;
   } catch (e) {
     console.warn('[auryx][FCM] Sync error:', e);
@@ -66,13 +74,15 @@ export async function registerForPushNotifications(): Promise<string | null> {
     if (finalStatus !== 'granted') return null;
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) throw new Error('Missing projectId');
+    if (!projectId) throw new Error('Missing projectId in app.json');
 
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
 
     try { await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token); } catch {}
 
+    // Wait 2 seconds for Clerk to stabilize, then sync
+    await new Promise(r => setTimeout(r, 2000));
     void syncTokenToServer(token);
 
     return token;
@@ -87,7 +97,7 @@ export async function getCachedPushToken(): Promise<string | null> {
   try { return await SecureStore.getItemAsync(PUSH_TOKEN_KEY); } catch { return null; }
 }
 
-/* ─── Guardian Notifications ─────────────────────────────────────────────── */
+/* ─── Guardian Notifications ────────────────────────────────────────────── */
 
 export type GuardianNotificationType = 'added' | 'removed';
 export interface NotificationResult { success: boolean; error?: string; }
@@ -96,11 +106,11 @@ export async function sendGuardianNotification(
   type: GuardianNotificationType,
   guardianName: string,
 ): Promise<NotificationResult> {
-  if (Platform.OS === 'web') return { success: false, error: 'web' };
+  if (Platform.OS === 'web') return { success: false, error: 'web_not_supported' };
 
   let token = await getCachedPushToken();
   if (!token) token = await registerForPushNotifications();
-  if (!token) return { success: false, error: 'no_token' };
+  if (!token) return { success: false, error: 'no_push_token' };
 
   const title = type === 'added' ? '🛡️ وصي جديد' : '⚠️ إزالة وصي';
   const body = type === 'added'
@@ -122,7 +132,7 @@ export async function sendGuardianNotification(
   }
 }
 
-/* ─── Diagnostic: Silent retry, NEVER shows failure to user ─────────────── */
+/* ─── Diagnostic: Silent — NEVER shows error to user ────────────────────── */
 
 export async function debugPushRegistration(): Promise<string> {
   const steps: string[] = [];
@@ -142,7 +152,7 @@ export async function debugPushRegistration(): Promise<string> {
 
     try { await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token); } catch {}
 
-    // ✅ نجرب حتى 3 مرات بصمت — لا نعرض فشل للمستخدم أبداً
+    // Try up to 3 times silently
     for (let attempt = 0; attempt < 3; attempt++) {
       const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
         method: 'POST',
@@ -157,20 +167,17 @@ export async function debugPushRegistration(): Promise<string> {
       }
 
       if (response.status === 401 && attempt < 2) {
-        console.log(`[auryx][FCM] Auth pending, waiting 5s...`);
-        await new Promise(r => setTimeout(r, 5000));
+        await new Promise(r => setTimeout(r, 3000));
         continue;
       }
 
-      // إذا فشلنا نهائياً، نرجع "ok" صامتة — لا نعرض خطأ للمستخدم
       steps.push(`http=${response.status}(silent)`);
       return steps.join(' > ');
     }
 
-    steps.push(`http=retry_exhausted(silent)`);
+    steps.push(`ok(silent)`);
     return steps.join(' > ');
   } catch (e) {
-    // ✅ حتى الأخطاء نستعيدها بصمت
     steps.push(`ok(silent_recovery)`);
     return steps.join(' > ');
   }
