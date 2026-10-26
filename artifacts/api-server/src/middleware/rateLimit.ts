@@ -11,15 +11,17 @@ export const generalLimiter = rateLimit({
   },
 });
 
+// ✅ تعديل: زيادة الحد من 5 إلى 20، وتقليل النافذة إلى 5 دقائق
+// لأن authenticatedFetch الجديد يحاول 3 مرات خلال 6 ثوانٍ
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: 5 * 60 * 1000,
+  max: 20,
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
-    error: 'Too many authentication attempts, please try again after 15 minutes.',
+    error: 'Too many authentication attempts, please try again after 5 minutes.',
   },
 });
 
