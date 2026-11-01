@@ -4,7 +4,7 @@
 
 import { timingSafeEqual } from 'node:crypto';
 import { Router, type RequestHandler, type Request, type Response, type NextFunction } from 'express';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { authLimiter } from '../middleware/rateLimit';
 import { db, userPushTokensTable } from '@workspace/db';
@@ -147,8 +147,8 @@ router.post('/register', requireAuth, authLimiter, async (req: Request, res: Res
     }
 
     const { expoPushToken, platform } = parsed.data;
-    const authReq = req as any;
-    const userId: string | undefined = authReq.auth?.userId;
+    // Owner id only from requireAuth → authUser (Clerk user id). Never from body.
+    const userId = (req as AuthenticatedRequest).authUser?.id;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });

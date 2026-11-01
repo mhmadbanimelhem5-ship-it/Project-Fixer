@@ -1,28 +1,26 @@
 /**
  * useFirstLaunchPermissions
  *
- * Runs once per app installation (tracked via AsyncStorage):
- *   1. Push Notifications — needed for guardian alerts + absence protocol
- *   2. Camera — needed for the intruder-detection selfie feature
- *
- * After permissions, schedules a small number of background ensures so the
- * Expo push token reaches the server once Clerk is ready — without a perpetual
- * interval or user-facing diagnostic alerts.
+ * Effect 1: OS permissions + local Expo token only (no API).
+ * Effect 2: After clerkLoaded && isSignedIn, bounded ensures for server sync.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
+import { useAuth as useClerkAuth } from '@clerk/expo';
 import { ensurePushTokenSynced, registerForPushNotifications } from '@/utils/fcmService';
 
 const PERMISSIONS_KEY = 'auryx_permissions_requested_v1';
 
-/** One-shot delayed ensures (ms). No repeating interval. */
-const ENSURE_DELAYS_MS = [3_000, 12_000, 35_000] as const;
+const ENSURE_DELAYS_MS = [1_000, 5_000, 15_000] as const;
 
 export function useFirstLaunchPermissions(): void {
+  const { isLoaded: clerkLoaded, isSignedIn } = useClerkAuth();
+  const ensureStartedForSession = useRef(false);
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
@@ -34,7 +32,6 @@ export function useFirstLaunchPermissions(): void {
         if (alreadyRequested) return;
 
         await AsyncStorage.setItem(PERMISSIONS_KEY, '1');
-
         if (cancelled) return;
 
         const { status: notifStatus } = await Notifications.requestPermissionsAsync({
@@ -52,12 +49,10 @@ export function useFirstLaunchPermissions(): void {
         }
 
         if (cancelled) return;
-
         await new Promise<void>((r) => setTimeout(r, 600));
         if (cancelled) return;
 
         const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
-
         if (cancelled) return;
 
         if (camStatus !== 'granted') {
@@ -81,6 +76,13 @@ export function useFirstLaunchPermissions(): void {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    if (!clerkLoaded || !isSignedIn) {
+      ensureStartedForSession.current = false;
+      return;
+    }
+
+    if (ensureStartedForSession.current) return;
+    ensureStartedForSession.current = true;
 
     let stopped = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -110,5 +112,5 @@ export function useFirstLaunchPermissions(): void {
       stopped = true;
       timers.forEach(clearTimeout);
     };
-  }, []);
+  }, [clerkLoaded, isSignedIn]);
 }

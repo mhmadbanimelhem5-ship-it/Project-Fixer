@@ -1,7 +1,11 @@
 /**
  * fcmService.ts — Push notification service for Auryx
- * Registers the Expo push token with the API once per token (and after account changes).
- * Failures are logged for developers; no user-facing diagnostic alerts.
+ *
+ * Local registration (permission + Expo token) never hits the API.
+ * Authenticated sync only after a session can supply a Bearer token.
+ *
+ * SecureStore mutations for LAST_SYNCED are serialized through a queue so an
+ * older clear/delete cannot wipe a newer session's marker.
  */
 
 import { Platform } from 'react-native';
@@ -17,8 +21,26 @@ const LAST_SYNCED_TOKEN_KEY = 'auryx_last_synced_push_token';
 /** Earliest time we may attempt another server sync after a 429 (ms epoch). */
 let rateLimitedUntil = 0;
 
-/** Single-flight guard so concurrent ensure/register share one in-flight POST. */
-let syncInFlight: Promise<boolean> | null = null;
+/**
+ * Monotonic session epoch. Bumped on sign-out / account switch so in-flight
+ * work from a previous session cannot commit success for a newer session.
+ */
+let syncGeneration = 0;
+
+/** Single-flight map: `${userId}::${token}` -> in-flight promise. */
+const syncInFlightByKey = new Map<string, Promise<boolean>>();
+
+/** Serializes LAST_SYNCED SecureStore read/write/delete. */
+let storageChain: Promise<unknown> = Promise.resolve();
+
+function enqueueStorage<T>(op: () => Promise<T>): Promise<T> {
+  const run = storageChain.then(op, op);
+  storageChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
 
 function getApiBase(): string {
   return `${getApiRoot()}/api`;
@@ -38,30 +60,103 @@ function parseRetryAfterMs(response: Response, fallbackMs: number): number {
   return fallbackMs;
 }
 
-/**
- * Clears local "already synced" state. Call on sign-out or account switch so the
- * next user gets a fresh POST /push/register for this device token.
- */
-export async function clearPushSyncState(): Promise<void> {
+/** Extract Clerk user id (JWT `sub`) — not stored as a secret; id only. */
+function userIdFromAccessToken(accessToken: string): string | null {
   try {
-    await SecureStore.deleteItemAsync(LAST_SYNCED_TOKEN_KEY);
+    const part = accessToken.split('.')[1];
+    if (!part) return null;
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 === 0 ? b64 : b64 + '='.repeat(4 - (b64.length % 4));
+    const atobFn = (globalThis as { atob?: (s: string) => string }).atob;
+    if (!atobFn) return null;
+    const json = atobFn(pad);
+    const payload = JSON.parse(json) as { sub?: unknown };
+    return typeof payload.sub === 'string' && payload.sub.length > 0 ? payload.sub : null;
   } catch {
-    /* ignore storage errors */
+    return null;
   }
-  rateLimitedUntil = 0;
 }
 
-/* ─── Server Sync ─────────────────────────────────────────────────────────── */
+function syncMarker(userId: string, token: string): string {
+  return `${userId}::${token}`;
+}
+
+/**
+ * Invalidate local sync bookkeeping. Call on sign-out or account switch.
+ */
+export async function clearPushSyncState(): Promise<void> {
+  const generation = ++syncGeneration;
+  syncInFlightByKey.clear();
+  rateLimitedUntil = 0;
+
+  await enqueueStorage(async () => {
+    // If a newer clear/session started while we waited on the queue, skip delete
+    // so we cannot wipe that newer session's marker.
+    if (generation !== syncGeneration) {
+      return;
+    }
+    try {
+      await SecureStore.deleteItemAsync(LAST_SYNCED_TOKEN_KEY);
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+/* ─── Server Sync (requires auth) ─────────────────────────────────────────── */
 
 async function syncTokenToServer(token: string): Promise<boolean> {
-  if (syncInFlight) {
-    return syncInFlight;
+  const generationAtStart = syncGeneration;
+
+  if (generationAtStart !== syncGeneration) {
+    return false;
   }
 
-  syncInFlight = (async () => {
+  const authToken = await resolveAuthToken(3, 2000);
+  if (!authToken) {
+    console.log('[auryx][FCM] Auth token not ready; deferring push register');
+    return false;
+  }
+
+  if (generationAtStart !== syncGeneration) {
+    return false;
+  }
+
+  const userId = userIdFromAccessToken(authToken);
+  if (!userId) {
+    console.warn('[auryx][FCM] Could not derive user id from access token');
+    return false;
+  }
+
+  const flightKey = syncMarker(userId, token);
+  const existing = syncInFlightByKey.get(flightKey);
+  if (existing) {
+    return existing;
+  }
+
+  const promise = (async () => {
     try {
-      const lastSynced = await SecureStore.getItemAsync(LAST_SYNCED_TOKEN_KEY);
-      if (lastSynced === token) {
+      if (generationAtStart !== syncGeneration) {
+        return false;
+      }
+
+      const lastSynced = await enqueueStorage(async () => {
+        if (generationAtStart !== syncGeneration) {
+          return null;
+        }
+        try {
+          return await SecureStore.getItemAsync(LAST_SYNCED_TOKEN_KEY);
+        } catch {
+          return null;
+        }
+      });
+
+      // Re-check generation after async SecureStore read before acting on it.
+      if (generationAtStart !== syncGeneration) {
+        return false;
+      }
+
+      if (lastSynced === flightKey) {
         return true;
       }
 
@@ -72,9 +167,7 @@ async function syncTokenToServer(token: string): Promise<boolean> {
         return false;
       }
 
-      const authToken = await resolveAuthToken(3, 2000);
-      if (!authToken) {
-        console.log('[auryx][FCM] Auth token not ready; deferring push register');
+      if (generationAtStart !== syncGeneration) {
         return false;
       }
 
@@ -86,6 +179,10 @@ async function syncTokenToServer(token: string): Promise<boolean> {
         },
         body: JSON.stringify({ expoPushToken: token, platform: Platform.OS }),
       });
+
+      if (generationAtStart !== syncGeneration) {
+        return false;
+      }
 
       if (response.status === 401) {
         console.log('[auryx][FCM] Register returned 401; will wait for a later ensure');
@@ -104,22 +201,65 @@ async function syncTokenToServer(token: string): Promise<boolean> {
         return false;
       }
 
-      await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, token);
+      if (generationAtStart !== syncGeneration) {
+        return false;
+      }
+
+      await enqueueStorage(async () => {
+        // Only commit if this session is still current — never delete on mismatch.
+        if (generationAtStart !== syncGeneration) {
+          return;
+        }
+        try {
+          await SecureStore.setItemAsync(LAST_SYNCED_TOKEN_KEY, flightKey);
+        } catch {
+          /* ignore */
+        }
+      });
+
+      if (generationAtStart !== syncGeneration) {
+        return false;
+      }
+
       console.log('[auryx][FCM] Token synced successfully');
       return true;
     } catch (e) {
       console.warn('[auryx][FCM] Sync error:', e);
       return false;
     } finally {
-      syncInFlight = null;
+      if (syncInFlightByKey.get(flightKey) === promise) {
+        syncInFlightByKey.delete(flightKey);
+      }
     }
   })();
 
-  return syncInFlight;
+  syncInFlightByKey.set(flightKey, promise);
+  return promise;
 }
 
-/* ─── Token Registration ─────────────────────────────────────────────────── */
+/* ─── Local token only (no API) ───────────────────────────────────────────── */
 
+async function resolveCurrentExpoPushToken(): Promise<string | null> {
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+  if (!projectId) {
+    console.warn('[auryx][FCM] Missing projectId in app.json');
+    return null;
+  }
+
+  const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+  const token = tokenData.data;
+  try {
+    await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
+  } catch {
+    /* ignore */
+  }
+  return token;
+}
+
+/**
+ * Permission + Expo push token + local SecureStore only.
+ * Does NOT call /api/push/register.
+ */
 export async function registerForPushNotifications(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
 
@@ -134,21 +274,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     if (finalStatus !== 'granted') return null;
 
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) throw new Error('Missing projectId in app.json');
-
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-    const token = tokenData.data;
-
-    try {
-      await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
-    } catch {
-      /* ignore */
-    }
-
-    void syncTokenToServer(token);
-
-    return token;
+    return await resolveCurrentExpoPushToken();
   } catch (e) {
     console.warn('[auryx][FCM] Registration failed:', e);
     return null;
@@ -165,8 +291,7 @@ export async function getCachedPushToken(): Promise<string | null> {
 }
 
 /**
- * Ensure local Expo token exists and is registered with the API at most once
- * per token (until clearPushSyncState). Safe to call from multiple effects.
+ * Authenticated server sync. Prefer after clerkLoaded && isSignedIn.
  */
 export async function ensurePushTokenSynced(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
@@ -178,9 +303,12 @@ export async function ensurePushTokenSynced(): Promise<boolean> {
       return false;
     }
 
-    let token = await getCachedPushToken();
-    if (!token) {
-      token = await registerForPushNotifications();
+    let token: string | null = null;
+    try {
+      token = await resolveCurrentExpoPushToken();
+    } catch (e) {
+      console.warn('[auryx][FCM] getExpoPushTokenAsync failed, using cache:', e);
+      token = await getCachedPushToken();
     }
     if (!token) return false;
 
@@ -233,8 +361,7 @@ export async function sendGuardianNotification(
 }
 
 /**
- * Developer-oriented status string. Does not show UI and does not start loops.
- * Prefer ensurePushTokenSynced() for real registration.
+ * Developer-oriented status string. No UI, no loops.
  */
 export async function debugPushRegistration(): Promise<string> {
   const steps: string[] = [];
@@ -247,24 +374,16 @@ export async function debugPushRegistration(): Promise<string> {
     steps.push(`pid=${projectId ? projectId.slice(0, 8) : 'MISSING'}`);
 
     let token = await getCachedPushToken();
-    if (!token) {
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: projectId ?? undefined,
-      });
-      token = tokenData.data;
-      try {
-        await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
-      } catch {
-        /* ignore */
-      }
+    try {
+      token = (await resolveCurrentExpoPushToken()) ?? token;
+    } catch {
+      /* keep cache */
     }
-    steps.push(`token=${token.slice(0, 14)}…`);
-
-    const lastSynced = await SecureStore.getItemAsync(LAST_SYNCED_TOKEN_KEY);
-    if (lastSynced === token) {
-      steps.push('already_synced');
+    if (!token) {
+      steps.push('token=MISSING');
       return steps.join(' > ');
     }
+    steps.push(`token=${token.slice(0, 14)}…`);
 
     const ok = await syncTokenToServer(token);
     steps.push(ok ? 'http=200' : 'sync_pending_or_failed');
