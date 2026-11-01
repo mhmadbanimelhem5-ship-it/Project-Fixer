@@ -5,9 +5,9 @@
  *   1. Push Notifications — needed for guardian alerts + absence protocol
  *   2. Camera — needed for the intruder-detection selfie feature
  *
- * PLUS (THE FIX): a diagnostic retry loop that guarantees the push token reaches
- * the server AFTER the user signs in. If it fails, it shows an on-screen Alert
- * with the exact step that failed, ending silent failures forever.
+ * After permissions, schedules a small number of background ensures so the
+ * Expo push token reaches the server once Clerk is ready — without a perpetual
+ * interval or user-facing diagnostic alerts.
  */
 
 import { useEffect } from 'react';
@@ -15,13 +15,14 @@ import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
-// لاحظ الاستيراد الجديد لـ debugPushRegistration
-import { registerForPushNotifications, debugPushRegistration } from '@/utils/fcmService';
+import { ensurePushTokenSynced, registerForPushNotifications } from '@/utils/fcmService';
 
 const PERMISSIONS_KEY = 'auryx_permissions_requested_v1';
 
+/** One-shot delayed ensures (ms). No repeating interval. */
+const ENSURE_DELAYS_MS = [3_000, 12_000, 35_000] as const;
+
 export function useFirstLaunchPermissions(): void {
-  // ── Effect 1: one-shot OS permission dialogs (behavior unchanged) ──────────
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
@@ -32,12 +33,10 @@ export function useFirstLaunchPermissions(): void {
         const alreadyRequested = await AsyncStorage.getItem(PERMISSIONS_KEY);
         if (alreadyRequested) return;
 
-        // Mark as requested immediately so a crash doesn't re-trigger dialogs
         await AsyncStorage.setItem(PERMISSIONS_KEY, '1');
 
         if (cancelled) return;
 
-        // ── 1. Notification permission ──────────────────────────────────────
         const { status: notifStatus } = await Notifications.requestPermissionsAsync({
           ios: {
             allowAlert: true,
@@ -54,11 +53,9 @@ export function useFirstLaunchPermissions(): void {
 
         if (cancelled) return;
 
-        // Small gap between dialogs so Android doesn't overlap them
-        await new Promise<void>(r => setTimeout(r, 600));
+        await new Promise<void>((r) => setTimeout(r, 600));
         if (cancelled) return;
 
-        // ── 2. Camera permission ────────────────────────────────────────────
         const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
 
         if (cancelled) return;
@@ -67,18 +64,14 @@ export function useFirstLaunchPermissions(): void {
           Alert.alert(
             'إذن الكاميرا',
             'تحتاج Auryx إلى إذن الكاميرا لأخذ صورة للشخص الذي يحاول فتح خزنتك بعد محاولات كثيرة (ميزة "تصوير المتجسس").\n\nبدون هذا الإذن لن تعمل هذه الميزة الأمنية.\nيمكنك تفعيله لاحقاً من إعدادات الجهاز.',
-            [
-              { text: 'حسناً', style: 'default' },
-            ],
+            [{ text: 'حسناً', style: 'default' }],
           );
         }
       } catch (e) {
-        // Never crash the app due to permission request failure
         console.warn('[auryx][Permissions] Failed during permission request:', e);
       }
     };
 
-    // Delay 1.5s so the app UI is fully rendered before system dialogs appear
     const timer = setTimeout(requestAll, 1500);
     return () => {
       cancelled = true;
@@ -86,43 +79,36 @@ export function useFirstLaunchPermissions(): void {
     };
   }, []);
 
-  // ── Effect 2 (THE FIX): Diagnostic registration after sign-in ──────────────
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
     let stopped = false;
-    let alerted = false; // Ensure we only show the alert once per session
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
-    const attempt = async () => {
+    const runEnsure = async (attemptIndex: number) => {
       if (stopped) return;
       try {
-        // Run the diagnostic check
-        const report = await debugPushRegistration();
-
-        // If it succeeded (contains http=200), stop trying and stay silent
-        if (report.includes('http=200')) {
-          return; 
-        }
-
-        // If it failed, show the exact reason on screen ONCE
-        if (!alerted) {
-          alerted = true;
-          Alert.alert('تشخيص الإشعارات', `فشل التسجيل. السبب:\n\n${report}`);
+        const ok = await ensurePushTokenSynced();
+        if (ok) {
+          stopped = true;
+          console.log(`[auryx][Permissions] Push token ensured on attempt ${attemptIndex + 1}`);
+        } else {
+          console.log(
+            `[auryx][Permissions] Push ensure attempt ${attemptIndex + 1}/${ENSURE_DELAYS_MS.length} not ready yet`,
+          );
         }
       } catch (e) {
-        // Never crash the app
-        console.warn('[auryx][Permissions] Diagnostic attempt failed:', e);
+        console.warn('[auryx][Permissions] Push ensure failed:', e);
       }
     };
 
-    // Try after 2.5 seconds, then every 20 seconds while app is open
-    const first = setTimeout(attempt, 2500);
-    const interval = setInterval(attempt, 20_000);
+    ENSURE_DELAYS_MS.forEach((delay, index) => {
+      timers.push(setTimeout(() => void runEnsure(index), delay));
+    });
 
     return () => {
       stopped = true;
-      clearTimeout(first);
-      clearInterval(interval);
+      timers.forEach(clearTimeout);
     };
   }, []);
 }

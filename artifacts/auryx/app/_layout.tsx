@@ -44,6 +44,7 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { useFirstLaunchPermissions } from '@/hooks/useFirstLaunchPermissions';
 import { isSubtleAvailable } from '@/utils/cryptoFallback';
 import { setAuthenticatedTokenGetter } from '@/utils/authenticatedFetch';
+import { clearPushSyncState } from '@/utils/fcmService';
 import { getApiBase } from '@/utils/apiBase';
 import { getStealthMode } from '@/utils/stealthStore';
 
@@ -286,6 +287,24 @@ function RootLayoutNav() {
       }
     };
     syncRevenueCatIdentity();
+  }, [clerkLoaded, isSignedIn, user?.id]);
+
+  // Clear push "already synced" marker on sign-out / account switch so the next
+  // session re-registers this device token for the correct user.
+  const previousPushUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!clerkLoaded) return;
+    if (!isSignedIn) {
+      previousPushUserIdRef.current = null;
+      void clearPushSyncState();
+      return;
+    }
+    if (user?.id) {
+      if (previousPushUserIdRef.current && previousPushUserIdRef.current !== user.id) {
+        void clearPushSyncState();
+      }
+      previousPushUserIdRef.current = user.id;
+    }
   }, [clerkLoaded, isSignedIn, user?.id]);
 
   // ✅ التعديل الجذري هنا: إزالة cleanup الذي كان يمسح الـ getter أثناء التغييرات

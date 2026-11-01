@@ -162,13 +162,25 @@ router.post('/register', requireAuth, authLimiter, async (req: Request, res: Res
       .limit(1);
 
     if (existing.length > 0) {
-      await db.update(userPushTokensTable)
-        .set({
-          token: expoPushToken,
-          updatedAt: new Date() as any,
-          lastSeenAt: new Date() as any,
-        } as any)
-        .where(eq(userPushTokensTable.id, existing[0].id as any));
+      const sameToken = existing[0].token === expoPushToken;
+      if (sameToken) {
+        // Token unchanged: touch lastSeen only (avoid noisy full updates).
+        await db.update(userPushTokensTable)
+          .set({
+            lastSeenAt: new Date() as any,
+          } as any)
+          .where(eq(userPushTokensTable.id, existing[0].id as any));
+        logger.info({ userId, platform, unchanged: true }, 'Push token already registered');
+      } else {
+        await db.update(userPushTokensTable)
+          .set({
+            token: expoPushToken,
+            updatedAt: new Date() as any,
+            lastSeenAt: new Date() as any,
+          } as any)
+          .where(eq(userPushTokensTable.id, existing[0].id as any));
+        logger.info({ userId, platform, rotated: true }, 'Push token registered/updated');
+      }
     } else {
       await db.insert(userPushTokensTable).values({
         userId: userId as any,
@@ -178,9 +190,9 @@ router.post('/register', requireAuth, authLimiter, async (req: Request, res: Res
         updatedAt: new Date() as any,
         lastSeenAt: new Date() as any,
       } as any);
+      logger.info({ userId, platform, created: true }, 'Push token registered/updated');
     }
 
-    logger.info({ userId, platform }, 'Push token registered/updated');
     res.json({ success: true });
   } catch (err) {
     next(err);
