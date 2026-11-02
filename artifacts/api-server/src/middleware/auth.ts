@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
 import { canAccessPublicKey, lookupSealedVault } from "../lib/keyStore";
+import { logger } from "../lib/logger";
 
 export interface AuthenticatedRequest extends Request {
   authUser?: {
@@ -50,18 +51,19 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
             : "clerk_user_lookup_failed_or_primary_email_missing";
       const rawToken = authorization?.replace(/^Bearer\s+/i, "") ?? null;
       const claims = decodeJwtClaims(rawToken);
-      console.warn("[auth] rejected protected request", {
+      logger.warn({
+        event: "auth_rejected",
         method: req.method,
         path: req.originalUrl,
         hasAuthorization: Boolean(authorization),
         hasBearerToken,
         authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
         clerkUserIdPresent: Boolean(clerkAuth.userId),
-        clerkAuthenticated: false,
         reasonFor401,
         tokenIss: typeof claims?.iss === "string" ? claims.iss : null,
         tokenExp: typeof claims?.exp === "number" ? claims.exp : null,
         nowEpoch: Math.floor(Date.now() / 1000),
+        msg: `auth_rejected:${reasonFor401}`,
       });
       res.status(401).json({ error: "unauthorized" });
       return;

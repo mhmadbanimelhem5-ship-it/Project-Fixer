@@ -15,7 +15,8 @@ import { ensurePushTokenSynced, registerForPushNotifications } from '@/utils/fcm
 
 const PERMISSIONS_KEY = 'auryx_permissions_requested_v1';
 
-const ENSURE_DELAYS_MS = [1_000, 5_000, 15_000] as const;
+/** Single late backup if vault key-register path did not run. */
+const ENSURE_BACKUP_DELAY_MS = 45_000;
 
 export function useFirstLaunchPermissions(): void {
   const { isLoaded: clerkLoaded, isSignedIn } = useClerkAuth();
@@ -84,33 +85,22 @@ export function useFirstLaunchPermissions(): void {
     if (ensureStartedForSession.current) return;
     ensureStartedForSession.current = true;
 
-    let stopped = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    const runEnsure = async (attemptIndex: number) => {
-      if (stopped) return;
-      try {
-        const ok = await ensurePushTokenSynced();
-        if (ok) {
-          stopped = true;
-          console.log(`[auryx][Permissions] Push token ensured on attempt ${attemptIndex + 1}`);
-        } else {
-          console.log(
-            `[auryx][Permissions] Push ensure attempt ${attemptIndex + 1}/${ENSURE_DELAYS_MS.length} not ready yet`,
-          );
-        }
-      } catch (e) {
-        console.warn('[auryx][Permissions] Push ensure failed:', e);
-      }
-    };
-
-    ENSURE_DELAYS_MS.forEach((delay, index) => {
-      timers.push(setTimeout(() => void runEnsure(index), delay));
-    });
+    let cancelled = false;
+    // Primary sync is triggered after keys/register succeeds (vaultTransferApi).
+    // This is only a late backup for sessions that never hit key registration.
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      void ensurePushTokenSynced()
+        .then((ok) => {
+          if (ok) console.log('[auryx][Permissions] Push token ensured (backup)');
+          else console.log('[auryx][Permissions] Push backup ensure not ready');
+        })
+        .catch((e) => console.warn('[auryx][Permissions] Push backup ensure failed:', e));
+    }, ENSURE_BACKUP_DELAY_MS);
 
     return () => {
-      stopped = true;
-      timers.forEach(clearTimeout);
+      cancelled = true;
+      clearTimeout(timer);
     };
   }, [clerkLoaded, isSignedIn]);
 }
