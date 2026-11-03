@@ -29,10 +29,22 @@ function decodeJwtClaims(token: string | null): Record<string, unknown> | null {
 export async function getAuthenticatedUser(req: Request): Promise<{ id: string; email: string } | null> {
   const { userId } = getAuth(req);
   if (!userId) return null;
-  const user = await clerkClient.users.getUser(userId);
-  const email = user.primaryEmailAddress?.emailAddress;
-  if (!email) return null;
-  return { id: user.id, email: normalizeEmail(email) };
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email = user.primaryEmailAddress?.emailAddress;
+    if (!email) {
+      logger.warn({ userId, msg: "auth_no_primary_email" });
+      return null;
+    }
+    return { id: user.id, email: normalizeEmail(email) };
+  } catch (err) {
+    logger.warn({
+      userId,
+      err: err instanceof Error ? err.message : String(err),
+      msg: "auth_clerk_getUser_failed",
+    });
+    return null;
+  }
 }
 
 export const requireAuth: RequestHandler = async (req, res, next) => {
@@ -65,10 +77,46 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
         nowEpoch: Math.floor(Date.now() / 1000),
         msg: `auth_rejected:${reasonFor401}`,
       });
-      res.status(401).json({ error: "unauthorized" });
+      res.status(401).json({ error: "unauthorized", reason: reasonFor401 });
       return;
     }
     (req as AuthenticatedRequest).authUser = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+/**
+ * Auth that only requires a verified Clerk session userId (from JWT via clerkMiddleware).
+ * Does NOT call clerkClient.users.getUser — avoids extra Clerk API failures on hot paths
+ * like push token registration where email is not needed.
+ */
+export const requireClerkUserId: RequestHandler = (req, res, next) => {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      const authorization = req.get("authorization");
+      const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
+      const reasonFor401 = !authorization
+        ? "missing_authorization_header"
+        : !hasBearerToken
+          ? "invalid_authorization_scheme"
+          : "clerk_user_missing";
+      logger.warn({
+        event: "auth_rejected",
+        method: req.method,
+        path: req.originalUrl,
+        hasAuthorization: Boolean(authorization),
+        hasBearerToken,
+        reasonFor401,
+        msg: `auth_rejected:${reasonFor401}`,
+      });
+      res.status(401).json({ error: "unauthorized", reason: reasonFor401 });
+      return;
+    }
+    (req as AuthenticatedRequest).authUser = { id: userId, email: "" };
     next();
   } catch (error) {
     next(error);

@@ -4,7 +4,7 @@
 
 import { timingSafeEqual } from 'node:crypto';
 import { Router, type RequestHandler, type Request, type Response, type NextFunction } from 'express';
-import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { requireAuth, requireClerkUserId, type AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { authLimiter } from '../middleware/rateLimit';
 import { db, userPushTokensTable } from '@workspace/db';
@@ -38,8 +38,12 @@ const requirePushNotifyAuth: RequestHandler = (req, res, next) => {
 // ─── Validation Schemas ────────────────────────────────────────────────────────
 
 const registerSchema = z.object({
-  expoPushToken: z.string().regex(/^Exponent?PushToken\[.*\]$/, 'Invalid Expo push token format'),
-  platform: z.enum(['ios', 'android']).optional(),
+  // Expo historically used ExponentPushToken[...]; also accept ExpoPushToken[...]
+  expoPushToken: z.string().min(20).refine(
+    (v) => /Expo(nent)?PushToken\[.+\]/.test(v),
+    'Invalid Expo push token format',
+  ),
+  platform: z.string().optional(),
 });
 
 const notifyDirectSchema = z.object({
@@ -138,7 +142,7 @@ async function sendRawPush(message: PushMessage): Promise<{ success: boolean; ti
 
 // ─── Route 1: Register Token ───────────────────────────────────────────────────
 
-router.post('/register', requireAuth, authLimiter, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/register', requireClerkUserId, authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {

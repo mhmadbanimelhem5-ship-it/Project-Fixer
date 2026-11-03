@@ -122,13 +122,9 @@ async function syncTokenToServer(token: string): Promise<boolean> {
     return false;
   }
 
+  // userId only for local dedupe marker — server derives identity from Bearer JWT.
   const userId = userIdFromAccessToken(authToken);
-  if (!userId) {
-    console.warn('[auryx][FCM] Could not derive user id from access token');
-    return false;
-  }
-
-  const flightKey = syncMarker(userId, token);
+  const flightKey = userId ? syncMarker(userId, token) : `pending::${token}`;
   const existing = syncInFlightByKey.get(flightKey);
   if (existing) {
     return existing;
@@ -171,13 +167,16 @@ async function syncTokenToServer(token: string): Promise<boolean> {
         return false;
       }
 
+      // Let authenticatedFetch attach a fresh Bearer token (same path as keys/register).
       const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ expoPushToken: token, platform: Platform.OS }),
+        body: JSON.stringify({
+          expoPushToken: token,
+          platform: Platform.OS === 'ios' ? 'ios' : 'android',
+        }),
       });
 
       if (generationAtStart !== syncGeneration) {

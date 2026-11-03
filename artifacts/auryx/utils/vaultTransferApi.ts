@@ -56,11 +56,16 @@ export async function registerPublicKey(
   publicKeyJwk: JsonWebKey,
 ): Promise<void> {
   await apiPost('/api/keys/register', { email, publicKeyJwk });
-  // Keys register only succeeds with a valid Clerk session — safest moment to
-  // register the Expo push token (avoids the early 401 race after sign-in).
-  void ensurePushTokenSynced().catch(() => {
-    /* non-blocking */
-  });
+  // Keys register proves the session works. Brief delay lets Clerk token settle,
+  // then register push with the same authenticated session path.
+  void (async () => {
+    await new Promise((r) => setTimeout(r, 400));
+    try {
+      await ensurePushTokenSynced();
+    } catch {
+      /* non-blocking */
+    }
+  })();
 }
 
 /**
