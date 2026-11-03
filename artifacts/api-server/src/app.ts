@@ -14,14 +14,15 @@ app.set("trust proxy", 1);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-// ✅ استثناء /api/push/notify فقط من Clerk (لأنه يُستدعى من السيرفر بـ internal secret)
-// ⚠️ /api/push/register يبقى محمياً بـ Clerk (يحتاج userId لربط التوكن بالمستخدم)
+// /api/push/notify may use CRON_SECRET (x-internal-secret) via requirePushNotifyAuth.
+// Skip Clerk only for that exact path. /api/push/register stays behind Clerk.
+// Create clerkMiddleware once (not per-request).
+const clerkAuthMiddleware = clerkMiddleware();
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path === '/api/push/notify') {
     return next();
   }
-  const middleware = clerkMiddleware();
-  return middleware(req, res, next);
+  return clerkAuthMiddleware(req, res, next);
 });
 
 app.use(

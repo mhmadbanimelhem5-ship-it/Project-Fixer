@@ -167,11 +167,13 @@ async function syncTokenToServer(token: string): Promise<boolean> {
         return false;
       }
 
-      // Let authenticatedFetch attach a fresh Bearer token (same path as keys/register).
+      // Pass Authorization explicitly. authenticatedFetch only calls resolveAuthToken
+      // when headers.has('Authorization') is false — so this value is not replaced.
       const response = await authenticatedFetch(`${getApiBase()}/push/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           expoPushToken: token,
@@ -184,7 +186,14 @@ async function syncTokenToServer(token: string): Promise<boolean> {
       }
 
       if (response.status === 401) {
-        console.log('[auryx][FCM] Register returned 401; will wait for a later ensure');
+        let reason = 'unknown';
+        try {
+          const body = (await response.clone().json()) as { reason?: string; error?: string };
+          reason = body.reason ?? body.error ?? 'unknown';
+        } catch {
+          /* ignore */
+        }
+        console.log(`[auryx][FCM] Register returned 401 reason=${reason}`);
         return false;
       }
 

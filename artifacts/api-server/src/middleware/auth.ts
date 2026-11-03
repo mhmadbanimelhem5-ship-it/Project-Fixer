@@ -1,5 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { clerkClient, getAuth } from "@clerk/express";
+import { clerkClient, getAuth, verifyToken } from "@clerk/express";
 import { canAccessPublicKey, lookupSealedVault } from "../lib/keyStore";
 import { logger } from "../lib/logger";
 
@@ -89,13 +89,40 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
 
 
 /**
- * Auth that only requires a verified Clerk session userId (from JWT via clerkMiddleware).
- * Does NOT call clerkClient.users.getUser — avoids extra Clerk API failures on hot paths
- * like push token registration where email is not needed.
+ * Session userId only (no users.getUser / email). Used by push/register.
+ * 1) Prefer getAuth after clerkMiddleware
+ * 2) Else verify Bearer via verifyToken from @clerk/backend (re-exported by @clerk/express@2.1.47)
  */
-export const requireClerkUserId: RequestHandler = (req, res, next) => {
+export const requireClerkUserId: RequestHandler = async (req, res, next) => {
   try {
-    const { userId } = getAuth(req);
+    let userId: string | null = getAuth(req).userId ?? null;
+
+    if (!userId) {
+      const authorization = req.get("authorization");
+      const raw =
+        authorization && /^Bearer\s+\S+$/i.test(authorization)
+          ? authorization.replace(/^Bearer\s+/i, "").trim()
+          : null;
+      if (raw) {
+        try {
+          // Documented API: verifyToken(token, { secretKey }) — NOT clerkClient.verifyToken
+          const payload = await verifyToken(raw, {
+            secretKey: process.env.CLERK_SECRET_KEY,
+          });
+          if (payload && typeof payload.sub === "string" && payload.sub.length > 0) {
+            userId = payload.sub;
+          }
+        } catch (err) {
+          logger.info({
+            event: "auth_verify_token_failed",
+            path: req.originalUrl,
+            err: err instanceof Error ? err.message : String(err),
+            msg: "auth_verify_token_failed",
+          });
+        }
+      }
+    }
+
     if (!userId) {
       const authorization = req.get("authorization");
       const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
@@ -104,18 +131,23 @@ export const requireClerkUserId: RequestHandler = (req, res, next) => {
         : !hasBearerToken
           ? "invalid_authorization_scheme"
           : "clerk_user_missing";
-      logger.warn({
+      const claims = decodeJwtClaims(authorization?.replace(/^Bearer\s+/i, "") ?? null);
+      logger.info({
         event: "auth_rejected",
         method: req.method,
         path: req.originalUrl,
         hasAuthorization: Boolean(authorization),
         hasBearerToken,
         reasonFor401,
+        tokenIss: typeof claims?.iss === "string" ? claims.iss : null,
+        tokenExp: typeof claims?.exp === "number" ? claims.exp : null,
+        nowEpoch: Math.floor(Date.now() / 1000),
         msg: `auth_rejected:${reasonFor401}`,
       });
       res.status(401).json({ error: "unauthorized", reason: reasonFor401 });
       return;
     }
+
     (req as AuthenticatedRequest).authUser = { id: userId, email: "" };
     next();
   } catch (error) {
