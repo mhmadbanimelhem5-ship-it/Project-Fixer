@@ -58514,14 +58514,14 @@ var generalLimiter = rate_limit_default({
   }
 });
 var authLimiter = rate_limit_default({
-  windowMs: 15 * 60 * 1e3,
-  max: 5,
+  windowMs: 5 * 60 * 1e3,
+  max: 20,
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
-    error: "Too many authentication attempts, please try again after 15 minutes."
+    error: "Too many authentication attempts, please try again after 5 minutes."
   }
 });
 var waitlistLimiter = rate_limit_default({
@@ -68139,13 +68139,73 @@ function decodeJwtClaims(token2) {
     return null;
   }
 }
+function maskToken(raw) {
+  if (!raw) return "(none)";
+  if (raw.length <= 12) return `(${raw.length} chars)`;
+  return `${raw.slice(0, 8)}\u2026${raw.slice(-4)}`;
+}
+function getTokenState(claims, nowEpoch) {
+  if (!claims) return "missing";
+  const exp = typeof claims.exp === "number" ? claims.exp : null;
+  const iat = typeof claims.iat === "number" ? claims.iat : null;
+  if (exp === null && iat === null) return "malformed";
+  if (exp !== null && exp < nowEpoch) return "expired";
+  if (iat !== null && iat > nowEpoch + 30) return "not_yet_valid";
+  return "time_ok";
+}
+function logRejection(ctx) {
+  const authorization = ctx.req.get("authorization") ?? null;
+  const rawToken = authorization?.replace(/^Bearer\s+/i, "") ?? null;
+  const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
+  const claims = decodeJwtClaims(rawToken);
+  const clerkAuth = getAuth(ctx.req);
+  const nowEpoch = Math.floor(Date.now() / 1e3);
+  const tokenState = getTokenState(claims, nowEpoch);
+  logger.warn(
+    {
+      event: "auth_rejected_deep",
+      rejecting_layer: ctx.layer,
+      method: ctx.req.method,
+      path: ctx.req.originalUrl,
+      user_agent: ctx.req.get("user-agent")?.slice(0, 80) ?? null,
+      ip: ctx.req.ip ?? null,
+      hasAuthorization: Boolean(authorization),
+      hasBearerToken,
+      authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
+      authorization_preview: maskToken(rawToken),
+      token_state: tokenState,
+      token_sub: typeof claims?.sub === "string" ? String(claims.sub).slice(0, 10) + "\u2026" : null,
+      token_iss: typeof claims?.iss === "string" ? claims.iss : null,
+      token_iat: typeof claims?.iat === "number" ? claims.iat : null,
+      token_exp: typeof claims?.exp === "number" ? claims.exp : null,
+      now_epoch: nowEpoch,
+      clerk_userId_present: Boolean(clerkAuth.userId),
+      clerk_sessionId_present: Boolean(clerkAuth.sessionId),
+      root_cause_401: ctx.reason,
+      ...ctx.extra ?? {}
+    },
+    `[auth][${ctx.layer}] rejected: ${ctx.reason}`
+  );
+}
 async function getAuthenticatedUser(req) {
   const { userId } = getAuth(req);
   if (!userId) return null;
-  const user = await clerkClient.users.getUser(userId);
-  const email2 = user.primaryEmailAddress?.emailAddress;
-  if (!email2) return null;
-  return { id: user.id, email: normalizeEmail(email2) };
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email2 = user.primaryEmailAddress?.emailAddress;
+    if (!email2) {
+      logger.warn({ userId, msg: "auth_no_primary_email" });
+      return null;
+    }
+    return { id: user.id, email: normalizeEmail(email2) };
+  } catch (err) {
+    logger.warn({
+      userId,
+      err: err instanceof Error ? err.message : String(err),
+      msg: "auth_clerk_getUser_failed"
+    });
+    return null;
+  }
 }
 var requireAuth = async (req, res, next) => {
   try {
@@ -68155,25 +68215,61 @@ var requireAuth = async (req, res, next) => {
       const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
       const clerkAuth = getAuth(req);
       const reasonFor401 = !authorization ? "missing_authorization_header" : !hasBearerToken ? "invalid_authorization_scheme" : !clerkAuth.userId ? "clerk_user_missing" : "clerk_user_lookup_failed_or_primary_email_missing";
-      const rawToken = authorization?.replace(/^Bearer\s+/i, "") ?? null;
-      const claims = decodeJwtClaims(rawToken);
-      console.warn("[auth] rejected protected request", {
-        method: req.method,
-        path: req.originalUrl,
-        hasAuthorization: Boolean(authorization),
-        hasBearerToken,
-        authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
-        clerkUserIdPresent: Boolean(clerkAuth.userId),
-        clerkAuthenticated: false,
-        reasonFor401,
-        tokenIss: typeof claims?.iss === "string" ? claims.iss : null,
-        tokenExp: typeof claims?.exp === "number" ? claims.exp : null,
-        nowEpoch: Math.floor(Date.now() / 1e3)
+      logRejection({
+        layer: "requireAuth",
+        req,
+        reason: reasonFor401,
+        extra: { msg: `auth_rejected:${reasonFor401}` }
       });
-      res.status(401).json({ error: "unauthorized" });
+      res.status(401).json({ error: "unauthorized", reason: reasonFor401 });
       return;
     }
     req.authUser = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+var requireClerkUserId = async (req, res, next) => {
+  try {
+    let userId = getAuth(req).userId ?? null;
+    let verifyTokenError = null;
+    if (!userId) {
+      const authorization = req.get("authorization");
+      const raw = authorization && /^Bearer\s+\S+$/i.test(authorization) ? authorization.replace(/^Bearer\s+/i, "").trim() : null;
+      if (raw) {
+        try {
+          const payload = await verifyToken2(raw, {
+            secretKey: process.env.CLERK_SECRET_KEY
+          });
+          if (payload && typeof payload.sub === "string" && payload.sub.length > 0) {
+            userId = payload.sub;
+          } else {
+            verifyTokenError = "payload_missing_sub";
+          }
+        } catch (err) {
+          verifyTokenError = err instanceof Error ? err.message : String(err);
+        }
+      }
+    }
+    if (!userId) {
+      const authorization = req.get("authorization");
+      const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
+      const reasonFor401 = !authorization ? "missing_authorization_header" : !hasBearerToken ? "invalid_authorization_scheme" : verifyTokenError ? `verify_token_failed:${verifyTokenError.slice(0, 60)}` : "clerk_user_missing";
+      logRejection({
+        layer: "requireClerkUserId",
+        req,
+        reason: reasonFor401,
+        extra: {
+          clerk_secret_key_configured: Boolean(process.env.CLERK_SECRET_KEY),
+          verify_token_error: verifyTokenError?.slice(0, 120) ?? null,
+          msg: `auth_rejected:${reasonFor401}`
+        }
+      });
+      res.status(401).json({ error: "unauthorized", reason: reasonFor401 });
+      return;
+    }
+    req.authUser = { id: userId, email: "" };
     next();
   } catch (error) {
     next(error);
@@ -68185,6 +68281,7 @@ function requireOwner(field = "ownerEmail") {
       const user = req.authUser ?? await getAuthenticatedUser(req);
       const requested = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
       if (!user) {
+        logRejection({ layer: "requireOwner", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -68204,6 +68301,7 @@ function requireParticipant(fields) {
     try {
       const user = req.authUser ?? await getAuthenticatedUser(req);
       if (!user) {
+        logRejection({ layer: "requireParticipant", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -68228,6 +68326,7 @@ function requireVaultParticipant(field = "ownerEmail") {
       const user = req.authUser ?? await getAuthenticatedUser(req);
       const ownerEmail = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
       if (!user) {
+        logRejection({ layer: "requireVaultParticipant", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -68254,6 +68353,7 @@ function requirePublicKeyAccess(field = "email") {
       const user = req.authUser ?? await getAuthenticatedUser(req);
       const requested = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
       if (!user) {
+        logRejection({ layer: "requirePublicKeyAccess", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -68673,8 +68773,12 @@ var requirePushNotifyAuth = (req, res, next) => {
   requireAuth(req, res, next);
 };
 var registerSchema = external_exports.object({
-  expoPushToken: external_exports.string().regex(/^Exponent?PushToken\[.*\]$/, "Invalid Expo push token format"),
-  platform: external_exports.enum(["ios", "android"]).optional()
+  // Expo historically used ExponentPushToken[...]; also accept ExpoPushToken[...]
+  expoPushToken: external_exports.string().min(20).refine(
+    (v) => /Expo(nent)?PushToken\[.+\]/.test(v),
+    "Invalid Expo push token format"
+  ),
+  platform: external_exports.string().optional()
 });
 var notifyDirectSchema = external_exports.object({
   token: external_exports.string().regex(/^Exponent?PushToken\[.*\]$/, "Invalid Expo push token format"),
@@ -68751,7 +68855,7 @@ async function sendRawPush(message) {
   logger.error({ lastError }, "All Expo push attempts failed");
   return { success: false, error: lastError };
 }
-router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
+router4.post("/register", requireClerkUserId, authLimiter, async (req, res, next) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -68759,8 +68863,7 @@ router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
       return;
     }
     const { expoPushToken, platform } = parsed.data;
-    const authReq = req;
-    const userId = authReq.auth?.userId;
+    const userId = req.authUser?.id;
     if (!userId) {
       res.status(401).json({ success: false, error: "Unauthorized" });
       return;
@@ -68768,11 +68871,20 @@ router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
     const platformValue = platform ?? "unknown";
     const existing = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.platform, platformValue))).limit(1);
     if (existing.length > 0) {
-      await db.update(userPushTokensTable).set({
-        token: expoPushToken,
-        updatedAt: /* @__PURE__ */ new Date(),
-        lastSeenAt: /* @__PURE__ */ new Date()
-      }).where(eq(userPushTokensTable.id, existing[0].id));
+      const sameToken = existing[0].token === expoPushToken;
+      if (sameToken) {
+        await db.update(userPushTokensTable).set({
+          lastSeenAt: /* @__PURE__ */ new Date()
+        }).where(eq(userPushTokensTable.id, existing[0].id));
+        logger.info({ userId, platform, unchanged: true }, "Push token already registered");
+      } else {
+        await db.update(userPushTokensTable).set({
+          token: expoPushToken,
+          updatedAt: /* @__PURE__ */ new Date(),
+          lastSeenAt: /* @__PURE__ */ new Date()
+        }).where(eq(userPushTokensTable.id, existing[0].id));
+        logger.info({ userId, platform, rotated: true }, "Push token registered/updated");
+      }
     } else {
       await db.insert(userPushTokensTable).values({
         userId,
@@ -68782,8 +68894,8 @@ router4.post("/register", requireAuth, authLimiter, async (req, res, next) => {
         updatedAt: /* @__PURE__ */ new Date(),
         lastSeenAt: /* @__PURE__ */ new Date()
       });
+      logger.info({ userId, platform, created: true }, "Push token registered/updated");
     }
-    logger.info({ userId, platform }, "Push token registered/updated");
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -72327,12 +72439,12 @@ function clerkProxyMiddleware() {
 var app = (0, import_express16.default)();
 app.set("trust proxy", 1);
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+var clerkAuthMiddleware = clerkMiddleware();
 app.use((req, res, next) => {
   if (req.path === "/api/push/notify") {
     return next();
   }
-  const middleware = clerkMiddleware();
-  return middleware(req, res, next);
+  return clerkAuthMiddleware(req, res, next);
 });
 app.use(
   (0, import_pino_http.default)({
