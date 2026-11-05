@@ -26,6 +26,80 @@ function decodeJwtClaims(token: string | null): Record<string, unknown> | null {
   }
 }
 
+/* ─── تشخيص موحد وعميق لرفض المصادقة ─────────────────────────────────────── */
+
+function maskToken(raw: string | null): string {
+  if (!raw) return "(none)";
+  if (raw.length <= 12) return `(${raw.length} chars)`;
+  return `${raw.slice(0, 8)}…${raw.slice(-4)}`;
+}
+
+type TokenState = "expired" | "not_yet_valid" | "time_ok" | "malformed" | "missing";
+
+function getTokenState(claims: Record<string, unknown> | null, nowEpoch: number): TokenState {
+  if (!claims) return "missing";
+  const exp = typeof claims.exp === "number" ? claims.exp : null;
+  const iat = typeof claims.iat === "number" ? claims.iat : null;
+  if (exp === null && iat === null) return "malformed";
+  if (exp !== null && exp < nowEpoch) return "expired";
+  if (iat !== null && iat > nowEpoch + 30) return "not_yet_valid";
+  return "time_ok";
+}
+
+type RejectionContext = {
+  layer:
+    | "clerkMiddleware"
+    | "requireAuth"
+    | "requireClerkUserId"
+    | "requireOwner"
+    | "requireParticipant"
+    | "requireVaultParticipant"
+    | "requirePublicKeyAccess"
+    | "rateLimiter"
+    | "unknown";
+  req: Request;
+  reason: string;
+  extra?: Record<string, unknown>;
+};
+
+function logRejection(ctx: RejectionContext): void {
+  const authorization = ctx.req.get("authorization") ?? null;
+  const rawToken = authorization?.replace(/^Bearer\s+/i, "") ?? null;
+  const hasBearerToken = /^Bearer\s+\S+$/i.test(authorization ?? "");
+  const claims = decodeJwtClaims(rawToken);
+  const clerkAuth = getAuth(ctx.req);
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const tokenState = getTokenState(claims, nowEpoch);
+
+  logger.warn(
+    {
+      event: "auth_rejected_deep",
+      rejecting_layer: ctx.layer,
+      method: ctx.req.method,
+      path: ctx.req.originalUrl,
+      user_agent: ctx.req.get("user-agent")?.slice(0, 80) ?? null,
+      ip: ctx.req.ip ?? null,
+      hasAuthorization: Boolean(authorization),
+      hasBearerToken,
+      authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
+      authorization_preview: maskToken(rawToken),
+      token_state: tokenState,
+      token_sub: typeof claims?.sub === "string" ? String(claims.sub).slice(0, 10) + "…" : null,
+      token_iss: typeof claims?.iss === "string" ? claims.iss : null,
+      token_iat: typeof claims?.iat === "number" ? claims.iat : null,
+      token_exp: typeof claims?.exp === "number" ? claims.exp : null,
+      now_epoch: nowEpoch,
+      clerk_userId_present: Boolean(clerkAuth.userId),
+      clerk_sessionId_present: Boolean((clerkAuth as any).sessionId),
+      root_cause_401: ctx.reason,
+      ...(ctx.extra ?? {}),
+    },
+    `[auth][${ctx.layer}] rejected: ${ctx.reason}`,
+  );
+}
+
+/* ─── المصادقة الأساسية ───────────────────────────────────────────────────── */
+
 export async function getAuthenticatedUser(req: Request): Promise<{ id: string; email: string } | null> {
   const { userId } = getAuth(req);
   if (!userId) return null;
@@ -61,22 +135,14 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
           : !clerkAuth.userId
             ? "clerk_user_missing"
             : "clerk_user_lookup_failed_or_primary_email_missing";
-      const rawToken = authorization?.replace(/^Bearer\s+/i, "") ?? null;
-      const claims = decodeJwtClaims(rawToken);
-      logger.warn({
-        event: "auth_rejected",
-        method: req.method,
-        path: req.originalUrl,
-        hasAuthorization: Boolean(authorization),
-        hasBearerToken,
-        authorizationScheme: authorization?.split(" ", 1)[0] ?? null,
-        clerkUserIdPresent: Boolean(clerkAuth.userId),
-        reasonFor401,
-        tokenIss: typeof claims?.iss === "string" ? claims.iss : null,
-        tokenExp: typeof claims?.exp === "number" ? claims.exp : null,
-        nowEpoch: Math.floor(Date.now() / 1000),
-        msg: `auth_rejected:${reasonFor401}`,
+
+      logRejection({
+        layer: "requireAuth",
+        req,
+        reason: reasonFor401,
+        extra: { msg: `auth_rejected:${reasonFor401}` },
       });
+
       res.status(401).json({ error: "unauthorized", reason: reasonFor401 });
       return;
     }
@@ -87,15 +153,13 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
   }
 };
 
-
 /**
  * Session userId only (no users.getUser / email). Used by push/register.
- * 1) Prefer getAuth after clerkMiddleware
- * 2) Else verify Bearer via verifyToken from @clerk/backend (re-exported by @clerk/express@2.1.47)
  */
 export const requireClerkUserId: RequestHandler = async (req, res, next) => {
   try {
     let userId: string | null = getAuth(req).userId ?? null;
+    let verifyTokenError: string | null = null;
 
     if (!userId) {
       const authorization = req.get("authorization");
@@ -105,20 +169,16 @@ export const requireClerkUserId: RequestHandler = async (req, res, next) => {
           : null;
       if (raw) {
         try {
-          // Documented API: verifyToken(token, { secretKey }) — NOT clerkClient.verifyToken
           const payload = await verifyToken(raw, {
             secretKey: process.env.CLERK_SECRET_KEY,
           });
           if (payload && typeof payload.sub === "string" && payload.sub.length > 0) {
             userId = payload.sub;
+          } else {
+            verifyTokenError = "payload_missing_sub";
           }
         } catch (err) {
-          logger.info({
-            event: "auth_verify_token_failed",
-            path: req.originalUrl,
-            err: err instanceof Error ? err.message : String(err),
-            msg: "auth_verify_token_failed",
-          });
+          verifyTokenError = err instanceof Error ? err.message : String(err);
         }
       }
     }
@@ -130,20 +190,21 @@ export const requireClerkUserId: RequestHandler = async (req, res, next) => {
         ? "missing_authorization_header"
         : !hasBearerToken
           ? "invalid_authorization_scheme"
-          : "clerk_user_missing";
-      const claims = decodeJwtClaims(authorization?.replace(/^Bearer\s+/i, "") ?? null);
-      logger.info({
-        event: "auth_rejected",
-        method: req.method,
-        path: req.originalUrl,
-        hasAuthorization: Boolean(authorization),
-        hasBearerToken,
-        reasonFor401,
-        tokenIss: typeof claims?.iss === "string" ? claims.iss : null,
-        tokenExp: typeof claims?.exp === "number" ? claims.exp : null,
-        nowEpoch: Math.floor(Date.now() / 1000),
-        msg: `auth_rejected:${reasonFor401}`,
+          : verifyTokenError
+            ? `verify_token_failed:${verifyTokenError.slice(0, 60)}`
+            : "clerk_user_missing";
+
+      logRejection({
+        layer: "requireClerkUserId",
+        req,
+        reason: reasonFor401,
+        extra: {
+          clerk_secret_key_configured: Boolean(process.env.CLERK_SECRET_KEY),
+          verify_token_error: verifyTokenError?.slice(0, 120) ?? null,
+          msg: `auth_rejected:${reasonFor401}`,
+        },
       });
+
       res.status(401).json({ error: "unauthorized", reason: reasonFor401 });
       return;
     }
@@ -155,12 +216,15 @@ export const requireClerkUserId: RequestHandler = async (req, res, next) => {
   }
 };
 
+/* ─── بقية middlewares (بدون تغيير سلوك، فقط تشخيص عند الفشل) ────────────── */
+
 export function requireOwner(field = "ownerEmail"): RequestHandler {
   return async (req, res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       const requested = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
       if (!user) {
+        logRejection({ layer: "requireOwner", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -181,6 +245,7 @@ export function requireParticipant(fields: string[]): RequestHandler {
     try {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       if (!user) {
+        logRejection({ layer: "requireParticipant", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -206,6 +271,7 @@ export function requireVaultParticipant(field = "ownerEmail"): RequestHandler {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       const ownerEmail = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
       if (!user) {
+        logRejection({ layer: "requireVaultParticipant", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -235,6 +301,7 @@ export function requirePublicKeyAccess(field = "email"): RequestHandler {
       const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
       const requested = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
       if (!user) {
+        logRejection({ layer: "requirePublicKeyAccess", req, reason: "no_auth_user" });
         res.status(401).json({ error: "unauthorized" });
         return;
       }
@@ -242,7 +309,7 @@ export function requirePublicKeyAccess(field = "email"): RequestHandler {
         res.status(400).json({ error: "email_required" });
         return;
       }
-      if (!await canAccessPublicKey(user.email, requested)) {
+      if (!(await canAccessPublicKey(user.email, requested))) {
         res.status(403).json({ error: "public_key_access_forbidden" });
         return;
       }
