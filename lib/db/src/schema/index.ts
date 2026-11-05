@@ -98,17 +98,23 @@ export const retryQueueTable = pgTable("retry_queue", {
 });
 
 // ── OTP store ─────────────────────────────────────────────────────────────────
-export const otpsTable = pgTable("otps", {
-  ownerEmail:       text("owner_email").primaryKey(),
-  code:             text("code").notNull(),
-  beneficiaryEmail: text("beneficiary_email").notNull(),
-  createdAt:        bigint("created_at", { mode: "number" }).notNull(),
-  expiresAt:        bigint("expires_at", { mode: "number" }).notNull(),
-  usedAt:           bigint("used_at",    { mode: "number" }),
-  attempts:         integer("attempts").notNull().default(0),
-  maxAttempts:      integer("max_attempts").notNull().default(5),
-  lastAttemptAt:    bigint("last_attempt_at", { mode: "number" }),
-});
+// Composite PK (owner, purpose) prevents cross-flow invalidation (C7 fix).
+export const otpsTable = pgTable(
+  "otps",
+  {
+    ownerEmail:       text("owner_email").notNull(),
+    purpose:          text("purpose").notNull(), // 'beneficiary-transfer' | 'pin-reset' | 'recovery-verify'
+    code:             text("code").notNull(),
+    beneficiaryEmail: text("beneficiary_email").notNull(),
+    createdAt:        bigint("created_at", { mode: "number" }).notNull(),
+    expiresAt:        bigint("expires_at", { mode: "number" }).notNull(),
+    usedAt:           bigint("used_at",    { mode: "number" }),
+    attempts:         integer("attempts").notNull().default(0),
+    maxAttempts:      integer("max_attempts").notNull().default(5),
+    lastAttemptAt:    bigint("last_attempt_at", { mode: "number" }),
+  },
+  (t) => [primaryKey({ columns: [t.ownerEmail, t.purpose] })],
+);
 
 // ── Auryx launch waitlist ─────────────────────────────────────────────────────
 // Confirmation rank is assigned under a PostgreSQL advisory lock so exactly

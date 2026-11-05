@@ -24,7 +24,7 @@ import {
   getPinResetRequestById,
 } from '../lib/pinResetStore';
 import { lookupSealedVault } from '../lib/keyStore';
-import { generateOtp, verifyOtp } from '../lib/otpStore';
+import { generateOtp, verifyOtp, OTP_PURPOSES } from '../lib/otpStore';
 import { sendGuardianVoteRequest, sendWithRetry } from '../lib/emailService';
 import { logger } from '../lib/logger';
 import { requireAuth, requireVaultParticipant } from '../middleware/auth';
@@ -213,7 +213,7 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
         await completePinResetRequest(slot.requestId, 'approved');
 
         // Generate OTP specifically for PIN reset (using 'pin-reset-owner' as beneficiary marker)
-        const otp = await generateOtp(pinReq.ownerEmail, 'pin-reset-owner');
+        const otp = await generateOtp(pinReq.ownerEmail, 'pin-reset-owner', OTP_PURPOSES.pinReset);
 
         // Send the OTP email to the owner using the robust retry mechanism
         await sendWithRetry('otp-email', pinReq.ownerEmail, { ownerName: pinReq.ownerName, otp });
@@ -239,7 +239,7 @@ router.post('/verify-otp', requireAuth, requireVaultParticipant(), async (req, r
     }
 
     // Verify OTP using the same 'pin-reset-owner' marker
-    const otpResult = await verifyOtp(ownerEmail, 'pin-reset-owner', code);
+    const otpResult = await verifyOtp(ownerEmail, 'pin-reset-owner', code, OTP_PURPOSES.pinReset);
 
     if (!otpResult.ok) {
       res.status(400).json({ success: false, error: 'رمز التحقق غير صحيح أو منتهي الصلاحية' });

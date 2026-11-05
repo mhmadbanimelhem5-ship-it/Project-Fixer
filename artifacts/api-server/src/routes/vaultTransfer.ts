@@ -19,7 +19,7 @@ import {
   getCollectedShares,
   type GuardianPackage,
 } from '../lib/keyStore';
-import { generateOtp, verifyOtp } from '../lib/otpStore';
+import { generateOtp, verifyOtp, OTP_PURPOSES } from '../lib/otpStore';
 import { sendWithRetry } from '../lib/emailService';
 import { authLimiter } from '../middleware/rateLimit';
 import { requireAuth, requireOwner, requireParticipant, requireVaultParticipant } from '../middleware/auth';
@@ -87,7 +87,7 @@ router.post('/request-otp/:ownerEmail', requireAuth, authLimiter, validateParams
       return;
     }
 
-    const otp = await generateOtp(ownerEmail, beneficiaryEmail);
+    const otp = await generateOtp(ownerEmail, beneficiaryEmail, OTP_PURPOSES.beneficiaryTransfer);
     req.log.info({ ownerEmail, beneficiaryEmail }, 'Vault OTP generated');
 
     const emailResult = await sendWithRetry('otp-email', beneficiaryEmail, {
@@ -126,7 +126,7 @@ router.post('/verify-otp/:ownerEmail', requireAuth, authLimiter, validateParams(
       otp: string;
     };
 
-    const result = await verifyOtp(ownerEmail, beneficiaryEmail, otp);
+    const result = await verifyOtp(ownerEmail, beneficiaryEmail, otp, OTP_PURPOSES.beneficiaryTransfer);
     if (!result.ok) {
       const status =
         result.reason === 'expired' ||

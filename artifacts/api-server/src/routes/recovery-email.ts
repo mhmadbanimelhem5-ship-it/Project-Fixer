@@ -22,7 +22,7 @@ import {
   getRecoveryEmailRecord,
   verifyRecoveryEmailMatch // ← السطر المنقذ
 } from '../lib/recoveryEmailStore';
-import { generateOtp, verifyOtp } from '../lib/otpStore';
+import { generateOtp, verifyOtp, OTP_PURPOSES } from '../lib/otpStore';
 import { sendWithRetry } from '../lib/emailService';
 import { logger } from '../lib/logger';
 
@@ -61,7 +61,7 @@ router.post('/set', requireAuth, validateBody(recoveryEmailBody), async (req, re
     }
 
     logger.debug({ userId, email }, '[DIAGNOSTIC] Generating OTP...');
-    const otp = await generateOtp(mainEmail, 'recovery-verify');
+    const otp = await generateOtp(mainEmail, 'recovery-verify', OTP_PURPOSES.recoveryVerify);
 
     logger.debug({ userId, email }, '[DIAGNOSTIC] Sending OTP via emailService...');
     await sendWithRetry('recovery-otp', email, { otp });
@@ -93,7 +93,7 @@ router.post('/verify', requireAuth, validateBody(recoveryOtpVerifyBody), async (
     }
 
     logger.debug({ userId }, '[DIAGNOSTIC] Verifying OTP...');
-    const otpResult = await verifyOtp(mainEmail, 'recovery-verify', otp);
+    const otpResult = await verifyOtp(mainEmail, 'recovery-verify', otp, OTP_PURPOSES.recoveryVerify);
     if (!otpResult.ok) {
       logger.warn({ userId, reason: otpResult.reason }, '[DIAGNOSTIC] OTP verification failed');
       return res.status(400).json({ error: otpResult.reason === 'max_attempts' ? 'Max attempts exceeded' : 'Invalid or expired OTP' });

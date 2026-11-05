@@ -39,7 +39,7 @@ import {
   sendWithRetry,
 } from '../lib/emailService';
 import { lookupSealedVault } from '../lib/keyStore';
-import { generateOtp } from '../lib/otpStore';
+import { generateOtp, OTP_PURPOSES } from '../lib/otpStore';
 import { logger } from '../lib/logger';
 import { db, absenceGuardianDecisionsTable, userPushTokensTable } from '@workspace/db';
 import { eq, sql } from 'drizzle-orm';
@@ -572,7 +572,7 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
       if (approvals >= vault.threshold) {
         await completeAbsenceRequest(slot.requestId, 'guardian_approved');
 
-        const otp = await generateOtp(absReq.ownerEmail, absReq.beneficiaryEmail);
+        const otp = await generateOtp(absReq.ownerEmail, absReq.beneficiaryEmail, OTP_PURPOSES.beneficiaryTransfer);
         const otpResult = await sendWithRetry('otp-email', absReq.beneficiaryEmail, {
           ownerName: absReq.ownerName || absReq.ownerEmail,
           otp,

@@ -51720,17 +51720,23 @@ var retryQueueTable = pgTable("retry_queue", {
   status: text("status").notNull().default("pending")
   // 'pending' | 'completed' | 'failed'
 });
-var otpsTable = pgTable("otps", {
-  ownerEmail: text("owner_email").primaryKey(),
-  code: text("code").notNull(),
-  beneficiaryEmail: text("beneficiary_email").notNull(),
-  createdAt: bigint("created_at", { mode: "number" }).notNull(),
-  expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
-  usedAt: bigint("used_at", { mode: "number" }),
-  attempts: integer("attempts").notNull().default(0),
-  maxAttempts: integer("max_attempts").notNull().default(5),
-  lastAttemptAt: bigint("last_attempt_at", { mode: "number" })
-});
+var otpsTable = pgTable(
+  "otps",
+  {
+    ownerEmail: text("owner_email").notNull(),
+    purpose: text("purpose").notNull(),
+    // 'beneficiary-transfer' | 'pin-reset' | 'recovery-verify'
+    code: text("code").notNull(),
+    beneficiaryEmail: text("beneficiary_email").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+    usedAt: bigint("used_at", { mode: "number" }),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    lastAttemptAt: bigint("last_attempt_at", { mode: "number" })
+  },
+  (t) => [primaryKey({ columns: [t.ownerEmail, t.purpose] })]
+);
 var waitlistEntriesTable = pgTable("waitlist_entries", {
   email: text("email").primaryKey(),
   source: text("source").notNull().default("landing-page"),
@@ -69023,11 +69029,17 @@ var import_express7 = __toESM(require_express2(), 1);
 import crypto3 from "crypto";
 var OTP_TTL_MS = 15 * 60 * 1e3;
 var OTP_MAX_ATTEMPTS = 5;
-async function generateOtp(ownerEmail, beneficiaryEmail) {
+var OTP_PURPOSES = {
+  beneficiaryTransfer: "beneficiary-transfer",
+  pinReset: "pin-reset",
+  recoveryVerify: "recovery-verify"
+};
+async function generateOtp(ownerEmail, beneficiaryEmail, purpose) {
   const code = crypto3.randomInt(0, 1e6).toString().padStart(6, "0");
   const now = Date.now();
   await db.insert(otpsTable).values({
     ownerEmail: ownerEmail.toLowerCase(),
+    purpose,
     code,
     beneficiaryEmail: beneficiaryEmail.toLowerCase(),
     createdAt: now,
@@ -69037,7 +69049,7 @@ async function generateOtp(ownerEmail, beneficiaryEmail) {
     maxAttempts: OTP_MAX_ATTEMPTS,
     lastAttemptAt: null
   }).onConflictDoUpdate({
-    target: otpsTable.ownerEmail,
+    target: [otpsTable.ownerEmail, otpsTable.purpose],
     set: {
       code,
       beneficiaryEmail: beneficiaryEmail.toLowerCase(),
@@ -69051,23 +69063,26 @@ async function generateOtp(ownerEmail, beneficiaryEmail) {
   });
   return code;
 }
-async function verifyOtp(ownerEmail, beneficiaryEmail, code) {
-  const rows = await db.select().from(otpsTable).where(eq(otpsTable.ownerEmail, ownerEmail.toLowerCase())).limit(1);
+async function verifyOtp(ownerEmail, beneficiaryEmail, code, purpose) {
+  const ownerKey = ownerEmail.toLowerCase();
+  const beneficiaryKey = beneficiaryEmail.toLowerCase();
+  const normalizedCode = code.trim();
+  const rows = await db.select().from(otpsTable).where(and(eq(otpsTable.ownerEmail, ownerKey), or(eq(otpsTable.purpose, purpose), isNull(otpsTable.purpose)))).limit(1);
   const entry = rows[0];
   if (!entry) return { ok: false, reason: "not_found" };
+  if (entry.purpose !== null && entry.purpose !== purpose) {
+    return { ok: false, reason: "wrong_purpose" };
+  }
   const now = Date.now();
   if (now > entry.expiresAt) return { ok: false, reason: "expired" };
   if (entry.usedAt) return { ok: false, reason: "already_used" };
   if (entry.attempts >= entry.maxAttempts) return { ok: false, reason: "max_attempts" };
-  if (entry.beneficiaryEmail !== beneficiaryEmail.toLowerCase())
-    return { ok: false, reason: "wrong_beneficiary" };
-  const ownerKey = ownerEmail.toLowerCase();
-  const beneficiaryKey = beneficiaryEmail.toLowerCase();
-  const normalizedCode = code.trim();
+  if (entry.beneficiaryEmail !== beneficiaryKey) return { ok: false, reason: "wrong_beneficiary" };
   if (entry.code === normalizedCode) {
     const consumed = await db.update(otpsTable).set({ usedAt: now, lastAttemptAt: now }).where(
       and(
         eq(otpsTable.ownerEmail, ownerKey),
+        eq(otpsTable.purpose, purpose),
         eq(otpsTable.beneficiaryEmail, beneficiaryKey),
         eq(otpsTable.code, normalizedCode),
         sql`${otpsTable.usedAt} IS NULL`,
@@ -69083,20 +69098,17 @@ async function verifyOtp(ownerEmail, beneficiaryEmail, code) {
     }).where(
       and(
         eq(otpsTable.ownerEmail, ownerKey),
-        eq(otpsTable.beneficiaryEmail, beneficiaryKey),
+        eq(otpsTable.purpose, purpose),
         sql`${otpsTable.usedAt} IS NULL`,
         gt(otpsTable.expiresAt, now),
         sql`${otpsTable.attempts} < ${otpsTable.maxAttempts}`
       )
-    ).returning({
-      attempts: otpsTable.attempts,
-      maxAttempts: otpsTable.maxAttempts
-    });
+    ).returning({ attempts: otpsTable.attempts, maxAttempts: otpsTable.maxAttempts });
     if (counted.length > 0) {
       return counted[0].attempts >= counted[0].maxAttempts ? { ok: false, reason: "max_attempts" } : { ok: false, reason: "wrong_code" };
     }
   }
-  const latest = await db.select().from(otpsTable).where(eq(otpsTable.ownerEmail, ownerKey)).limit(1);
+  const latest = await db.select().from(otpsTable).where(and(eq(otpsTable.ownerEmail, ownerKey), eq(otpsTable.purpose, purpose))).limit(1);
   const current = latest[0];
   if (!current) return { ok: false, reason: "not_found" };
   if (Date.now() > current.expiresAt) return { ok: false, reason: "expired" };
@@ -69143,7 +69155,7 @@ router6.post("/request-otp/:ownerEmail", requireAuth, authLimiter, validateParam
       res.status(403).json({ message: "beneficiaryEmail does not match vault record" });
       return;
     }
-    const otp = await generateOtp(ownerEmail, beneficiaryEmail);
+    const otp = await generateOtp(ownerEmail, beneficiaryEmail, OTP_PURPOSES.beneficiaryTransfer);
     req.log.info({ ownerEmail, beneficiaryEmail }, "Vault OTP generated");
     const emailResult = await sendWithRetry("otp-email", beneficiaryEmail, {
       ownerName: ownerName ?? ownerEmail,
@@ -69172,7 +69184,7 @@ router6.post("/verify-otp/:ownerEmail", requireAuth, authLimiter, validateParams
   try {
     const ownerEmail = String(req.params.ownerEmail);
     const { beneficiaryEmail, otp } = req.body;
-    const result = await verifyOtp(ownerEmail, beneficiaryEmail, otp);
+    const result = await verifyOtp(ownerEmail, beneficiaryEmail, otp, OTP_PURPOSES.beneficiaryTransfer);
     if (!result.ok) {
       const status = result.reason === "expired" || result.reason === "already_used" || result.reason === "max_attempts" ? 410 : 401;
       res.status(status).json({ valid: false, reason: result.reason });
@@ -70125,7 +70137,7 @@ router7.get("/guardian-vote/:token", async (req, res, next) => {
       );
       if (approvals >= vault.threshold) {
         await completeAbsenceRequest(slot.requestId, "guardian_approved");
-        const otp = await generateOtp(absReq.ownerEmail, absReq.beneficiaryEmail);
+        const otp = await generateOtp(absReq.ownerEmail, absReq.beneficiaryEmail, OTP_PURPOSES.beneficiaryTransfer);
         const otpResult = await sendWithRetry("otp-email", absReq.beneficiaryEmail, {
           ownerName: absReq.ownerName || absReq.ownerEmail,
           otp
@@ -70501,7 +70513,7 @@ router8.get("/guardian-vote/:token", async (req, res, next) => {
       const threshold = pinReq ? (await lookupSealedVault(pinReq.ownerEmail))?.threshold ?? 1 : 1;
       if (approvals >= threshold) {
         await completePinResetRequest(slot.requestId, "approved");
-        const otp = await generateOtp(pinReq.ownerEmail, "pin-reset-owner");
+        const otp = await generateOtp(pinReq.ownerEmail, "pin-reset-owner", OTP_PURPOSES.pinReset);
         await sendWithRetry("otp-email", pinReq.ownerEmail, { ownerName: pinReq.ownerName, otp });
         logger.info({ requestId: slot.requestId, ownerEmail: pinReq.ownerEmail }, "PIN-Reset: quorum reached, OTP generated and emailed successfully");
       }
@@ -70519,7 +70531,7 @@ router8.post("/verify-otp", requireAuth, requireVaultParticipant(), async (req, 
       res.status(400).json({ message: "ownerEmail and code are required" });
       return;
     }
-    const otpResult = await verifyOtp(ownerEmail, "pin-reset-owner", code);
+    const otpResult = await verifyOtp(ownerEmail, "pin-reset-owner", code, OTP_PURPOSES.pinReset);
     if (!otpResult.ok) {
       res.status(400).json({ success: false, error: "\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D \u0623\u0648 \u0645\u0646\u062A\u0647\u064A \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629" });
       return;
@@ -70668,7 +70680,7 @@ router9.post("/set", requireAuth, validateBody(recoveryEmailBody), async (req, r
       return res.status(500).json({ error: "Failed to save recovery email" });
     }
     logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Generating OTP...");
-    const otp = await generateOtp(mainEmail, "recovery-verify");
+    const otp = await generateOtp(mainEmail, "recovery-verify", OTP_PURPOSES.recoveryVerify);
     logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Sending OTP via emailService...");
     await sendWithRetry("recovery-otp", email2, { otp });
     logger.info({ userId, email: email2 }, "[DIAGNOSTIC] Recovery email set and OTP sent successfully");
@@ -70694,7 +70706,7 @@ router9.post("/verify", requireAuth, validateBody(recoveryOtpVerifyBody), async 
       return res.status(400).json({ error: "Invalid recovery email" });
     }
     logger.debug({ userId }, "[DIAGNOSTIC] Verifying OTP...");
-    const otpResult = await verifyOtp(mainEmail, "recovery-verify", otp);
+    const otpResult = await verifyOtp(mainEmail, "recovery-verify", otp, OTP_PURPOSES.recoveryVerify);
     if (!otpResult.ok) {
       logger.warn({ userId, reason: otpResult.reason }, "[DIAGNOSTIC] OTP verification failed");
       return res.status(400).json({ error: otpResult.reason === "max_attempts" ? "Max attempts exceeded" : "Invalid or expired OTP" });
