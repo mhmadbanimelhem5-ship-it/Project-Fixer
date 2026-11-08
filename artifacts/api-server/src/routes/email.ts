@@ -1,7 +1,8 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { lt } from 'drizzle-orm';
 import { db, inviteTokensTable } from '@workspace/db';
 import { logger } from '../lib/logger';
+import { lookupSealedVault } from '../lib/keyStore';
 import {
   checkEmailHealth,
   createToken,
@@ -53,146 +54,213 @@ function safeErrorDetails(error: unknown): { errorName?: string; errorCode?: str
 }
 
 // ── 0. Health check ───────────────────────────────────────────────────────────
-// Returns which email provider is active and whether SMTP is reachable.
-// Used by the mobile app to diagnose "SMTP not configured" errors.
-router.get('/healthz', async (req, res, next) => {
+router.get('/healthz', async (_req: Request, res: Response): Promise<void> => {
   try {
     const health = await checkEmailHealth();
     res.json(health);
-  } catch (err) { next(err); }
+  } catch (err) {
+    logger.error({ err }, 'Health check failed');
+    res.status(500).json({ error: 'Health check failed' });
+  }
 });
 
-// ── 1. Invite guardian ────────────────────────────────────────────────────────
-router.post('/invite-guardian', requireAuth, authLimiter, validateBody(emailInviteGuardianBody), requireOwner(), async (req, res, next) => {
-  const ownerName    = str(req.body.ownerName, 'ownerName');
-  const guardianName = str(req.body.guardianName, 'guardianName');
-  const guardianEmail = emailStr(req.body.guardianEmail, 'guardianEmail');
+// ── 1. Invite guardian (C5 & P4 HARDENED) ─────────────────────────────────────
+router.post('/invite-guardian', 
+  requireAuth, 
+  authLimiter, 
+  validateBody(emailInviteGuardianBody), 
+  requireOwner('ownerEmail'), 
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authUser = (req as any).authUser;
+      const ownerEmail = authUser?.email;
 
-  let token: string;
-  try {
-    token = await createToken('guardian-invite', guardianEmail, ownerName, { guardianName });
-  } catch (error) {
-    req.log.error({ path: 'invite-guardian', stage: 'database', ...safeErrorDetails(error) }, 'Invite token creation failed');
-    res.status(503).json({ success: false, error: 'database_unavailable' });
-    return;
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, 'C5 Blocked: Invite attempted for non-existent vault');
+        res.status(404).json({ success: false, error: 'No sealed vault found for this owner' });
+        return;
+      }
+
+      const ownerName = str(req.body.ownerName, 'ownerName');
+      const guardianName = str(req.body.guardianName, 'guardianName');
+      const guardianEmail = emailStr(req.body.guardianEmail, 'guardianEmail');
+
+      // يتم إنشاء التوكن وإرساله بالإيميل فقط
+      const token = await createToken('guardian-invite', guardianEmail, ownerName, { guardianName });
+      await sendGuardianInvite(ownerName, guardianEmail, token);
+
+      // ✅ P4 FIX: إزالة التوكن من الاستجابة لمنع تسريبه
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ path: 'invite-guardian', stage: 'execution', ...safeErrorDetails(error) }, 'Invite guardian failed');
+      const message = error instanceof Error ? error.message : 'Unexpected error';
+      res.status(500).json({ success: false, error: message });
+    }
   }
-
-  try {
-    await sendGuardianInvite(ownerName, guardianEmail, token);
-  } catch (error) {
-    req.log.error({ path: 'invite-guardian', stage: 'email', ...safeErrorDetails(error) }, 'Email send failed');
-    res.status(502).json({ success: false, error: 'email_delivery_failed' });
-    return;
-  }
-
-  res.json({ success: true, token });
-});
+);
 
 // ── 2. Remove guardian ────────────────────────────────────────────────────────
-router.post('/remove-guardian', requireAuth, validateBody(emailRemoveGuardianBody), requireOwner(), async (req, res, next) => {
-  try {
-    const ownerName    = str(req.body.ownerName, 'ownerName');
-    const guardianEmail = emailStr(req.body.guardianEmail, 'guardianEmail');
+router.post('/remove-guardian', 
+  requireAuth, 
+  validateBody(emailRemoveGuardianBody), 
+  requireOwner('ownerEmail'), 
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const ownerName = str(req.body.ownerName, 'ownerName');
+      const guardianEmail = emailStr(req.body.guardianEmail, 'guardianEmail');
 
-    await sendGuardianRemoved(ownerName, guardianEmail);
-    res.json({ success: true });
-  } catch (err) {
-    req.log.error({ err, path: 'remove-guardian' }, 'Email send failed');
-    res.status(502).json({ success: false, error: 'email_delivery_failed' });
+      await sendGuardianRemoved(ownerName, guardianEmail);
+      res.json({ success: true });
+    } catch (err) {
+      logger.error({ err, path: 'remove-guardian' }, 'Email send failed');
+      res.status(502).json({ success: false, error: 'email_delivery_failed' });
+    }
   }
-});
+);
 
-// ── 3. Invite beneficiary ─────────────────────────────────────────────────────
-router.post('/invite-beneficiary', requireAuth, authLimiter, validateBody(emailInviteBeneficiaryBody), requireOwner(), async (req, res, next) => {
-  const ownerName       = str(req.body.ownerName, 'ownerName');
-  const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
-  const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, 'beneficiaryEmail');
-  const relationship    = typeof req.body.relationship === 'string' ? req.body.relationship : '';
+// ── 3. Invite beneficiary (C5 & P4 HARDENED) ──────────────────────────────────
+router.post('/invite-beneficiary', 
+  requireAuth, 
+  authLimiter, 
+  validateBody(emailInviteBeneficiaryBody), 
+  requireOwner('ownerEmail'), 
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authUser = (req as any).authUser;
+      const ownerEmail = authUser?.email;
 
-  let token: string;
-  try {
-    token = await createToken('beneficiary-invite', beneficiaryEmail, ownerName, { beneficiaryName, relationship });
-  } catch (error) {
-    req.log.error({ path: 'invite-beneficiary', stage: 'database', ...safeErrorDetails(error) }, 'Invite token creation failed');
-    res.status(503).json({ success: false, error: 'database_unavailable' });
-    return;
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, 'C5 Blocked: Invite attempted for non-existent vault');
+        res.status(404).json({ success: false, error: 'No sealed vault found for this owner' });
+        return;
+      }
+
+      const ownerName = str(req.body.ownerName, 'ownerName');
+      const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
+      const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, 'beneficiaryEmail');
+      const relationship = typeof req.body.relationship === 'string' ? req.body.relationship : '';
+
+      // يتم إنشاء التوكن وإرساله بالإيميل فقط
+      const token = await createToken('beneficiary-invite', beneficiaryEmail, ownerName, { beneficiaryName, relationship });
+      await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token);
+
+      // ✅ P4 FIX: إزالة التوكن من الاستجابة لمنع تسريبه
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ path: 'invite-beneficiary', stage: 'execution', ...safeErrorDetails(error) }, 'Invite beneficiary failed');
+      const message = error instanceof Error ? error.message : 'Unexpected error';
+      res.status(500).json({ success: false, error: message });
+    }
   }
-
-  try {
-    await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token);
-  } catch (error) {
-    req.log.error({ path: 'invite-beneficiary', stage: 'email', ...safeErrorDetails(error) }, 'Email send failed');
-    res.status(502).json({ success: false, error: 'email_delivery_failed' });
-    return;
-  }
-
-  res.json({ success: true, token });
-});
+);
 
 // ── 4. Remove beneficiary ─────────────────────────────────────────────────────
-router.post('/remove-beneficiary', requireAuth, validateBody(emailRemoveBeneficiaryBody), requireOwner(), async (req, res, next) => {
-  try {
-    const ownerName       = str(req.body.ownerName, 'ownerName');
-    const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, 'beneficiaryEmail');
+router.post('/remove-beneficiary', 
+  requireAuth, 
+  validateBody(emailRemoveBeneficiaryBody), 
+  requireOwner('ownerEmail'), 
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const ownerName = str(req.body.ownerName, 'ownerName');
+      const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, 'beneficiaryEmail');
 
-    await sendBeneficiaryRemoved(ownerName, beneficiaryEmail);
-    res.json({ success: true });
-  } catch (err) {
-    req.log.error({ err, path: 'remove-beneficiary' }, 'Email send failed');
-    res.status(502).json({ success: false, error: 'email_delivery_failed' });
+      await sendBeneficiaryRemoved(ownerName, beneficiaryEmail);
+      res.json({ success: true });
+    } catch (err) {
+      logger.error({ err, path: 'remove-beneficiary' }, 'Email send failed');
+      res.status(502).json({ success: false, error: 'email_delivery_failed' });
+    }
   }
-});
+);
 
-// ── 5. Emergency protocol ─────────────────────────────────────────────────────
-// Fire-and-forget: respond immediately so the mobile app doesn't hang while
-// emails are dispatched to multiple guardians (SMTP can take several seconds).
-router.post('/emergency', requireAuth, validateBody(emergencyEmailBody), requireOwner(), (req, res, next) => {
-  try {
-    const ownerName          = str(req.body.ownerName, 'ownerName');
-    const beneficiaryName    = str(req.body.beneficiaryName, 'beneficiaryName');
-    const beneficiaryRelation = typeof req.body.beneficiaryRelation === 'string' ? req.body.beneficiaryRelation : '';
-    const guardianEmails     = emailArr(req.body.guardianEmails, 'guardianEmails');
+// ── 5. Emergency protocol (C5 HARDENED) ───────────────────────────────────────
+router.post('/emergency', 
+  requireAuth, 
+  validateBody(emergencyEmailBody), 
+  requireOwner('ownerEmail'), 
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authUser = (req as any).authUser;
+      const ownerEmail = authUser?.email;
 
-    res.json({ success: true });
-    sendEmergencyActivation(ownerName, beneficiaryName, beneficiaryRelation, guardianEmails)
-      .catch(err => req.log.error({ err }, 'emergency email background send failed'));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
-    res.status(400).json({ success: false, error: message });
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, 'C5 Blocked: Emergency triggered for non-existent vault');
+        res.status(404).json({ success: false, error: 'No sealed vault found for this owner' });
+        return;
+      }
+
+      const ownerName = str(req.body.ownerName, 'ownerName');
+      const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
+      const beneficiaryRelation = typeof req.body.beneficiaryRelation === 'string' ? req.body.beneficiaryRelation : '';
+      const guardianEmails = emailArr(req.body.guardianEmails, 'guardianEmails');
+
+      res.json({ success: true });
+
+      sendEmergencyActivation(ownerName, beneficiaryName, beneficiaryRelation, guardianEmails)
+        .catch(err => logger.error({ err }, 'emergency email background send failed'));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error';
+      res.status(400).json({ success: false, error: message });
+    }
   }
-});
+);
 
-// ── 6. 48-hour vote request ───────────────────────────────────────────────────
-router.post('/vote-request', requireAuth, validateBody(voteRequestBody), requireOwner(), (req, res, next) => {
-  try {
-    const ownerName      = str(req.body.ownerName, 'ownerName');
-    const guardianEmails = emailArr(req.body.guardianEmails, 'guardianEmails');
+// ── 6. 48-hour vote request (C5 HARDENED) ─────────────────────────────────────
+router.post('/vote-request', 
+  requireAuth, 
+  validateBody(voteRequestBody), 
+  requireOwner('ownerEmail'), 
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authUser = (req as any).authUser;
+      const ownerEmail = authUser?.email;
 
-    res.json({ success: true });
-    sendVoteRequest(ownerName, guardianEmails)
-      .catch(err => req.log.error({ err }, 'vote-request email background send failed'));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
-    res.status(400).json({ success: false, error: message });
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, 'C5 Blocked: Vote request for non-existent vault');
+        res.status(404).json({ success: false, error: 'No sealed vault found for this owner' });
+        return;
+      }
+
+      const ownerName = str(req.body.ownerName, 'ownerName');
+      const guardianEmails = emailArr(req.body.guardianEmails, 'guardianEmails');
+
+      res.json({ success: true });
+
+      sendVoteRequest(ownerName, guardianEmails)
+        .catch(err => logger.error({ err }, 'vote-request email background send failed'));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error';
+      res.status(400).json({ success: false, error: message });
+    }
   }
-});
+);
 
 // ── 7. Notify owner every 3h during 48h wait ─────────────────────────────────
-router.post('/notify-owner', requireAuth, validateBody(ownerNotificationBody), requireVaultParticipant(), (req, res, next) => {
-  try {
-    const ownerEmail      = emailStr(req.body.ownerEmail, 'ownerEmail');
-    const ownerName       = str(req.body.ownerName, 'ownerName');
-    const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
-    const notifCount      = typeof req.body.notifCount === 'number' ? req.body.notifCount : 1;
+router.post('/notify-owner', 
+  requireAuth, 
+  validateBody(ownerNotificationBody), 
+  requireVaultParticipant('ownerEmail'), 
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const ownerEmail = emailStr(req.body.ownerEmail, 'ownerEmail');
+      const ownerName = str(req.body.ownerName, 'ownerName');
+      const beneficiaryName = str(req.body.beneficiaryName, 'beneficiaryName');
+      const notifCount = typeof req.body.notifCount === 'number' ? req.body.notifCount : 1;
 
-    res.json({ success: true });
-    sendOwnerNotification(ownerEmail, ownerName, beneficiaryName, notifCount)
-      .catch(err => req.log.error({ err }, 'notify-owner email background send failed'));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
-    res.status(400).json({ success: false, error: message });
+      res.json({ success: true });
+
+      sendOwnerNotification(ownerEmail, ownerName, beneficiaryName, notifCount)
+        .catch(err => logger.error({ err }, 'notify-owner email background send failed'));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error';
+      res.status(400).json({ success: false, error: message });
+    }
   }
-});
+);
 
 // ── Background cleanup: remove expired invite tokens ───────────────────────────
 async function cleanupExpiredInviteTokens(): Promise<void> {
@@ -212,7 +280,6 @@ setInterval(() => {
 
 logger.info('Invite token cleanup scheduler started (interval: 24 hours)');
 
-// Run once at startup to clean leftovers from previous deployments.
 cleanupExpiredInviteTokens().catch(err =>
   logger.error({ err }, 'Initial invite token cleanup failed'),
 );

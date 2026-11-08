@@ -51892,6 +51892,111 @@ var health_default = router;
 // src/routes/email.ts
 var import_express3 = __toESM(require_express2(), 1);
 
+// src/lib/keyStore.ts
+async function storePublicKey(email2, jwk) {
+  const key = email2.toLowerCase();
+  await db.insert(publicKeysTable).values({ email: key, jwk, updatedAt: Date.now() }).onConflictDoUpdate({
+    target: publicKeysTable.email,
+    set: { jwk, updatedAt: Date.now() }
+  });
+}
+async function lookupPublicKey(email2) {
+  const rows = await db.select().from(publicKeysTable).where(eq(publicKeysTable.email, email2.toLowerCase())).limit(1);
+  return rows[0]?.jwk;
+}
+async function canAccessPublicKey(requesterEmail, targetEmail) {
+  const requester = requesterEmail.trim().toLowerCase();
+  const target = targetEmail.trim().toLowerCase();
+  if (requester === target) return true;
+  const relatedVaults = await db.select({
+    ownerEmail: sealedVaultsTable.ownerEmail,
+    beneficiaryEmail: sealedVaultsTable.beneficiaryEmail
+  }).from(sealedVaultsTable).where(
+    or(
+      eq(sealedVaultsTable.ownerEmail, requester),
+      eq(sealedVaultsTable.beneficiaryEmail, requester)
+    )
+  );
+  if (relatedVaults.some(
+    (vault) => [vault.ownerEmail, vault.beneficiaryEmail].includes(target)
+  )) {
+    return true;
+  }
+  const guardianVaults = await db.select({ ownerEmail: guardianPackagesTable.ownerEmail }).from(guardianPackagesTable).where(eq(guardianPackagesTable.guardianEmail, requester));
+  for (const guardianVault of guardianVaults) {
+    const vault = await lookupSealedVault(guardianVault.ownerEmail);
+    if (vault && [guardianVault.ownerEmail, vault.beneficiaryEmail, ...vault.guardianPackages.map((item) => item.email)].some((email2) => email2.toLowerCase() === target)) {
+      return true;
+    }
+  }
+  return false;
+}
+async function storeSealedVault(ownerEmail, vault) {
+  const key = ownerEmail.toLowerCase();
+  await db.insert(sealedVaultsTable).values({
+    ownerEmail: key,
+    beneficiaryEmail: vault.beneficiaryEmail.toLowerCase(),
+    encryptedBlob: vault.encryptedBlob,
+    benefEncryptedKey: vault.benefEncryptedKey ?? null,
+    threshold: vault.threshold,
+    sealedAt: vault.sealedAt
+  }).onConflictDoUpdate({
+    target: sealedVaultsTable.ownerEmail,
+    set: {
+      beneficiaryEmail: vault.beneficiaryEmail.toLowerCase(),
+      encryptedBlob: vault.encryptedBlob,
+      benefEncryptedKey: vault.benefEncryptedKey ?? null,
+      threshold: vault.threshold,
+      sealedAt: vault.sealedAt
+    }
+  });
+  await db.delete(guardianPackagesTable).where(eq(guardianPackagesTable.ownerEmail, key));
+  if (vault.guardianPackages.length > 0) {
+    await db.insert(guardianPackagesTable).values(
+      vault.guardianPackages.map((g) => ({
+        ownerEmail: key,
+        guardianEmail: g.email.toLowerCase(),
+        encryptedShare: g.encryptedShare
+      }))
+    );
+  }
+}
+async function lookupSealedVault(ownerEmail) {
+  const key = ownerEmail.toLowerCase();
+  const vaultRows = await db.select().from(sealedVaultsTable).where(eq(sealedVaultsTable.ownerEmail, key)).limit(1);
+  if (!vaultRows[0]) return void 0;
+  const v = vaultRows[0];
+  const pkgRows = await db.select().from(guardianPackagesTable).where(eq(guardianPackagesTable.ownerEmail, key));
+  return {
+    encryptedBlob: v.encryptedBlob,
+    beneficiaryEmail: v.beneficiaryEmail,
+    benefEncryptedKey: v.benefEncryptedKey ?? void 0,
+    threshold: v.threshold,
+    sealedAt: v.sealedAt,
+    guardianPackages: pkgRows.map((r) => ({
+      email: r.guardianEmail,
+      encryptedShare: r.encryptedShare
+    }))
+  };
+}
+async function submitGuardianShare(ownerEmail, guardianEmail, encryptedShareForBeneficiary) {
+  const oKey = ownerEmail.toLowerCase();
+  const gKey = guardianEmail.toLowerCase();
+  await db.insert(guardianVotesTable).values({ ownerEmail: oKey, guardianEmail: gKey, encryptedShareForBeneficiary }).onConflictDoUpdate({
+    target: [guardianVotesTable.ownerEmail, guardianVotesTable.guardianEmail],
+    set: { encryptedShareForBeneficiary }
+  });
+}
+async function getCollectedShares(ownerEmail) {
+  const vault = await lookupSealedVault(ownerEmail);
+  if (!vault) return null;
+  const votes = await db.select().from(guardianVotesTable).where(eq(guardianVotesTable.ownerEmail, ownerEmail.toLowerCase()));
+  return {
+    encryptedShares: votes.map((r) => r.encryptedShareForBeneficiary),
+    threshold: vault.threshold
+  };
+}
+
 // src/lib/emailService.ts
 import nodemailer from "nodemailer";
 
@@ -68025,111 +68130,6 @@ var getAuth = ((req, options) => {
   });
 });
 
-// src/lib/keyStore.ts
-async function storePublicKey(email2, jwk) {
-  const key = email2.toLowerCase();
-  await db.insert(publicKeysTable).values({ email: key, jwk, updatedAt: Date.now() }).onConflictDoUpdate({
-    target: publicKeysTable.email,
-    set: { jwk, updatedAt: Date.now() }
-  });
-}
-async function lookupPublicKey(email2) {
-  const rows = await db.select().from(publicKeysTable).where(eq(publicKeysTable.email, email2.toLowerCase())).limit(1);
-  return rows[0]?.jwk;
-}
-async function canAccessPublicKey(requesterEmail, targetEmail) {
-  const requester = requesterEmail.trim().toLowerCase();
-  const target = targetEmail.trim().toLowerCase();
-  if (requester === target) return true;
-  const relatedVaults = await db.select({
-    ownerEmail: sealedVaultsTable.ownerEmail,
-    beneficiaryEmail: sealedVaultsTable.beneficiaryEmail
-  }).from(sealedVaultsTable).where(
-    or(
-      eq(sealedVaultsTable.ownerEmail, requester),
-      eq(sealedVaultsTable.beneficiaryEmail, requester)
-    )
-  );
-  if (relatedVaults.some(
-    (vault) => [vault.ownerEmail, vault.beneficiaryEmail].includes(target)
-  )) {
-    return true;
-  }
-  const guardianVaults = await db.select({ ownerEmail: guardianPackagesTable.ownerEmail }).from(guardianPackagesTable).where(eq(guardianPackagesTable.guardianEmail, requester));
-  for (const guardianVault of guardianVaults) {
-    const vault = await lookupSealedVault(guardianVault.ownerEmail);
-    if (vault && [guardianVault.ownerEmail, vault.beneficiaryEmail, ...vault.guardianPackages.map((item) => item.email)].some((email2) => email2.toLowerCase() === target)) {
-      return true;
-    }
-  }
-  return false;
-}
-async function storeSealedVault(ownerEmail, vault) {
-  const key = ownerEmail.toLowerCase();
-  await db.insert(sealedVaultsTable).values({
-    ownerEmail: key,
-    beneficiaryEmail: vault.beneficiaryEmail.toLowerCase(),
-    encryptedBlob: vault.encryptedBlob,
-    benefEncryptedKey: vault.benefEncryptedKey ?? null,
-    threshold: vault.threshold,
-    sealedAt: vault.sealedAt
-  }).onConflictDoUpdate({
-    target: sealedVaultsTable.ownerEmail,
-    set: {
-      beneficiaryEmail: vault.beneficiaryEmail.toLowerCase(),
-      encryptedBlob: vault.encryptedBlob,
-      benefEncryptedKey: vault.benefEncryptedKey ?? null,
-      threshold: vault.threshold,
-      sealedAt: vault.sealedAt
-    }
-  });
-  await db.delete(guardianPackagesTable).where(eq(guardianPackagesTable.ownerEmail, key));
-  if (vault.guardianPackages.length > 0) {
-    await db.insert(guardianPackagesTable).values(
-      vault.guardianPackages.map((g) => ({
-        ownerEmail: key,
-        guardianEmail: g.email.toLowerCase(),
-        encryptedShare: g.encryptedShare
-      }))
-    );
-  }
-}
-async function lookupSealedVault(ownerEmail) {
-  const key = ownerEmail.toLowerCase();
-  const vaultRows = await db.select().from(sealedVaultsTable).where(eq(sealedVaultsTable.ownerEmail, key)).limit(1);
-  if (!vaultRows[0]) return void 0;
-  const v = vaultRows[0];
-  const pkgRows = await db.select().from(guardianPackagesTable).where(eq(guardianPackagesTable.ownerEmail, key));
-  return {
-    encryptedBlob: v.encryptedBlob,
-    beneficiaryEmail: v.beneficiaryEmail,
-    benefEncryptedKey: v.benefEncryptedKey ?? void 0,
-    threshold: v.threshold,
-    sealedAt: v.sealedAt,
-    guardianPackages: pkgRows.map((r) => ({
-      email: r.guardianEmail,
-      encryptedShare: r.encryptedShare
-    }))
-  };
-}
-async function submitGuardianShare(ownerEmail, guardianEmail, encryptedShareForBeneficiary) {
-  const oKey = ownerEmail.toLowerCase();
-  const gKey = guardianEmail.toLowerCase();
-  await db.insert(guardianVotesTable).values({ ownerEmail: oKey, guardianEmail: gKey, encryptedShareForBeneficiary }).onConflictDoUpdate({
-    target: [guardianVotesTable.ownerEmail, guardianVotesTable.guardianEmail],
-    set: { encryptedShareForBeneficiary }
-  });
-}
-async function getCollectedShares(ownerEmail) {
-  const vault = await lookupSealedVault(ownerEmail);
-  if (!vault) return null;
-  const votes = await db.select().from(guardianVotesTable).where(eq(guardianVotesTable.ownerEmail, ownerEmail.toLowerCase()));
-  return {
-    encryptedShares: votes.map((r) => r.encryptedShareForBeneficiary),
-    threshold: vault.threshold
-  };
-}
-
 // src/middleware/auth.ts
 function normalizeEmail(value) {
   return value.trim().toLowerCase();
@@ -68378,6 +68378,32 @@ function requirePublicKeyAccess(field = "email") {
     }
   };
 }
+function requireBeneficiary(field = "ownerEmail") {
+  return async (req, res, next) => {
+    try {
+      const user = req.authUser ?? await getAuthenticatedUser(req);
+      const ownerEmail = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
+      if (!user) {
+        logRejection({ layer: "requireBeneficiary", req, reason: "no_auth_user" });
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+      if (typeof ownerEmail !== "string") {
+        res.status(400).json({ error: "owner_email_required" });
+        return;
+      }
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault || normalizeEmail(vault.beneficiaryEmail) !== user.email) {
+        res.status(403).json({ error: "beneficiary_authorization_required" });
+        return;
+      }
+      req.authUser = user;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
 
 // src/middleware/validation.ts
 function validateBody(schema) {
@@ -68536,116 +68562,179 @@ function safeErrorDetails(error) {
     errorCode: typeof value.code === "string" ? value.code : void 0
   };
 }
-router2.get("/healthz", async (req, res, next) => {
+router2.get("/healthz", async (_req, res) => {
   try {
     const health = await checkEmailHealth();
     res.json(health);
   } catch (err) {
-    next(err);
+    logger.error({ err }, "Health check failed");
+    res.status(500).json({ error: "Health check failed" });
   }
 });
-router2.post("/invite-guardian", requireAuth, authLimiter, validateBody(emailInviteGuardianBody), requireOwner(), async (req, res, next) => {
-  const ownerName = str(req.body.ownerName, "ownerName");
-  const guardianName = str(req.body.guardianName, "guardianName");
-  const guardianEmail = emailStr(req.body.guardianEmail, "guardianEmail");
-  let token2;
-  try {
-    token2 = await createToken("guardian-invite", guardianEmail, ownerName, { guardianName });
-  } catch (error) {
-    req.log.error({ path: "invite-guardian", stage: "database", ...safeErrorDetails(error) }, "Invite token creation failed");
-    res.status(503).json({ success: false, error: "database_unavailable" });
-    return;
+router2.post(
+  "/invite-guardian",
+  requireAuth,
+  authLimiter,
+  validateBody(emailInviteGuardianBody),
+  requireOwner("ownerEmail"),
+  async (req, res) => {
+    try {
+      const authUser = req.authUser;
+      const ownerEmail = authUser?.email;
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, "C5 Blocked: Invite attempted for non-existent vault");
+        res.status(404).json({ success: false, error: "No sealed vault found for this owner" });
+        return;
+      }
+      const ownerName = str(req.body.ownerName, "ownerName");
+      const guardianName = str(req.body.guardianName, "guardianName");
+      const guardianEmail = emailStr(req.body.guardianEmail, "guardianEmail");
+      const token2 = await createToken("guardian-invite", guardianEmail, ownerName, { guardianName });
+      await sendGuardianInvite(ownerName, guardianEmail, token2);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ path: "invite-guardian", stage: "execution", ...safeErrorDetails(error) }, "Invite guardian failed");
+      const message = error instanceof Error ? error.message : "Unexpected error";
+      res.status(500).json({ success: false, error: message });
+    }
   }
-  try {
-    await sendGuardianInvite(ownerName, guardianEmail, token2);
-  } catch (error) {
-    req.log.error({ path: "invite-guardian", stage: "email", ...safeErrorDetails(error) }, "Email send failed");
-    res.status(502).json({ success: false, error: "email_delivery_failed" });
-    return;
+);
+router2.post(
+  "/remove-guardian",
+  requireAuth,
+  validateBody(emailRemoveGuardianBody),
+  requireOwner("ownerEmail"),
+  async (req, res) => {
+    try {
+      const ownerName = str(req.body.ownerName, "ownerName");
+      const guardianEmail = emailStr(req.body.guardianEmail, "guardianEmail");
+      await sendGuardianRemoved(ownerName, guardianEmail);
+      res.json({ success: true });
+    } catch (err) {
+      logger.error({ err, path: "remove-guardian" }, "Email send failed");
+      res.status(502).json({ success: false, error: "email_delivery_failed" });
+    }
   }
-  res.json({ success: true, token: token2 });
-});
-router2.post("/remove-guardian", requireAuth, validateBody(emailRemoveGuardianBody), requireOwner(), async (req, res, next) => {
-  try {
-    const ownerName = str(req.body.ownerName, "ownerName");
-    const guardianEmail = emailStr(req.body.guardianEmail, "guardianEmail");
-    await sendGuardianRemoved(ownerName, guardianEmail);
-    res.json({ success: true });
-  } catch (err) {
-    req.log.error({ err, path: "remove-guardian" }, "Email send failed");
-    res.status(502).json({ success: false, error: "email_delivery_failed" });
+);
+router2.post(
+  "/invite-beneficiary",
+  requireAuth,
+  authLimiter,
+  validateBody(emailInviteBeneficiaryBody),
+  requireOwner("ownerEmail"),
+  async (req, res) => {
+    try {
+      const authUser = req.authUser;
+      const ownerEmail = authUser?.email;
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, "C5 Blocked: Invite attempted for non-existent vault");
+        res.status(404).json({ success: false, error: "No sealed vault found for this owner" });
+        return;
+      }
+      const ownerName = str(req.body.ownerName, "ownerName");
+      const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
+      const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, "beneficiaryEmail");
+      const relationship = typeof req.body.relationship === "string" ? req.body.relationship : "";
+      const token2 = await createToken("beneficiary-invite", beneficiaryEmail, ownerName, { beneficiaryName, relationship });
+      await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token2);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ path: "invite-beneficiary", stage: "execution", ...safeErrorDetails(error) }, "Invite beneficiary failed");
+      const message = error instanceof Error ? error.message : "Unexpected error";
+      res.status(500).json({ success: false, error: message });
+    }
   }
-});
-router2.post("/invite-beneficiary", requireAuth, authLimiter, validateBody(emailInviteBeneficiaryBody), requireOwner(), async (req, res, next) => {
-  const ownerName = str(req.body.ownerName, "ownerName");
-  const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
-  const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, "beneficiaryEmail");
-  const relationship = typeof req.body.relationship === "string" ? req.body.relationship : "";
-  let token2;
-  try {
-    token2 = await createToken("beneficiary-invite", beneficiaryEmail, ownerName, { beneficiaryName, relationship });
-  } catch (error) {
-    req.log.error({ path: "invite-beneficiary", stage: "database", ...safeErrorDetails(error) }, "Invite token creation failed");
-    res.status(503).json({ success: false, error: "database_unavailable" });
-    return;
+);
+router2.post(
+  "/remove-beneficiary",
+  requireAuth,
+  validateBody(emailRemoveBeneficiaryBody),
+  requireOwner("ownerEmail"),
+  async (req, res) => {
+    try {
+      const ownerName = str(req.body.ownerName, "ownerName");
+      const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, "beneficiaryEmail");
+      await sendBeneficiaryRemoved(ownerName, beneficiaryEmail);
+      res.json({ success: true });
+    } catch (err) {
+      logger.error({ err, path: "remove-beneficiary" }, "Email send failed");
+      res.status(502).json({ success: false, error: "email_delivery_failed" });
+    }
   }
-  try {
-    await sendBeneficiaryInvite(ownerName, beneficiaryEmail, relationship, token2);
-  } catch (error) {
-    req.log.error({ path: "invite-beneficiary", stage: "email", ...safeErrorDetails(error) }, "Email send failed");
-    res.status(502).json({ success: false, error: "email_delivery_failed" });
-    return;
+);
+router2.post(
+  "/emergency",
+  requireAuth,
+  validateBody(emergencyEmailBody),
+  requireOwner("ownerEmail"),
+  async (req, res) => {
+    try {
+      const authUser = req.authUser;
+      const ownerEmail = authUser?.email;
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, "C5 Blocked: Emergency triggered for non-existent vault");
+        res.status(404).json({ success: false, error: "No sealed vault found for this owner" });
+        return;
+      }
+      const ownerName = str(req.body.ownerName, "ownerName");
+      const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
+      const beneficiaryRelation = typeof req.body.beneficiaryRelation === "string" ? req.body.beneficiaryRelation : "";
+      const guardianEmails = emailArr(req.body.guardianEmails, "guardianEmails");
+      res.json({ success: true });
+      sendEmergencyActivation(ownerName, beneficiaryName, beneficiaryRelation, guardianEmails).catch((err) => logger.error({ err }, "emergency email background send failed"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error";
+      res.status(400).json({ success: false, error: message });
+    }
   }
-  res.json({ success: true, token: token2 });
-});
-router2.post("/remove-beneficiary", requireAuth, validateBody(emailRemoveBeneficiaryBody), requireOwner(), async (req, res, next) => {
-  try {
-    const ownerName = str(req.body.ownerName, "ownerName");
-    const beneficiaryEmail = emailStr(req.body.beneficiaryEmail, "beneficiaryEmail");
-    await sendBeneficiaryRemoved(ownerName, beneficiaryEmail);
-    res.json({ success: true });
-  } catch (err) {
-    req.log.error({ err, path: "remove-beneficiary" }, "Email send failed");
-    res.status(502).json({ success: false, error: "email_delivery_failed" });
+);
+router2.post(
+  "/vote-request",
+  requireAuth,
+  validateBody(voteRequestBody),
+  requireOwner("ownerEmail"),
+  async (req, res) => {
+    try {
+      const authUser = req.authUser;
+      const ownerEmail = authUser?.email;
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault) {
+        logger.warn({ userId: authUser?.id, ownerEmail }, "C5 Blocked: Vote request for non-existent vault");
+        res.status(404).json({ success: false, error: "No sealed vault found for this owner" });
+        return;
+      }
+      const ownerName = str(req.body.ownerName, "ownerName");
+      const guardianEmails = emailArr(req.body.guardianEmails, "guardianEmails");
+      res.json({ success: true });
+      sendVoteRequest(ownerName, guardianEmails).catch((err) => logger.error({ err }, "vote-request email background send failed"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error";
+      res.status(400).json({ success: false, error: message });
+    }
   }
-});
-router2.post("/emergency", requireAuth, validateBody(emergencyEmailBody), requireOwner(), (req, res, next) => {
-  try {
-    const ownerName = str(req.body.ownerName, "ownerName");
-    const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
-    const beneficiaryRelation = typeof req.body.beneficiaryRelation === "string" ? req.body.beneficiaryRelation : "";
-    const guardianEmails = emailArr(req.body.guardianEmails, "guardianEmails");
-    res.json({ success: true });
-    sendEmergencyActivation(ownerName, beneficiaryName, beneficiaryRelation, guardianEmails).catch((err) => req.log.error({ err }, "emergency email background send failed"));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "\u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639";
-    res.status(400).json({ success: false, error: message });
+);
+router2.post(
+  "/notify-owner",
+  requireAuth,
+  validateBody(ownerNotificationBody),
+  requireVaultParticipant("ownerEmail"),
+  async (req, res) => {
+    try {
+      const ownerEmail = emailStr(req.body.ownerEmail, "ownerEmail");
+      const ownerName = str(req.body.ownerName, "ownerName");
+      const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
+      const notifCount = typeof req.body.notifCount === "number" ? req.body.notifCount : 1;
+      res.json({ success: true });
+      sendOwnerNotification(ownerEmail, ownerName, beneficiaryName, notifCount).catch((err) => logger.error({ err }, "notify-owner email background send failed"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error";
+      res.status(400).json({ success: false, error: message });
+    }
   }
-});
-router2.post("/vote-request", requireAuth, validateBody(voteRequestBody), requireOwner(), (req, res, next) => {
-  try {
-    const ownerName = str(req.body.ownerName, "ownerName");
-    const guardianEmails = emailArr(req.body.guardianEmails, "guardianEmails");
-    res.json({ success: true });
-    sendVoteRequest(ownerName, guardianEmails).catch((err) => req.log.error({ err }, "vote-request email background send failed"));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "\u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639";
-    res.status(400).json({ success: false, error: message });
-  }
-});
-router2.post("/notify-owner", requireAuth, validateBody(ownerNotificationBody), requireVaultParticipant(), (req, res, next) => {
-  try {
-    const ownerEmail = emailStr(req.body.ownerEmail, "ownerEmail");
-    const ownerName = str(req.body.ownerName, "ownerName");
-    const beneficiaryName = str(req.body.beneficiaryName, "beneficiaryName");
-    const notifCount = typeof req.body.notifCount === "number" ? req.body.notifCount : 1;
-    res.json({ success: true });
-    sendOwnerNotification(ownerEmail, ownerName, beneficiaryName, notifCount).catch((err) => req.log.error({ err }, "notify-owner email background send failed"));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "\u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639";
-    res.status(400).json({ success: false, error: message });
-  }
-});
+);
 async function cleanupExpiredInviteTokens() {
   const now = Date.now();
   const result = await db.delete(inviteTokensTable).where(lt(inviteTokensTable.expiresAt, now)).returning({ token: inviteTokensTable.token });
@@ -68779,7 +68868,6 @@ var requirePushNotifyAuth = (req, res, next) => {
   requireAuth(req, res, next);
 };
 var registerSchema = external_exports.object({
-  // Expo historically used ExponentPushToken[...]; also accept ExpoPushToken[...]
   expoPushToken: external_exports.string().min(20).refine(
     (v) => /Expo(nent)?PushToken\[.+\]/.test(v),
     "Invalid Expo push token format"
@@ -68879,9 +68967,7 @@ router4.post("/register", requireClerkUserId, authLimiter, async (req, res, next
     if (existing.length > 0) {
       const sameToken = existing[0].token === expoPushToken;
       if (sameToken) {
-        await db.update(userPushTokensTable).set({
-          lastSeenAt: /* @__PURE__ */ new Date()
-        }).where(eq(userPushTokensTable.id, existing[0].id));
+        await db.update(userPushTokensTable).set({ lastSeenAt: /* @__PURE__ */ new Date() }).where(eq(userPushTokensTable.id, existing[0].id));
         logger.info({ userId, platform, unchanged: true }, "Push token already registered");
       } else {
         await db.update(userPushTokensTable).set({
@@ -68915,6 +69001,24 @@ router4.post("/notify", requirePushNotifyAuth, authLimiter, async (req, res, nex
       return;
     }
     const { token: token2, title, body, sound, data } = parsed.data;
+    const internalSecret = process.env.CRON_SECRET;
+    const isInternal = !!(internalSecret && matchesInternalSecret(req.get("x-internal-secret"), internalSecret));
+    if (!isInternal) {
+      const userId = req.authUser?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, error: "Unauthorized" });
+        return;
+      }
+      const tokenRecord = await db.select().from(userPushTokensTable).where(and(eq(userPushTokensTable.userId, userId), eq(userPushTokensTable.token, token2))).limit(1);
+      if (tokenRecord.length === 0) {
+        logger.warn({ userId, attemptedToken: token2 }, "C4 Blocked: User attempted to send push to unowned token");
+        res.status(403).json({
+          success: false,
+          error: "Forbidden: You can only send notifications to your own registered devices."
+        });
+        return;
+      }
+    }
     const result = await sendRawPush({
       to: token2,
       title,
@@ -69638,7 +69742,6 @@ async function startGuardianVote(requestId) {
         eq(absenceRequestsTable.status, "pending_owner"),
         eq(absenceRequestsTable.status, "pending_beneficiary_confirmation"),
         eq(absenceRequestsTable.status, "pending_guardian_vote")
-        // idempotent re-trigger
       )
     )
   );
@@ -69681,7 +69784,9 @@ async function recordGuardianDecision(requestId, guardianEmail, decision) {
   await db.update(absenceGuardianDecisionsTable).set({ decision, decidedAt: Date.now() }).where(
     and(
       eq(absenceGuardianDecisionsTable.requestId, requestId),
-      eq(absenceGuardianDecisionsTable.guardianEmail, guardianEmail.toLowerCase())
+      eq(absenceGuardianDecisionsTable.guardianEmail, guardianEmail.toLowerCase()),
+      isNull(absenceGuardianDecisionsTable.decision)
+      // ✅ P1 FIX
     )
   );
 }
@@ -69939,7 +70044,7 @@ async function runAbsenceSchedulerTick() {
     release?.();
   }
 }
-router7.post("/initiate", requireAuth, validateBody(absenceBody), requireVaultParticipant(), async (req, res, next) => {
+router7.post("/initiate", requireAuth, validateBody(absenceBody), requireBeneficiary("ownerEmail"), async (req, res, next) => {
   try {
     const {
       ownerEmail,
@@ -69979,12 +70084,12 @@ router7.post("/initiate", requireAuth, validateBody(absenceBody), requireVaultPa
           );
         }
         await recordOwnerNotification(absReq.id, 1);
-        req.log.info(
+        logger.info(
           { requestId: absReq.id, ownerEmail, viaPush: pushOk },
           "Absence: immediate owner notification sent"
         );
       } catch (mailErr) {
-        req.log.warn({ mailErr }, "Absence: immediate owner notification failed (non-fatal)");
+        logger.warn({ mailErr }, "Absence: immediate owner notification failed (non-fatal)");
       }
     }
     res.json({
@@ -69998,7 +70103,7 @@ router7.post("/initiate", requireAuth, validateBody(absenceBody), requireVaultPa
     next(err);
   }
 });
-router7.get("/status/:ownerEmail", requireAuth, requireVaultParticipant(), async (req, res, next) => {
+router7.get("/status/:ownerEmail", requireAuth, requireVaultParticipant("ownerEmail"), async (req, res, next) => {
   try {
     const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
     if (!absReq) {
@@ -70036,7 +70141,7 @@ router7.get("/owner-alive/:token", async (req, res, next) => {
       return;
     }
     await cancelAbsenceRequest(absReq.id);
-    req.log.info(
+    logger.info(
       { requestId: absReq.id, ownerEmail: absReq.ownerEmail },
       "Absence: owner confirmed alive via email link"
     );
@@ -70046,7 +70151,7 @@ router7.get("/owner-alive/:token", async (req, res, next) => {
         absReq.ownerName || absReq.ownerEmail
       );
     } catch (mailErr) {
-      req.log.warn({ mailErr }, "Absence: owner-alive beneficiary notification failed (non-fatal)");
+      logger.warn({ mailErr }, "Absence: owner-alive beneficiary notification failed (non-fatal)");
     }
     res.status(200).send(htmlPage("\u062A\u0623\u0643\u064A\u062F \u0627\u0644\u062D\u0636\u0648\u0631", `
       <h2 class="green">\u2705 \u062A\u0645 \u062A\u0623\u0643\u064A\u062F \u062D\u0636\u0648\u0631\u0643 \u0628\u0646\u062C\u0627\u062D</h2>
@@ -70058,7 +70163,7 @@ router7.get("/owner-alive/:token", async (req, res, next) => {
     next(err);
   }
 });
-router7.post("/beneficiary-confirm", requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
+router7.post("/beneficiary-confirm", requireAuth, validateBody(ownerOnlyBody), requireBeneficiary("ownerEmail"), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body;
     if (!ownerEmail) {
@@ -70082,7 +70187,7 @@ router7.post("/beneficiary-confirm", requireAuth, validateBody(ownerOnlyBody), r
       res.status(404).json({ message: "No guardians found for this vault" });
       return;
     }
-    req.log.info(
+    logger.info(
       { requestId: absReq.id, ownerEmail, guardianCount },
       "Absence: beneficiary confirmed \u2014 guardian vote emails sent"
     );
@@ -70124,14 +70229,14 @@ router7.get("/guardian-vote/:token", async (req, res, next) => {
       return;
     }
     await recordGuardianDecision(slot.requestId, slot.guardianEmail, voteParam);
-    req.log.info(
+    logger.info(
       { requestId: slot.requestId, guardianEmail: slot.guardianEmail, vote: voteParam },
       "Absence: guardian vote recorded"
     );
     const vault = await lookupSealedVault(absReq.ownerEmail);
     if (vault && voteParam === "approve") {
       const approvals = await countApprovals(slot.requestId);
-      req.log.info(
+      logger.info(
         { requestId: slot.requestId, approvals, threshold: vault.threshold },
         "Absence: checking guardian threshold"
       );
@@ -70143,12 +70248,12 @@ router7.get("/guardian-vote/:token", async (req, res, next) => {
           otp
         });
         if (otpResult.success) {
-          req.log.info(
+          logger.info(
             { requestId: slot.requestId, beneficiaryEmail: absReq.beneficiaryEmail },
             "Absence: OTP sent to beneficiary \u2014 guardian threshold reached"
           );
         } else {
-          req.log.error(
+          logger.error(
             { requestId: slot.requestId, beneficiaryEmail: absReq.beneficiaryEmail, error: otpResult.error },
             "Absence: failed to send OTP to beneficiary after retries"
           );
@@ -70165,7 +70270,7 @@ router7.get("/guardian-vote/:token", async (req, res, next) => {
     next(err);
   }
 });
-router7.post("/start-vote", requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
+router7.post("/start-vote", requireAuth, validateBody(ownerOnlyBody), requireBeneficiary("ownerEmail"), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body;
     if (!ownerEmail) {
@@ -70184,7 +70289,7 @@ router7.post("/start-vote", requireAuth, validateBody(ownerOnlyBody), requireVau
       return;
     }
     const guardianCount = await triggerGuardianVoteEmails(absReq.id, ownerEmail);
-    req.log.info(
+    logger.info(
       { requestId: absReq.id, ownerEmail, guardianCount },
       "Absence: guardian vote emails re-sent via start-vote"
     );
@@ -70193,7 +70298,7 @@ router7.post("/start-vote", requireAuth, validateBody(ownerOnlyBody), requireVau
     next(err);
   }
 });
-router7.get("/vote-status/:ownerEmail", requireAuth, requireVaultParticipant(), async (req, res, next) => {
+router7.get("/vote-status/:ownerEmail", requireAuth, requireVaultParticipant("ownerEmail"), async (req, res, next) => {
   try {
     const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
     if (!absReq) {
@@ -70223,7 +70328,7 @@ router7.get("/vote-status/:ownerEmail", requireAuth, requireVaultParticipant(), 
     next(err);
   }
 });
-router7.post("/cancel", requireAuth, validateBody(ownerOnlyBody), requireOwner(), async (req, res, next) => {
+router7.post("/cancel", requireAuth, validateBody(ownerOnlyBody), requireOwner("ownerEmail"), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body;
     if (!ownerEmail) {
@@ -70237,7 +70342,7 @@ router7.post("/cancel", requireAuth, validateBody(ownerOnlyBody), requireOwner()
       return;
     }
     await cancelAbsenceRequest(absReq.id);
-    req.log.info({ requestId: absReq.id, ownerEmail }, "Absence: owner cancelled via app");
+    logger.info({ requestId: absReq.id, ownerEmail }, "Absence: owner cancelled via app");
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -70664,49 +70769,65 @@ setInterval(() => {
   }
 }, 6e4);
 router9.post("/set", requireAuth, validateBody(recoveryEmailBody), async (req, res) => {
-  logger.info({ userId: req.authUser?.id, email: req.body.email }, "[DIAGNOSTIC] POST /recovery-email/set received");
+  const userId = req.authUser?.id;
+  const mainEmail = req.authUser?.email || "";
+  const requestedEmail = req.body.email || "";
+  logger.info({ userId, email: requestedEmail }, "[DIAGNOSTIC] POST /recovery-email/set received");
   try {
-    const { email: email2 } = req.body;
-    const userId = req.authUser.id;
-    const mainEmail = req.authUser.email;
-    if (email2.toLowerCase() === mainEmail.toLowerCase()) {
-      logger.warn({ userId, email: email2, mainEmail }, "[DIAGNOSTIC] Recovery email matches main email - rejected");
-      return res.status(400).json({ error: "Recovery email must be different from your main account email" });
+    const normalizedMainEmail = mainEmail.toLowerCase();
+    const normalizedRequestedEmail = requestedEmail.toLowerCase();
+    const existingRecord = await getRecoveryEmailRecord(userId);
+    if (existingRecord && existingRecord.verified) {
+      const isMatch = await verifyRecoveryEmailMatch(userId, normalizedRequestedEmail);
+      if (!isMatch) {
+        logger.warn({ userId, requested: normalizedRequestedEmail }, "[DIAGNOSTIC] Attempted reset with non-configured email - REJECTED (C1 Protected)");
+        return res.status(403).json({
+          error: "PIN reset is strictly restricted to the pre-configured recovery email."
+        });
+      }
+    } else {
+      logger.debug({ userId }, "[DIAGNOSTIC] Initial setup: Attempting upsertRecoveryEmail...");
+      const result = await upsertRecoveryEmail(userId, normalizedRequestedEmail);
+      if (!result.success) {
+        logger.error({ userId, error: result.error }, "[DIAGNOSTIC] Failed to upsert recovery email");
+        return res.status(500).json({ error: "Failed to save recovery email" });
+      }
     }
-    logger.debug({ userId }, "[DIAGNOSTIC] Attempting upsertRecoveryEmail...");
-    const result = await upsertRecoveryEmail(userId, email2);
-    if (!result.success) {
-      logger.error({ userId, error: result.error }, "[DIAGNOSTIC] Failed to upsert recovery email");
-      return res.status(500).json({ error: "Failed to save recovery email" });
-    }
-    logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Generating OTP...");
-    const otp = await generateOtp(mainEmail, "recovery-verify", OTP_PURPOSES.recoveryVerify);
-    logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Sending OTP via emailService...");
-    await sendWithRetry("recovery-otp", email2, { otp });
-    logger.info({ userId, email: email2 }, "[DIAGNOSTIC] Recovery email set and OTP sent successfully");
-    res.json({ success: true, message: "OTP sent to verify email" });
+    const isMainEmail = normalizedRequestedEmail === normalizedMainEmail;
+    logger.debug({ userId, email: normalizedRequestedEmail }, "[DIAGNOSTIC] Generating and sending OTP...");
+    const otp = await generateOtp(normalizedMainEmail, "recovery-verify", OTP_PURPOSES.recoveryVerify);
+    await sendWithRetry("recovery-otp", normalizedRequestedEmail, { otp });
+    logger.info({ userId, email: normalizedRequestedEmail, isMainEmail }, "[DIAGNOSTIC] Recovery OTP sent successfully");
+    return res.json({
+      success: true,
+      message: "OTP sent to verify email",
+      isMainEmail
+    });
   } catch (err) {
     logger.error({
       err,
       stack: err instanceof Error ? err.stack : void 0
     }, "[DIAGNOSTIC] Unhandled error in /recovery-email/set");
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 router9.post("/verify", requireAuth, validateBody(recoveryOtpVerifyBody), async (req, res) => {
-  logger.info({ userId: req.authUser?.id, email: req.body.email }, "[DIAGNOSTIC] POST /recovery-email/verify received");
+  const userId = req.authUser?.id;
+  const mainEmail = req.authUser?.email || "";
+  const requestedEmail = req.body.email || "";
+  const otp = req.body.otp || "";
+  logger.info({ userId, email: requestedEmail }, "[DIAGNOSTIC] POST /recovery-email/verify received");
   try {
-    const { email: email2, otp } = req.body;
-    const userId = req.authUser.id;
-    const mainEmail = req.authUser.email;
-    logger.debug({ userId, email: email2 }, "[DIAGNOSTIC] Checking recovery email match...");
-    const isMatch = await verifyRecoveryEmailMatch(userId, email2);
+    const normalizedEmail = requestedEmail.toLowerCase();
+    const normalizedMainEmail = mainEmail.toLowerCase();
+    logger.debug({ userId, email: normalizedEmail }, "[DIAGNOSTIC] Checking recovery email match...");
+    const isMatch = await verifyRecoveryEmailMatch(userId, normalizedEmail);
     if (!isMatch) {
-      logger.warn({ userId, email: email2 }, "[DIAGNOSTIC] Recovery email mismatch");
+      logger.warn({ userId, email: normalizedEmail }, "[DIAGNOSTIC] Recovery email mismatch");
       return res.status(400).json({ error: "Invalid recovery email" });
     }
     logger.debug({ userId }, "[DIAGNOSTIC] Verifying OTP...");
-    const otpResult = await verifyOtp(mainEmail, "recovery-verify", otp, OTP_PURPOSES.recoveryVerify);
+    const otpResult = await verifyOtp(normalizedMainEmail, "recovery-verify", otp, OTP_PURPOSES.recoveryVerify);
     if (!otpResult.ok) {
       logger.warn({ userId, reason: otpResult.reason }, "[DIAGNOSTIC] OTP verification failed");
       return res.status(400).json({ error: otpResult.reason === "max_attempts" ? "Max attempts exceeded" : "Invalid or expired OTP" });
@@ -70720,20 +70841,20 @@ router9.post("/verify", requireAuth, validateBody(recoveryOtpVerifyBody), async 
       // 15 minutes
     });
     logger.info({ userId }, "[DIAGNOSTIC] Recovery email verified, token issued successfully");
-    res.json({ success: true, recoveryToken });
+    return res.json({ success: true, recoveryToken });
   } catch (err) {
     logger.error({
       err,
       stack: err instanceof Error ? err.stack : void 0
     }, "[DIAGNOSTIC] Unhandled error in /recovery-email/verify");
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 router9.post("/complete", requireAuth, validateBody(recoveryCompleteBody), async (req, res) => {
-  logger.info({ userId: req.authUser?.id }, "[DIAGNOSTIC] POST /recovery-email/complete received");
+  const userId = req.authUser?.id;
+  const recoveryToken = req.body.recoveryToken || "";
+  logger.info({ userId }, "[DIAGNOSTIC] POST /recovery-email/complete received");
   try {
-    const { recoveryToken } = req.body;
-    const userId = req.authUser.id;
     const tokenData = recoveryTokens.get(recoveryToken);
     if (!tokenData || tokenData.userId !== userId || Date.now() > tokenData.expiresAt) {
       logger.warn({ userId, tokenExists: !!tokenData }, "[DIAGNOSTIC] Invalid or expired recovery token");
@@ -70742,13 +70863,13 @@ router9.post("/complete", requireAuth, validateBody(recoveryCompleteBody), async
     recoveryTokens.delete(recoveryToken);
     const record = await getRecoveryEmailRecord(userId);
     logger.info({ userId, recordId: record?.id }, "[DIAGNOSTIC] Recovery PIN reset completed successfully");
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     logger.error({
       err,
       stack: err instanceof Error ? err.stack : void 0
     }, "[DIAGNOSTIC] Unhandled error in /recovery-email/complete");
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 var recovery_email_default = router9;

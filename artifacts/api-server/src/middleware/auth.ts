@@ -55,6 +55,7 @@ type RejectionContext = {
     | "requireParticipant"
     | "requireVaultParticipant"
     | "requirePublicKeyAccess"
+    | "requireBeneficiary"
     | "rateLimiter"
     | "unknown";
   req: Request;
@@ -320,7 +321,35 @@ export function requirePublicKeyAccess(field = "email"): RequestHandler {
     }
   };
 }
-
+export function requireBeneficiary(field = "ownerEmail"): RequestHandler {
+  return async (req, res: Response, next: NextFunction) => {
+    try {
+      const user = (req as AuthenticatedRequest).authUser ?? (await getAuthenticatedUser(req));
+      const ownerEmail = req.params[field] ?? req.body?.[field] ?? req.query?.[field];
+      
+      if (!user) {
+        logRejection({ layer: "requireBeneficiary", req, reason: "no_auth_user" });
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+      if (typeof ownerEmail !== "string") {
+        res.status(400).json({ error: "owner_email_required" });
+        return;
+      }
+      
+      const vault = await lookupSealedVault(ownerEmail);
+      if (!vault || normalizeEmail(vault.beneficiaryEmail) !== user.email) {
+        res.status(403).json({ error: "beneficiary_authorization_required" });
+        return;
+      }
+      
+      (req as AuthenticatedRequest).authUser = user;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
 export function authUserEmail(req: Request): string | null {
   return (req as AuthenticatedRequest).authUser?.email ?? null;
 }

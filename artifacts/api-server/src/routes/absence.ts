@@ -1,16 +1,8 @@
 /**
  * routes/absence.ts — Absence / death protocol endpoints.
- *
- * Flow:
- *   1. POST /api/absence/initiate              — beneficiary starts the protocol
- *   2. Server scheduler (/api/cron/absence-tick): notifies owner every 3h for 48h
- *      - Hybrid delivery: Push first (resilient Expo sender), Email as fallback.
- *   3. GET  /api/absence/owner-alive/:token    — owner responds → cancelled
- *   4. After 16 notifications (48h) → pending_beneficiary_confirmation
- *   5. POST /api/absence/beneficiary-confirm   — triggers guardian vote emails
- *   6. GET  /api/absence/guardian-vote/:token  — guardian votes approve/reject
- *   7. GET  /api/absence/vote-status/:ownerEmail
- *   8. POST /api/absence/start-vote / POST /api/absence/cancel
+ * 
+ * C2 & C3 HARDENING: Strict role enforcement.
+ * - /initiate and /beneficiary-confirm are now restricted EXCLUSIVELY to the beneficiary.
  */
 
 import { Router } from 'express';
@@ -44,7 +36,7 @@ import { logger } from '../lib/logger';
 import { db, absenceGuardianDecisionsTable, userPushTokensTable } from '@workspace/db';
 import { eq, sql } from 'drizzle-orm';
 import { clerkClient } from '@clerk/express';
-import { requireAuth, requireOwner, requireVaultParticipant } from '../middleware/auth';
+import { requireAuth, requireOwner, requireVaultParticipant, requireBeneficiary } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
 import { absenceBody, ownerOnlyBody } from '../middleware/schemas';
 
@@ -344,9 +336,9 @@ export async function runAbsenceSchedulerTick(): Promise<{ active: number; proce
   }
 }
 
-// ── POST /api/absence/initiate ────────────────────────────────────────────────
+// ── POST /api/absence/initiate (C2 HARDENED: Beneficiary Only) ───────────────
 
-router.post('/initiate', requireAuth, validateBody(absenceBody), requireVaultParticipant(), async (req, res, next) => {
+router.post('/initiate', requireAuth, validateBody(absenceBody), requireBeneficiary('ownerEmail'), async (req, res, next) => {
   try {
     const {
       ownerEmail,
@@ -392,12 +384,12 @@ router.post('/initiate', requireAuth, validateBody(absenceBody), requireVaultPar
           );
         }
         await recordOwnerNotification(absReq.id, 1);
-        req.log.info(
+        logger.info(
           { requestId: absReq.id, ownerEmail, viaPush: pushOk },
           'Absence: immediate owner notification sent',
         );
       } catch (mailErr) {
-        req.log.warn({ mailErr }, 'Absence: immediate owner notification failed (non-fatal)');
+        logger.warn({ mailErr }, 'Absence: immediate owner notification failed (non-fatal)');
       }
     }
 
@@ -412,8 +404,9 @@ router.post('/initiate', requireAuth, validateBody(absenceBody), requireVaultPar
 });
 
 // ── GET /api/absence/status/:ownerEmail ───────────────────────────────────────
+// (Kept as requireVaultParticipant so owner/guardians can also check status)
 
-router.get('/status/:ownerEmail', requireAuth, requireVaultParticipant(), async (req, res, next) => {
+router.get('/status/:ownerEmail', requireAuth, requireVaultParticipant('ownerEmail'), async (req, res, next) => {
   try {
     const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
     if (!absReq) {
@@ -455,7 +448,7 @@ router.get('/owner-alive/:token', async (req, res, next) => {
     }
 
     await cancelAbsenceRequest(absReq.id);
-    req.log.info(
+    logger.info(
       { requestId: absReq.id, ownerEmail: absReq.ownerEmail },
       'Absence: owner confirmed alive via email link',
     );
@@ -466,7 +459,7 @@ router.get('/owner-alive/:token', async (req, res, next) => {
         absReq.ownerName || absReq.ownerEmail,
       );
     } catch (mailErr) {
-      req.log.warn({ mailErr }, 'Absence: owner-alive beneficiary notification failed (non-fatal)');
+      logger.warn({ mailErr }, 'Absence: owner-alive beneficiary notification failed (non-fatal)');
     }
 
     res.status(200).send(htmlPage('تأكيد الحضور', `
@@ -478,9 +471,9 @@ router.get('/owner-alive/:token', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /api/absence/beneficiary-confirm ─────────────────────────────────────
+// ── POST /api/absence/beneficiary-confirm (C3 HARDENED: Beneficiary Only) ─────
 
-router.post('/beneficiary-confirm', requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
+router.post('/beneficiary-confirm', requireAuth, validateBody(ownerOnlyBody), requireBeneficiary('ownerEmail'), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
     if (!ownerEmail) {
@@ -508,7 +501,7 @@ router.post('/beneficiary-confirm', requireAuth, validateBody(ownerOnlyBody), re
       return;
     }
 
-    req.log.info(
+    logger.info(
       { requestId: absReq.id, ownerEmail, guardianCount },
       'Absence: beneficiary confirmed — guardian vote emails sent',
     );
@@ -556,7 +549,7 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
     }
 
     await recordGuardianDecision(slot.requestId, slot.guardianEmail, voteParam);
-    req.log.info(
+    logger.info(
       { requestId: slot.requestId, guardianEmail: slot.guardianEmail, vote: voteParam },
       'Absence: guardian vote recorded',
     );
@@ -564,7 +557,7 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
     const vault = await lookupSealedVault(absReq.ownerEmail);
     if (vault && voteParam === 'approve') {
       const approvals = await countApprovals(slot.requestId);
-      req.log.info(
+      logger.info(
         { requestId: slot.requestId, approvals, threshold: vault.threshold },
         'Absence: checking guardian threshold',
       );
@@ -579,12 +572,12 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
         });
 
         if (otpResult.success) {
-          req.log.info(
+          logger.info(
             { requestId: slot.requestId, beneficiaryEmail: absReq.beneficiaryEmail },
             'Absence: OTP sent to beneficiary — guardian threshold reached',
           );
         } else {
-          req.log.error(
+          logger.error(
             { requestId: slot.requestId, beneficiaryEmail: absReq.beneficiaryEmail, error: otpResult.error },
             'Absence: failed to send OTP to beneficiary after retries',
           );
@@ -601,9 +594,9 @@ router.get('/guardian-vote/:token', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /api/absence/start-vote ──────────────────────────────────────────────
+// ── POST /api/absence/start-vote (HARDENED: Beneficiary Only) ─────────────────
 
-router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireVaultParticipant(), async (req, res, next) => {
+router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireBeneficiary('ownerEmail'), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
 
@@ -627,7 +620,7 @@ router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireVaul
 
     const guardianCount = await triggerGuardianVoteEmails(absReq.id, ownerEmail);
 
-    req.log.info(
+    logger.info(
       { requestId: absReq.id, ownerEmail, guardianCount },
       'Absence: guardian vote emails re-sent via start-vote',
     );
@@ -637,8 +630,9 @@ router.post('/start-vote', requireAuth, validateBody(ownerOnlyBody), requireVaul
 });
 
 // ── GET /api/absence/vote-status/:ownerEmail ───────────────────────────────────
+// (Kept as requireVaultParticipant so owner/guardians can also check status)
 
-router.get('/vote-status/:ownerEmail', requireAuth, requireVaultParticipant(), async (req, res, next) => {
+router.get('/vote-status/:ownerEmail', requireAuth, requireVaultParticipant('ownerEmail'), async (req, res, next) => {
   try {
     const absReq = await getLatestAbsenceRequest(String(req.params.ownerEmail));
     if (!absReq) {
@@ -674,8 +668,9 @@ router.get('/vote-status/:ownerEmail', requireAuth, requireVaultParticipant(), a
 });
 
 // ── POST /api/absence/cancel ──────────────────────────────────────────────────
+// (Already correctly uses requireOwner)
 
-router.post('/cancel', requireAuth, validateBody(ownerOnlyBody), requireOwner(), async (req, res, next) => {
+router.post('/cancel', requireAuth, validateBody(ownerOnlyBody), requireOwner('ownerEmail'), async (req, res, next) => {
   try {
     const { ownerEmail } = req.body as { ownerEmail: string };
     if (!ownerEmail) {
@@ -691,7 +686,7 @@ router.post('/cancel', requireAuth, validateBody(ownerOnlyBody), requireOwner(),
     }
 
     await cancelAbsenceRequest(absReq.id);
-    req.log.info({ requestId: absReq.id, ownerEmail }, 'Absence: owner cancelled via app');
+    logger.info({ requestId: absReq.id, ownerEmail }, 'Absence: owner cancelled via app');
 
     res.json({ success: true });
   } catch (err) { next(err); }

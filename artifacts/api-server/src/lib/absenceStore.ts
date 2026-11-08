@@ -4,6 +4,9 @@
  * Tables used:
  *   absence_requests         — one row per beneficiary unlock request
  *   absence_guardian_decisions — one row per guardian per request (vote token + result)
+ * 
+ * P1 HARDENING: Added isNull check to recordGuardianDecision to prevent 
+ * race-condition overwrites at the database query level.
  */
 
 import crypto from 'crypto';
@@ -12,7 +15,7 @@ import {
   absenceRequestsTable,
   absenceGuardianDecisionsTable,
 } from '@workspace/db';
-import { eq, and, or, desc } from 'drizzle-orm';
+import { eq, and, or, desc, isNull } from 'drizzle-orm';
 
 export type AbsenceStatus =
   | 'pending_owner'
@@ -40,10 +43,6 @@ export interface AbsenceRequest {
 
 // ── Create / lookup ───────────────────────────────────────────────────────────
 
-/**
- * Create a new absence request, or return the existing active one if it exists.
- * Also generates a unique owner-alive token for the email "I'm OK" link.
- */
 export async function createOrReuseAbsenceRequest(
   ownerEmail: string,
   beneficiaryEmail: string,
@@ -52,8 +51,6 @@ export async function createOrReuseAbsenceRequest(
 ): Promise<AbsenceRequest> {
   const oKey = ownerEmail.toLowerCase();
 
-  // Reuse any existing non-terminal request (pending_owner, pending_beneficiary_confirmation,
-  // or pending_guardian_vote) to prevent duplicate active requests.
   const existing = await db
     .select()
     .from(absenceRequestsTable)
@@ -90,7 +87,6 @@ export async function createOrReuseAbsenceRequest(
   return rows[0] as unknown as AbsenceRequest;
 }
 
-/** Fetch the most recent absence request for an owner. */
 export async function getLatestAbsenceRequest(ownerEmail: string): Promise<AbsenceRequest | null> {
   const rows = await db
     .select()
@@ -102,7 +98,6 @@ export async function getLatestAbsenceRequest(ownerEmail: string): Promise<Absen
   return (rows[0] as unknown as AbsenceRequest) ?? null;
 }
 
-/** Fetch all requests that still need scheduler attention. */
 export async function getActiveRequests(): Promise<AbsenceRequest[]> {
   const rows = await db
     .select()
@@ -117,7 +112,6 @@ export async function getActiveRequests(): Promise<AbsenceRequest[]> {
   return rows as unknown as AbsenceRequest[];
 }
 
-/** Find a request by the owner-alive token (used in email link). */
 export async function getRequestByAliveToken(token: string): Promise<AbsenceRequest | null> {
   const rows = await db
     .select()
@@ -128,9 +122,8 @@ export async function getRequestByAliveToken(token: string): Promise<AbsenceRequ
   return (rows[0] as unknown as AbsenceRequest) ?? null;
 }
 
-// ── State transitions ─────────────────────────────────────────────────────────
+// ── State transitions ────────────────────────────────────────────────────────
 
-/** Record a sent owner notification (increments count, updates timestamp). */
 export async function recordOwnerNotification(requestId: number, newCount: number): Promise<void> {
   await db
     .update(absenceRequestsTable)
@@ -138,7 +131,6 @@ export async function recordOwnerNotification(requestId: number, newCount: numbe
     .where(eq(absenceRequestsTable.id, requestId));
 }
 
-/** Owner confirms alive — cancels the protocol. Only transitions from cancellable statuses. */
 export async function cancelAbsenceRequest(requestId: number): Promise<void> {
   await db
     .update(absenceRequestsTable)
@@ -154,7 +146,6 @@ export async function cancelAbsenceRequest(requestId: number): Promise<void> {
     );
 }
 
-/** Transition to guardian voting phase. Only from pending_owner or pending_beneficiary_confirmation. */
 export async function startGuardianVote(requestId: number): Promise<void> {
   await db
     .update(absenceRequestsTable)
@@ -165,14 +156,12 @@ export async function startGuardianVote(requestId: number): Promise<void> {
         or(
           eq(absenceRequestsTable.status, 'pending_owner'),
           eq(absenceRequestsTable.status, 'pending_beneficiary_confirmation'),
-          eq(absenceRequestsTable.status, 'pending_guardian_vote'), // idempotent re-trigger
+          eq(absenceRequestsTable.status, 'pending_guardian_vote'),
         ),
       ),
     );
 }
 
-/** Transition to pending_beneficiary_confirmation after 48h owner non-response.
- *  WHERE clause guards against double-execution in overlapping scheduler runs. */
 export async function transitionToBeneficiaryConfirmation(requestId: number): Promise<void> {
   await db
     .update(absenceRequestsTable)
@@ -185,7 +174,6 @@ export async function transitionToBeneficiaryConfirmation(requestId: number): Pr
     );
 }
 
-/** Mark request completed (approved or rejected). */
 export async function completeAbsenceRequest(
   requestId: number,
   outcome: 'guardian_approved' | 'guardian_rejected',
@@ -198,7 +186,6 @@ export async function completeAbsenceRequest(
 
 // ── Guardian decisions ────────────────────────────────────────────────────────
 
-/** Store guardian vote tokens before sending emails. */
 export async function createGuardianDecisionSlots(
   requestId: number,
   guardianEmails: string[],
@@ -224,7 +211,6 @@ export async function createGuardianDecisionSlots(
   return tokenMap;
 }
 
-/** Find a guardian decision slot by vote token. */
 export async function getDecisionByToken(token: string): Promise<{
   requestId: number;
   guardianEmail: string;
@@ -245,7 +231,7 @@ export async function getDecisionByToken(token: string): Promise<{
     : null;
 }
 
-/** Record a guardian's vote. */
+/** Record a guardian's vote. (P1 HARDENED) */
 export async function recordGuardianDecision(
   requestId: number,
   guardianEmail: string,
@@ -258,11 +244,11 @@ export async function recordGuardianDecision(
       and(
         eq(absenceGuardianDecisionsTable.requestId, requestId),
         eq(absenceGuardianDecisionsTable.guardianEmail, guardianEmail.toLowerCase()),
+        isNull(absenceGuardianDecisionsTable.decision), // ✅ P1 FIX
       ),
     );
 }
 
-/** Fetch a single absence request by primary key. */
 export async function getAbsenceRequestById(id: number): Promise<AbsenceRequest | null> {
   const rows = await db
     .select()
@@ -273,7 +259,6 @@ export async function getAbsenceRequestById(id: number): Promise<AbsenceRequest 
   return (rows[0] as unknown as AbsenceRequest) ?? null;
 }
 
-/** Count how many guardians approved for a given request. */
 export async function countApprovals(requestId: number): Promise<number> {
   const rows = await db
     .select()

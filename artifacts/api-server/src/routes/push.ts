@@ -1,5 +1,9 @@
 /**
  * push.ts — Push Notification Infrastructure (Expo Push Service, resilient)
+ * 
+ * C4 HARDENING: Regular authenticated users can now ONLY send push notifications 
+ * to tokens that are explicitly registered to their own userId in the database.
+ * Internal secret (Cron) bypasses this check to allow system-level wake-ups.
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -38,7 +42,6 @@ const requirePushNotifyAuth: RequestHandler = (req, res, next) => {
 // ─── Validation Schemas ────────────────────────────────────────────────────────
 
 const registerSchema = z.object({
-  // Expo historically used ExponentPushToken[...]; also accept ExpoPushToken[...]
   expoPushToken: z.string().min(20).refine(
     (v) => /Expo(nent)?PushToken\[.+\]/.test(v),
     'Invalid Expo push token format',
@@ -151,7 +154,6 @@ router.post('/register', requireClerkUserId, authLimiter, async (req: Request, r
     }
 
     const { expoPushToken, platform } = parsed.data;
-    // Owner id only from requireAuth → authUser (Clerk user id). Never from body.
     const userId = (req as AuthenticatedRequest).authUser?.id;
 
     if (!userId) {
@@ -168,11 +170,8 @@ router.post('/register', requireClerkUserId, authLimiter, async (req: Request, r
     if (existing.length > 0) {
       const sameToken = existing[0].token === expoPushToken;
       if (sameToken) {
-        // Token unchanged: touch lastSeen only (avoid noisy full updates).
         await db.update(userPushTokensTable)
-          .set({
-            lastSeenAt: new Date() as any,
-          } as any)
+          .set({ lastSeenAt: new Date() as any } as any)
           .where(eq(userPushTokensTable.id, existing[0].id as any));
         logger.info({ userId, platform, unchanged: true }, 'Push token already registered');
       } else {
@@ -203,7 +202,7 @@ router.post('/register', requireClerkUserId, authLimiter, async (req: Request, r
   }
 });
 
-// ─── Route 2: Direct Notify ────────────────────────────────────────────────────
+// ─── Route 2: Direct Notify (C4 HARDENED) ──────────────────────────────────────
 
 router.post('/notify', requirePushNotifyAuth, authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -214,6 +213,34 @@ router.post('/notify', requirePushNotifyAuth, authLimiter, async (req: Request, 
     }
 
     const { token, title, body, sound, data } = parsed.data;
+
+    // Check if this is an internal request or a regular user request
+    const internalSecret = process.env.CRON_SECRET;
+    const isInternal = !!(internalSecret && matchesInternalSecret(req.get('x-internal-secret'), internalSecret));
+
+    if (!isInternal) {
+      // Regular user: MUST own the token they are trying to notify
+      const userId = (req as AuthenticatedRequest).authUser?.id;
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      // Verify the token belongs to this specific user in the database
+      const tokenRecord = await db.select().from(userPushTokensTable)
+        .where(and(eq(userPushTokensTable.userId, userId as any), eq(userPushTokensTable.token, token)))
+        .limit(1);
+
+      if (tokenRecord.length === 0) {
+        logger.warn({ userId, attemptedToken: token }, 'C4 Blocked: User attempted to send push to unowned token');
+        res.status(403).json({ 
+          success: false, 
+          error: 'Forbidden: You can only send notifications to your own registered devices.' 
+        });
+        return;
+      }
+    }
+
     const result = await sendRawPush({
       to: token,
       title,
