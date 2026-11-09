@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "gbO5pjWedn00c6G6I_0PX"
+uri = "file://Auryx_Independent_Security_and_VEK_Audit.md"
+type = "text"
+title = "تقرير تدقيق Auryx الأمني وVEK"
+description = "تقرير عربي شامل لخط أساس التدقيق، دورة حياة VEK، الثغرات والمخاطر، مراجعة VEK v2، ومصفوفة الاختبارات. لم يُعدّل أي كود أو إعدادات."
+logical_id = "3ce9d523-4499-42f6-bd9b-4124ae2f3417"
+content_hash = "sha256:76a9f37f60362d8671617e28ac41bb7320270528c751ea92d359aa8fd931510c"
+size = 77066
+mtime_ms = 1794241044018
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:01b951dd-8b4f-4752-a4af-8a8a3860c0ed/3ce9d523-4499-42f6-bd9b-4124ae2f3417/2e84aec3-b47c-4eb9-bdbd-5d932d4fc7b6"
+storage_version_token = "1794241072546041"
+content_type = "text/markdown"
