@@ -108,10 +108,13 @@ export default function ReceivedVaultScreen() {
   useEffect(() => {
     const email = (ownerParam ?? '').trim().toLowerCase();
     if (!email) return;
+    let cancelled = false;
     (async () => {
       const cached = await getReceivedVaultCache(email);
+      if (cancelled) return;
       if (cached) { setSnapshot(cached); setStage('unlocked'); }
     })();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

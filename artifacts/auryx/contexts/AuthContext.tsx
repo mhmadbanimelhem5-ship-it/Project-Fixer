@@ -91,6 +91,24 @@ async function secureSetOrThrow(key: string, value: string): Promise<void> {
   await SecureStore.setItemAsync(key, value);
 }
 
+type StrictRead =
+  | { status: 'present'; value: string }
+  | { status: 'missing' }
+  | { status: 'storage_error'; error: unknown };
+
+async function secureGetStrict(key: string): Promise<StrictRead> {
+  try {
+    if (Platform.OS === 'web') {
+      const v = localStorage.getItem(key);
+      return v === null ? { status: 'missing' } : { status: 'present', value: v };
+    }
+    const v = await SecureStore.getItemAsync(key);
+    return v === null ? { status: 'missing' } : { status: 'present', value: v };
+  } catch (e) {
+    return { status: 'storage_error', error: e };
+  }
+}
+
 const ALL_AUTH_KEYS = [
   PIN_HASH_KEY, PIN_SALT_KEY, ATTEMPTS_KEY, LOCKOUT_KEY,
   VAULT_KEY_KEY, DECOY_PIN_HASH_KEY, DECOY_VAULT_KEY_KEY, BIOMETRICS_KEY,
@@ -233,12 +251,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       throw new Error('Encryption error — please try again.');
     }
-    const vk = (await secureGet(VAULT_KEY_KEY)) ?? await secureRandomHex(32);
+    const vkRead = await secureGetStrict(VAULT_KEY_KEY);
+    if (vkRead.status === 'storage_error') {
+      throw new Error('Vault key read failed - try again');
+    }
+    const createdNewVk = vkRead.status === 'missing';
+    const vk = vkRead.status === 'present' ? vkRead.value : await secureRandomHex(32);
     try {
       await secureSetOrThrow(PIN_HASH_KEY, hash);
       await secureSetOrThrow(PIN_SALT_KEY, salt);
       await secureSetOrThrow(VAULT_KEY_KEY, vk);
-    } catch {
+    } catch (e) {
+      if (createdNewVk) {
+        try { await secureDelete(VAULT_KEY_KEY); } catch { /* best effort */ }
+      }
       throw new Error('Storage error — check your device security settings.');
     }
     await secureSet(ATTEMPTS_KEY, '0');
@@ -304,8 +330,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const input = await hashPin(pin, salt);
 
     if (input === stored) {
-      const vk = await secureGet(VAULT_KEY_KEY);
-      await doSuccessfulUnlock(vk, false);
+      const vkRead = await secureGetStrict(VAULT_KEY_KEY);
+      if (vkRead.status !== 'present') {
+        await recordFailedAttempt(attempts);
+        return false;
+      }
+      await doSuccessfulUnlock(vkRead.value, false);
       return true;
     }
     if (decoyStored && input === decoyStored) {
@@ -334,8 +364,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         disableDeviceFallback: false,
       });
       if (result.success) {
-        const vk = await secureGet(VAULT_KEY_KEY);
-        await doSuccessfulUnlock(vk, false);
+        const vkRead = await secureGetStrict(VAULT_KEY_KEY);
+        if (vkRead.status !== 'present') return false;
+        await doSuccessfulUnlock(vkRead.value, false);
         return true;
       }
       return false;

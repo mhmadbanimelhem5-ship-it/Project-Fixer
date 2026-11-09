@@ -89,7 +89,10 @@ export interface ReceivedVaultSnapshot {
  */
 async function deviceKey(): Promise<string> {
   const pubRaw = await SecureStore.getItemAsync('auryx_rsa_public_v1');
-  return CryptoJS.SHA256(pubRaw ?? 'auryx-fallback-device-key').toString().slice(0, 32);
+  if (!pubRaw) {
+    throw new Error('device_key_unavailable: RSA public key not yet generated');
+  }
+  return CryptoJS.SHA256(pubRaw).toString().slice(0, 32);
 }
 
 function receivedVaultStoreKey(ownerEmail: string): string {
@@ -188,9 +191,12 @@ export async function sealVault(params: SealParams): Promise<SealResult> {
       if (item.encryptedData) {
         const bytes = CryptoJS.AES.decrypt(item.encryptedData, vaultKey);
         plainData = bytes.toString(CryptoJS.enc.Utf8) || '';
+        if (!plainData) {
+          throw new Error('sealVault: item ' + item.id + ' decrypts to empty');
+        }
       }
     } catch {
-      // If decryption fails, skip data but keep metadata
+      throw new Error('sealVault: failed to decrypt item ' + item.id + ' - incomplete seal refused');
     }
     return {
       id: item.id,
@@ -358,8 +364,11 @@ export async function unlockWithOtp(
     };
 
     // 4. Cache on device so subsequent opens don't need OTP
-    await cacheReceivedVault(snapshot);
-
+    try {
+      await cacheReceivedVault(snapshot);
+    } catch {
+      // Cache skipped: RSA key not ready. Never fall back to a weak constant key.
+    }
     return { success: true, snapshot };
   } catch {
     return { success: false, error: 'فشل فك التشفير — مفتاح النقل غير صحيح' };

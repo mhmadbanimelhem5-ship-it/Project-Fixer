@@ -273,20 +273,21 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
 
+  const revenueCatChainRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     if (!clerkLoaded) return;
-    const syncRevenueCatIdentity = async () => {
+    const target = isSignedIn && user?.id ? user.id : null;
+    revenueCatChainRef.current = revenueCatChainRef.current.then(async () => {
       try {
-        if (isSignedIn && user?.id) {
-          await Purchases.logIn(user.id);
+        if (target) {
+          await Purchases.logIn(target);
         } else {
           await Purchases.logOut();
         }
       } catch (error) {
         console.error('[Auryx][RevenueCat] Identity sync failed:', error);
       }
-    };
-    syncRevenueCatIdentity();
+    });
   }, [clerkLoaded, isSignedIn, user?.id]);
 
   // Clear push "already synced" marker on sign-out / account switch so the next

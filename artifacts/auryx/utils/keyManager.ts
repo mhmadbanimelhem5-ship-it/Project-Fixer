@@ -111,11 +111,13 @@ function subtle(): SubtleCrypto {
 
 // ── SecureStore helpers with memory fallback ───────────────────────────────────
 
-async function storeKey(key: string, value: string): Promise<void> {
+async function storeKey(key: string, value: string): Promise<boolean> {
   try {
     await SecureStore.setItemAsync(key, value, SECURE_OPTS);
+    return true;
   } catch {
     // SecureStore unavailable (iframe sandbox, etc.) — keep in memory only
+    return false;
   }
 }
 
@@ -193,10 +195,13 @@ export async function generateAndStoreKeyPair(
 
   // Persist (best-effort SecureStore, always update memory cache)
   onProgress?.(99, 'جارٍ الحفظ الآمن…');
-  await storeKey(PUB_KEY_STORE,  JSON.stringify(pubJwk));
-  await storeKey(PRIV_KEY_STORE, JSON.stringify(privJwk));
+  const pubStored  = await storeKey(PUB_KEY_STORE,  JSON.stringify(pubJwk));
+  const privStored = await storeKey(PRIV_KEY_STORE, JSON.stringify(privJwk));
   memPubJwk  = pubJwk;
   memPrivJwk = privJwk;
+  if (!pubStored || !privStored) {
+    console.warn('[Auryx][keyManager] SecureStore write failed; keys kept in memory only');
+  }
 
   onProgress?.(100, 'اكتمل التوليد ✓');
   return pubJwk;
@@ -311,7 +316,12 @@ export async function decryptWithPrivateKey(ciphertextB64: string): Promise<Uint
  * True when a key pair is already stored (no generation needed).
  */
 export async function hasKeyPair(): Promise<boolean> {
-  if (memPubJwk) return true;
-  const stored = await loadKey(PUB_KEY_STORE);
-  return stored !== null;
+  if (memPubJwk && memPrivJwk) return true;
+  const pub  = await loadKey(PUB_KEY_STORE);
+  const priv = await loadKey(PRIV_KEY_STORE);
+  if (pub && priv) return true;
+  if (pub || priv) {
+    console.warn('[Auryx][keyManager] incomplete RSA pair detected; treating as missing');
+  }
+  return false;
 }

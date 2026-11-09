@@ -186,6 +186,37 @@ async function asyncSet(key: string, value: string): Promise<void> {
   } catch {}
 }
 
+type StrictRead =
+  | { status: 'present'; value: string }
+  | { status: 'missing' }
+  | { status: 'storage_error'; error: unknown };
+
+async function secureGetStrict(key: string): Promise<StrictRead> {
+  try {
+    if (Platform.OS === 'web') {
+      const v = localStorage.getItem(key);
+      return v === null ? { status: 'missing' } : { status: 'present', value: v };
+    }
+    const v = await SecureStore.getItemAsync(key);
+    return v === null ? { status: 'missing' } : { status: 'present', value: v };
+  } catch (e) {
+    return { status: 'storage_error', error: e };
+  }
+}
+
+async function asyncGetStrict(key: string): Promise<StrictRead> {
+  try {
+    if (Platform.OS === 'web') {
+      const v = localStorage.getItem(key);
+      return v === null ? { status: 'missing' } : { status: 'present', value: v };
+    }
+    const v = await AsyncStorage.getItem(key);
+    return v === null ? { status: 'missing' } : { status: 'present', value: v };
+  } catch (e) {
+    return { status: 'storage_error', error: e };
+  }
+}
+
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
@@ -240,6 +271,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   // simply isn't in the current items, so the delete is a safe no-op.
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
+  const auditLogRef = useRef<AuditEntry[]>([]);
+  const guardiansRef = useRef<Guardian[]>([]);
+  const legacyRef = useRef<LegacySettings>(DEFAULT_LEGACY);
+  const auditTrustedRef = useRef<boolean>(true);
+  useEffect(() => { auditLogRef.current = auditLog; }, [auditLog]);
+  useEffect(() => { guardiansRef.current = guardians; }, [guardians]);
+  useEffect(() => { legacyRef.current = legacy; }, [legacy]);
 
   // Tear the session down to a clean, NOT-ready state. Every load path calls
   // this FIRST so no slice, key, or decrypted media from a previous session can
@@ -257,6 +295,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setKeyErrorMsg('');
     setIsKeyGenerating(false);
     keyInitScheduledRef.current = false;
+    auditTrustedRef.current = true;
     // Wipe decrypted plaintext temp files + preview cache.
     // Promise.race with a 2-second timeout: on Android, FileSystem ops can stall
     // indefinitely on first launch (no cache dir yet). We must never let a hung
@@ -282,17 +321,31 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }, [vaultKey]);
 
   const addAuditEntry = useCallback((action: string, source?: 'app' | 'link') => {
+    const prev = auditLogRef.current;
+    const prevHash = prev.length > 0 ? prev[prev.length - 1].blockHash : '0';
+    const blockHash = computeBlockHash(action, prevHash);
+    const next: AuditEntry[] = [...prev, { id: generateId(), action, timestamp: Date.now(), blockHash, prevHash, source: source ?? 'app' }];
+    auditLogRef.current = next;
+    setAuditLog(next);
+    if (!auditTrustedRef.current) return;
+    const snapshot = next.slice();
+    asyncSet(AUDIT_LOG_KEY, JSON.stringify(snapshot)).catch(() => {
+      // Entry stays in memory; the debounced saveVault retries persistence.
+    });
+  }, []);
+  const REMOVED_AUDIT_BODY = (action: string, source?: 'app' | 'link') => {
     setAuditLog(prev => {
-      const prevHash = prev.length > 0 ? prev[prev.length - 1].blockHash : '0';
-      const blockHash = computeBlockHash(action, prevHash);
-      const next = [...prev, { id: generateId(), action, timestamp: Date.now(), blockHash, prevHash, source: source ?? 'app' }];
+      const prevHash2 = prev.length > 0 ? prev[prev.length - 1].blockHash : '0';
+      const blockHash2 = computeBlockHash(action, prevHash2);
+      const next2 = [...prev, { id: generateId(), action, timestamp: Date.now(), blockHash: blockHash2, prevHash: prevHash2, source: source ?? 'app' }];
       // Save immediately so entries survive even if the app is killed before
       // the 300 ms debounce fires. AsyncStorage has no 2 KB size cap (unlike
       // SecureStore on iOS), so the log can grow beyond 50+ entries safely.
-      asyncSet(AUDIT_LOG_KEY, JSON.stringify(next));
-      return next;
+      void asyncSet(AUDIT_LOG_KEY, JSON.stringify(next2));
+      return next2;
     });
-  }, []);
+  };
+  void REMOVED_AUDIT_BODY;
 
   // Load the REAL vault. Resets first, then flips ready/loadedMode/key together
   // at the end so autosave only sees a fully-consistent real session. The
@@ -310,20 +363,58 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
     setVaultLoadPhase('جارٍ فك تشفير البيانات');
     perfStart('loadVault:secureReads');
-    try {
-      const stored = await secureGet(VAULT_STORAGE_KEY);
-      if (stored) {
-        const decrypted = CryptoJS.AES.decrypt(stored, key).toString(CryptoJS.enc.Utf8);
-        if (decrypted) nextItems = JSON.parse(decrypted);
+    const vaultRead = await secureGetStrict(VAULT_STORAGE_KEY);
+    if (vaultRead.status === 'storage_error') {
+      perfEnd('loadVault:secureReads');
+      perfEnd('loadVault:total');
+      setVaultLoadPhase('Storage read failed - vault stays locked');
+      return;
+    }
+    if (vaultRead.status === 'present' && vaultRead.value) {
+      let decrypted = '';
+      try {
+        decrypted = CryptoJS.AES.decrypt(vaultRead.value, key).toString(CryptoJS.enc.Utf8);
+      } catch {
+        decrypted = '';
       }
-      const storedGuardians = await secureGet(GUARDIANS_KEY);
-      if (storedGuardians) nextGuardians = JSON.parse(storedGuardians);
-      const storedLegacy = await secureGet(LEGACY_KEY);
-      if (storedLegacy) nextLegacy = JSON.parse(storedLegacy);
+      if (!decrypted) {
+        perfEnd('loadVault:secureReads');
+        perfEnd('loadVault:total');
+        setVaultLoadPhase('Decrypt failed - no data was modified');
+        return;
+      }
+      try {
+        const parsedItems = JSON.parse(decrypted);
+        if (!Array.isArray(parsedItems)) {
+          perfEnd('loadVault:secureReads');
+          perfEnd('loadVault:total');
+          setVaultLoadPhase('Vault data corrupt - no data was modified');
+          return;
+        }
+        nextItems = parsedItems as VaultItem[];
+      } catch {
+        perfEnd('loadVault:secureReads');
+        perfEnd('loadVault:total');
+        setVaultLoadPhase('Vault data corrupt - no data was modified');
+        return;
+      }
+    }
+    const guardiansRead = await secureGetStrict(GUARDIANS_KEY);
+    const legacyRead = await secureGetStrict(LEGACY_KEY);
+    if (guardiansRead.status === 'storage_error' || legacyRead.status === 'storage_error') {
+      perfEnd('loadVault:secureReads');
+      perfEnd('loadVault:total');
+      setVaultLoadPhase('Metadata read failed - vault stays locked');
+      return;
+    }
+    try {
+      if (guardiansRead.status === 'present' && guardiansRead.value) nextGuardians = JSON.parse(guardiansRead.value) as Guardian[];
+      if (legacyRead.status === 'present' && legacyRead.value) nextLegacy = JSON.parse(legacyRead.value) as LegacySettings;
     } catch {
-      nextItems = DEMO_ITEMS;
-      nextGuardians = DEMO_GUARDIANS;
-      nextLegacy = DEFAULT_LEGACY;
+      perfEnd('loadVault:secureReads');
+      perfEnd('loadVault:total');
+      setVaultLoadPhase('Metadata corrupt - vault stays locked');
+      return;
     }
     perfEnd('loadVault:secureReads');
 
@@ -334,23 +425,37 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setVaultLoadPhase('جارٍ تحميل سجل الأمان');
     perfStart('loadVault:auditLog');
     let nextAuditLog: AuditEntry[] = [];
-    try {
-      let storedAudit = await asyncGet(AUDIT_LOG_KEY);
-      if (!storedAudit) {
-        // One-time migration from old SecureStore location
-        const legacy = await secureGet(AUDIT_LOG_KEY);
-        if (legacy) {
-          storedAudit = legacy;
-          asyncSet(AUDIT_LOG_KEY, legacy); // persist to new location
-          SecureStore.deleteItemAsync(AUDIT_LOG_KEY).catch(() => {}); // clean up old
+    const auditRead = await asyncGetStrict(AUDIT_LOG_KEY);
+    if (auditRead.status === 'storage_error') {
+      auditTrustedRef.current = false;
+    } else if (auditRead.status === 'missing') {
+      const legacyProbe = await secureGetStrict(AUDIT_LOG_KEY);
+      if (legacyProbe.status === 'present' && legacyProbe.value) {
+        void asyncSet(AUDIT_LOG_KEY, legacyProbe.value).catch(() => {});
+        SecureStore.deleteItemAsync(AUDIT_LOG_KEY).catch(() => {});
+        try {
+          const migrated: AuditEntry[] = JSON.parse(legacyProbe.value);
+          const cutoffM = Date.now() - AUDIT_TTL_MS;
+          nextAuditLog = migrated.filter(e => e.timestamp > cutoffM);
+          auditTrustedRef.current = true;
+        } catch {
+          auditTrustedRef.current = false;
         }
+      } else if (legacyProbe.status === 'missing') {
+        auditTrustedRef.current = true;
+      } else {
+        auditTrustedRef.current = false;
       }
-      if (storedAudit) {
-        const parsed: AuditEntry[] = JSON.parse(storedAudit);
-        const cutoff = Date.now() - AUDIT_TTL_MS;
-        nextAuditLog = parsed.filter(e => e.timestamp > cutoff);
+    } else {
+      try {
+        const parsedAudit: AuditEntry[] = JSON.parse(auditRead.value);
+        const cutoffA = Date.now() - AUDIT_TTL_MS;
+        nextAuditLog = parsedAudit.filter(e => e.timestamp > cutoffA);
+        auditTrustedRef.current = true;
+      } catch {
+        auditTrustedRef.current = false;
       }
-    } catch {}
+    }
     perfEnd('loadVault:auditLog');
 
     if (gen !== loadGenerationRef.current) return; // superseded during reads
@@ -475,15 +580,24 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const gen = ++loadGenerationRef.current;
     try { await resetSession(); } catch { /* clearMediaSession failure — safe to continue with fresh defaults */ }
     if (gen !== loadGenerationRef.current) return; // superseded during reset
-    let nextItems = DECOY_ITEMS;
-    try {
-      const stored = await secureGet(DECOY_VAULT_STORAGE_KEY);
-      if (stored) {
-        const decrypted = CryptoJS.AES.decrypt(stored, key).toString(CryptoJS.enc.Utf8);
-        if (decrypted) nextItems = JSON.parse(decrypted);
+    let nextItems: VaultItem[] = [];
+    const decoyRead = await secureGetStrict(DECOY_VAULT_STORAGE_KEY);
+    if (decoyRead.status === 'storage_error') return;
+    if (decoyRead.status === 'present' && decoyRead.value) {
+      let decrypted = '';
+      try {
+        decrypted = CryptoJS.AES.decrypt(decoyRead.value, key).toString(CryptoJS.enc.Utf8);
+      } catch {
+        decrypted = '';
       }
-    } catch {
-      nextItems = DECOY_ITEMS;
+      if (!decrypted) return;
+      try {
+        const parsed = JSON.parse(decrypted);
+        if (!Array.isArray(parsed)) return;
+        nextItems = parsed as VaultItem[];
+      } catch {
+        return;
+      }
     }
     if (gen !== loadGenerationRef.current) return; // superseded during reads
     setDecoyModeState(true);
@@ -514,16 +628,22 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (loadedMode !== targetMode) return;
     try {
       const storageKey = decoyMode ? DECOY_VAULT_STORAGE_KEY : VAULT_STORAGE_KEY;
-      const encrypted = CryptoJS.AES.encrypt(JSON.stringify(items), vaultKey).toString();
+      const itemsSnap = itemsRef.current;
+      const guardiansSnap = guardiansRef.current;
+      const legacySnap = legacyRef.current;
+      const auditSnap = auditLogRef.current;
+      const writeAudit = auditTrustedRef.current;
+      const encrypted = CryptoJS.AES.encrypt(JSON.stringify(itemsSnap), vaultKey).toString();
       // Write all keys in parallel — sequential awaits meant the audit log
       // (last write) was silently lost when Android killed the process mid-save.
       if (!decoyMode) {
-        await Promise.all([
+        const writes: Promise<void>[] = [
           secureSet(storageKey, encrypted),
-          secureSet(GUARDIANS_KEY, JSON.stringify(guardians)),
-          secureSet(LEGACY_KEY, JSON.stringify(legacy)),
-          asyncSet(AUDIT_LOG_KEY, JSON.stringify(auditLog)),
-        ]);
+          secureSet(GUARDIANS_KEY, JSON.stringify(guardiansSnap)),
+          secureSet(LEGACY_KEY, JSON.stringify(legacySnap)),
+        ];
+        if (writeAudit) writes.push(asyncSet(AUDIT_LOG_KEY, JSON.stringify(auditSnap)));
+        await Promise.all(writes);
       } else {
         await secureSet(storageKey, encrypted);
       }
