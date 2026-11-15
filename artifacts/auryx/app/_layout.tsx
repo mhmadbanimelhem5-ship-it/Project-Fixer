@@ -47,6 +47,7 @@ import { setAuthenticatedTokenGetter } from '@/utils/authenticatedFetch';
 import { clearPushSyncState } from '@/utils/fcmService';
 import { getApiBase } from '@/utils/apiBase';
 import { getStealthMode } from '@/utils/stealthStore';
+import { useAutoLock } from '@/hooks/useAutoLock';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -393,6 +394,9 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   onSplashComplete: () => void;
 }) {
   const { isDark, colors: c } = useTheme();
+  const { isLocked: autoLockIsLocked, lock: autoLockLock } = useAuth();
+  const { isVaultReady: autoLockVaultReady } = useVault();
+  const { markActive } = useAutoLock(!autoLockIsLocked && autoLockVaultReady, autoLockLock);
   const [touchWarn, setTouchWarn] = React.useState(false);
   const touchWarnTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => () => { if (touchWarnTimerRef.current) clearTimeout(touchWarnTimerRef.current); }, []);
@@ -406,30 +410,32 @@ function ThemedContainer({ children, showSplash, onSplashComplete }: {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.background }}>
       <KeyboardProvider statusBarTranslucent>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        {children}
-        <OfflineBanner />
-        <OfflineGate />
-        <VaultLoadingOverlay />
-        <KeyGeneratingOverlay />
-        {showSplash && (
-          <AnimatedSplash onComplete={onSplashComplete} onSafetyTimerFired={handleSafetyFired} />
-        )}
-        {touchWarn && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute', bottom: 80, left: 20, right: 20, zIndex: 9998,
-              backgroundColor: 'rgba(180,60,0,0.95)', borderRadius: 10,
-              paddingHorizontal: 16, paddingVertical: 10,
-              borderWidth: 1, borderColor: 'rgba(255,150,0,0.5)',
-            }}
-          >
-            <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'Poppins_400Regular', textAlign: 'center' }}>
-              {'تم تعطيل طبقة الخلفية، الرجاء إعادة المحاولة'}
-            </Text>
-          </View>
-        )}
+        <View style={{ flex: 1 }} onTouchStart={markActive} onTouchMove={markActive}>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          {children}
+          <OfflineBanner />
+          <OfflineGate />
+          <VaultLoadingOverlay />
+          <KeyGeneratingOverlay />
+          {showSplash && (
+            <AnimatedSplash onComplete={onSplashComplete} onSafetyTimerFired={handleSafetyFired} />
+          )}
+          {touchWarn && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute', bottom: 80, left: 20, right: 20, zIndex: 9998,
+                backgroundColor: 'rgba(180,60,0,0.95)', borderRadius: 10,
+                paddingHorizontal: 16, paddingVertical: 10,
+                borderWidth: 1, borderColor: 'rgba(255,150,0,0.5)',
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'Poppins_400Regular', textAlign: 'center' }}>
+                {'تم تعطيل طبقة الخلفية، الرجاء إعادة المحاولة'}
+              </Text>
+            </View>
+          )}
+        </View>
       </KeyboardProvider>
     </GestureHandlerRootView>
   );

@@ -110,6 +110,8 @@ interface VaultContextType {
   updateLegacy: (settings: Partial<LegacySettings>) => void;
   addAuditEntry: (action: string, source?: 'app' | 'link') => void;
   isVaultReady: boolean;
+  /** P1-4: non-null when the last persistence attempt failed; UI should surface a warning. */
+  saveError: string | null;
   loadVault: (key: string) => Promise<void>;
   loadDecoyVault: (key: string) => Promise<void>;
   lockVaultSession: () => Promise<void>;
@@ -134,6 +136,8 @@ const LEGACY_KEY = 'auryx_legacy';
 const AUDIT_LOG_KEY = 'auryx:audit:log';
 
 const AUDIT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// P1-4: bounded automatic retry budget for failed persistence (backoff 1,2,4,8,15s).
+const MAX_SAVE_RETRIES = 5;
 const DEFAULT_LEGACY: LegacySettings = { absenceDays: 30, mOfN: { m: 2, n: 3 }, enabled: false, userRole: 'owner' };
 
 const VaultContext = createContext<VaultContextType>({} as VaultContextType);
@@ -146,11 +150,11 @@ async function secureGet(key: string): Promise<string | null> {
   } catch { return null; }
 }
 
+// P1-4: write errors PROPAGATE by design. Callers (saveVault / addAuditEntry)
+// are responsible for handling failure; silent swallowing caused data loss.
 async function secureSet(key: string, value: string): Promise<void> {
-  try {
-    if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
-    await SecureStore.setItemAsync(key, value, { keychainAccessible: SecureStore.WHEN_UNLOCKED });
-  } catch {}
+  if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
+  await SecureStore.setItemAsync(key, value, { keychainAccessible: SecureStore.WHEN_UNLOCKED });
 }
 
 async function asyncGet(key: string): Promise<string | null> {
@@ -160,11 +164,10 @@ async function asyncGet(key: string): Promise<string | null> {
   } catch { return null; }
 }
 
+// P1-4: write errors PROPAGATE by design (see secureSet).
 async function asyncSet(key: string, value: string): Promise<void> {
-  try {
-    if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
-    await AsyncStorage.setItem(key, value);
-  } catch {}
+  if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
+  await AsyncStorage.setItem(key, value);
 }
 
 type StrictRead =
@@ -223,9 +226,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [isKeyGenerating, setIsKeyGenerating] = useState(false);
   const [keyGenProgress, setKeyGenProgress] = useState(0);
   const [keyGenPhase, setKeyGenPhase] = useState('');
+  // P1-4: outstanding persistence failure (nonce forces retry-effect re-trigger).
+  const [saveFailure, setSaveFailure] = useState<{ msg: string; nonce: number } | null>(null);
+  const saveError = saveFailure ? saveFailure.msg : null;
 
   const loadGenerationRef = useRef(0);
   const keyInitScheduledRef = useRef(false);
+  const saveRetryCountRef = useRef(0);
 
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
@@ -250,6 +257,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setKeyError(false);
     setKeyErrorMsg('');
     setIsKeyGenerating(false);
+    setSaveFailure(null);
     keyInitScheduledRef.current = false;
     auditTrustedRef.current = true;
 
@@ -508,6 +516,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!vaultKey || !isVaultReady) return;
     const targetMode = decoyMode ? 'decoy' : 'real';
     if (loadedMode !== targetMode) return;
+    const gen = loadGenerationRef.current;
 
     try {
       const storageKey = decoyMode ? DECOY_VAULT_STORAGE_KEY : VAULT_STORAGE_KEY;
@@ -518,19 +527,33 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       const writeAudit = auditTrustedRef.current;
 
       const encrypted = await encryptGCM(JSON.stringify(itemsSnap), vaultKey);
+      if (gen !== loadGenerationRef.current) return; // session changed mid-encrypt
 
+      // Write all keys in parallel; allSettled lets us report partial failures
+      // precisely instead of losing them to a single rejected Promise.all.
+      const writes: Promise<void>[] = [secureSet(storageKey, encrypted)];
       if (!decoyMode) {
-        const writes: Promise<void>[] = [
-          secureSet(storageKey, encrypted),
+        writes.push(
           secureSet(GUARDIANS_KEY, JSON.stringify(guardiansSnap)),
           secureSet(LEGACY_KEY, JSON.stringify(legacySnap)),
-        ];
+        );
         if (writeAudit) writes.push(asyncSet(AUDIT_LOG_KEY, JSON.stringify(auditSnap)));
-        await Promise.all(writes);
-      } else {
-        await secureSet(storageKey, encrypted);
       }
-    } catch {}
+      const results = await Promise.allSettled(writes);
+      if (gen !== loadGenerationRef.current) return; // session changed mid-write
+
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length > 0) {
+        const first = failed[0];
+        const reason = first.status === 'rejected' ? String(first.reason) : 'unknown';
+        setSaveFailure({ msg: `فشل حفظ الخزنة (${failed.length}/${results.length}): ${reason}`, nonce: Date.now() });
+      } else {
+        setSaveFailure(null);
+      }
+    } catch (e) {
+      if (gen !== loadGenerationRef.current) return;
+      setSaveFailure({ msg: `فشل حفظ الخزنة: ${e instanceof Error ? e.message : String(e)}`, nonce: Date.now() });
+    }
   }, [vaultKey, isVaultReady, loadedMode, decoyMode]); // ✅ FIXED: Removed state vars, relying purely on refs
 
   useEffect(() => {
@@ -552,6 +575,18 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     });
     return () => subscription.remove();
   }, []);
+
+  // P1-4: bounded automatic retry with exponential backoff while a save failure
+  // is outstanding. Stops after MAX_SAVE_RETRIES; the banner then persists until
+  // a manual saveVault() or the next state change / AppState event succeeds.
+  useEffect(() => {
+    if (!saveFailure) { saveRetryCountRef.current = 0; return; }
+    if (saveRetryCountRef.current >= MAX_SAVE_RETRIES) return;
+    const delay = Math.min(1000 * 2 ** saveRetryCountRef.current, 15000);
+    saveRetryCountRef.current += 1;
+    const t = setTimeout(() => { void saveVaultRef.current(); }, delay);
+    return () => clearTimeout(t);
+  }, [saveFailure]);
 
   useEffect(() => {
     if (!isVaultReady || !legacy.ownerName || keyReady || keyInitScheduledRef.current) return;
@@ -777,7 +812,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <VaultContext.Provider value={{
-      items, guardians, legacy, auditLog, decoyMode, mediaSessionVersion, isVaultReady,
+      items, guardians, legacy, auditLog, decoyMode, mediaSessionVersion, isVaultReady, saveError,
       addItem, removeItem, updateItem, getItemsByCategory,
       addMediaItem, getMediaPreview, getMediaTempFile, exportMedia, shareMedia, clearMediaSession: clearMedia,
       encryptData, decryptData, addGuardian, updateGuardian, removeGuardian,
