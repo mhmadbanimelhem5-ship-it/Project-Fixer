@@ -33946,7 +33946,7 @@ var require_timing_safe_equal = __commonJS({
         throw new Error(msg);
       }
     }
-    function timingSafeEqual3(a, b) {
+    function timingSafeEqual4(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
@@ -33966,7 +33966,7 @@ var require_timing_safe_equal = __commonJS({
       }
       return out === 0;
     }
-    exports.timingSafeEqual = timingSafeEqual3;
+    exports.timingSafeEqual = timingSafeEqual4;
   }
 });
 
@@ -69138,14 +69138,34 @@ var OTP_PURPOSES = {
   pinReset: "pin-reset",
   recoveryVerify: "recovery-verify"
 };
+function hashOtp(code) {
+  return crypto3.createHash("sha256").update(code).digest("hex");
+}
+function timingSafeEqual2(a, b) {
+  if (a.length !== b.length) return false;
+  try {
+    return crypto3.timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+  } catch {
+    return false;
+  }
+}
 async function generateOtp(ownerEmail, beneficiaryEmail, purpose) {
   const code = crypto3.randomInt(0, 1e6).toString().padStart(6, "0");
+  const codeHash = hashOtp(code);
   const now = Date.now();
+  const ownerKey = ownerEmail.toLowerCase();
+  const beneficiaryKey = beneficiaryEmail.toLowerCase();
+  await db.delete(otpsTable).where(
+    or(
+      and(eq(otpsTable.ownerEmail, ownerKey), eq(otpsTable.purpose, purpose), lt(otpsTable.expiresAt, now)),
+      and(eq(otpsTable.ownerEmail, ownerKey), eq(otpsTable.purpose, purpose), sql`${otpsTable.usedAt} IS NOT NULL`)
+    )
+  );
   await db.insert(otpsTable).values({
-    ownerEmail: ownerEmail.toLowerCase(),
+    ownerEmail: ownerKey,
     purpose,
-    code,
-    beneficiaryEmail: beneficiaryEmail.toLowerCase(),
+    code: codeHash,
+    beneficiaryEmail: beneficiaryKey,
     createdAt: now,
     expiresAt: now + OTP_TTL_MS,
     usedAt: null,
@@ -69155,8 +69175,8 @@ async function generateOtp(ownerEmail, beneficiaryEmail, purpose) {
   }).onConflictDoUpdate({
     target: [otpsTable.ownerEmail, otpsTable.purpose],
     set: {
-      code,
-      beneficiaryEmail: beneficiaryEmail.toLowerCase(),
+      code: codeHash,
+      beneficiaryEmail: beneficiaryKey,
       createdAt: now,
       expiresAt: now + OTP_TTL_MS,
       usedAt: null,
@@ -69171,6 +69191,7 @@ async function verifyOtp(ownerEmail, beneficiaryEmail, code, purpose) {
   const ownerKey = ownerEmail.toLowerCase();
   const beneficiaryKey = beneficiaryEmail.toLowerCase();
   const normalizedCode = code.trim();
+  const codeHash = hashOtp(normalizedCode);
   const rows = await db.select().from(otpsTable).where(and(eq(otpsTable.ownerEmail, ownerKey), or(eq(otpsTable.purpose, purpose), isNull(otpsTable.purpose)))).limit(1);
   const entry = rows[0];
   if (!entry) return { ok: false, reason: "not_found" };
@@ -69182,13 +69203,13 @@ async function verifyOtp(ownerEmail, beneficiaryEmail, code, purpose) {
   if (entry.usedAt) return { ok: false, reason: "already_used" };
   if (entry.attempts >= entry.maxAttempts) return { ok: false, reason: "max_attempts" };
   if (entry.beneficiaryEmail !== beneficiaryKey) return { ok: false, reason: "wrong_beneficiary" };
-  if (entry.code === normalizedCode) {
+  if (timingSafeEqual2(entry.code, codeHash)) {
     const consumed = await db.update(otpsTable).set({ usedAt: now, lastAttemptAt: now }).where(
       and(
         eq(otpsTable.ownerEmail, ownerKey),
         eq(otpsTable.purpose, purpose),
         eq(otpsTable.beneficiaryEmail, beneficiaryKey),
-        eq(otpsTable.code, normalizedCode),
+        eq(otpsTable.code, codeHash),
         sql`${otpsTable.usedAt} IS NULL`,
         gt(otpsTable.expiresAt, now),
         sql`${otpsTable.attempts} < ${otpsTable.maxAttempts}`
@@ -69223,6 +69244,23 @@ async function verifyOtp(ownerEmail, beneficiaryEmail, code, purpose) {
 
 // src/routes/vaultTransfer.ts
 var router6 = (0, import_express7.Router)();
+var otpRequestLimiter = rate_limit_default({
+  windowMs: 60 * 1e3,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.params.ownerEmail || "").toLowerCase(),
+  message: { error: "otp_cooldown", message: "\u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631 60 \u062B\u0627\u0646\u064A\u0629 \u0642\u0628\u0644 \u0637\u0644\u0628 \u0631\u0645\u0632 \u062C\u062F\u064A\u062F" },
+  skipSuccessfulRequests: false
+});
+var otpRequestHourlyLimiter = rate_limit_default({
+  windowMs: 60 * 60 * 1e3,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.params.ownerEmail || "").toLowerCase(),
+  message: { error: "otp_quota_exceeded", message: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0645\u0646 \u0637\u0644\u0628\u0627\u062A \u0627\u0644\u0631\u0645\u0632 \u0644\u0647\u0630\u0647 \u0627\u0644\u0633\u0627\u0639\u0629" }
+});
 router6.post("/seal", requireAuth, validateBody(sealVaultBody), requireOwner(), async (req, res, next) => {
   try {
     const {
@@ -69246,7 +69284,7 @@ router6.post("/seal", requireAuth, validateBody(sealVaultBody), requireOwner(), 
     next(err);
   }
 });
-router6.post("/request-otp/:ownerEmail", requireAuth, authLimiter, validateParams(ownerEmailParams), validateBody(otpRequestBody), requireVaultParticipant(), async (req, res, next) => {
+router6.post("/request-otp/:ownerEmail", requireAuth, authLimiter, otpRequestLimiter, otpRequestHourlyLimiter, validateParams(ownerEmailParams), validateBody(otpRequestBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const ownerEmail = String(req.params.ownerEmail);
     const { beneficiaryEmail, ownerName } = req.body;
@@ -71080,7 +71118,7 @@ var waitlist_default = router10;
 
 // src/routes/subscriptions.ts
 var import_express13 = __toESM(require_express2(), 1);
-import { createHmac, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { createHmac, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
 var router11 = (0, import_express13.Router)();
 var SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 function parseSignatureHeader(header) {
@@ -71109,7 +71147,7 @@ function isValidSignature(rawBody, header, secret) {
   const signedBody = Buffer.concat([Buffer.from(`${parsed.timestamp}.`, "utf8"), rawBody]);
   const expected = createHmac("sha256", secret).update(signedBody).digest();
   const received = Buffer.from(parsed.signature, "hex");
-  return received.length === expected.length && timingSafeEqual2(expected, received);
+  return received.length === expected.length && timingSafeEqual3(expected, received);
 }
 function asRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
