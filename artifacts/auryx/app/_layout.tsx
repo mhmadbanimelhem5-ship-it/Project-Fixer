@@ -50,8 +50,6 @@ import { getStealthMode } from '@/utils/stealthStore';
 
 SplashScreen.preventAutoHideAsync();
 
-let clerkDiagnosticsLogged = false;
-
 (function checkCryptoEngine() {
   try {
     const subtle = isSubtleAvailable();
@@ -191,7 +189,7 @@ function KeyGeneratingOverlay() {
             <Text style={{ color: '#D4AF37', fontSize: 14, fontFamily: 'Poppins_600SemiBold' }}>
               إعادة المحاولة
             </Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={{ alignItems: 'center', gap: 24, width: '100%' }}>
@@ -273,10 +271,13 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
 
+  // Serialize RevenueCat identity sync to prevent race conditions
+  // when isSignedIn or user?.id changes rapidly (e.g., during fast logout/login).
   const revenueCatChainRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     if (!clerkLoaded) return;
     const target = isSignedIn && user?.id ? user.id : null;
+
     revenueCatChainRef.current = revenueCatChainRef.current.then(async () => {
       try {
         if (target) {
@@ -308,7 +309,6 @@ function RootLayoutNav() {
     }
   }, [clerkLoaded, isSignedIn, user?.id]);
 
-  // ✅ التعديل الجذري هنا: إزالة cleanup الذي كان يمسح الـ getter أثناء التغييرات
   useEffect(() => {
     const getApiAuthToken = async () => {
       if (!clerkLoaded) return null;
@@ -323,8 +323,6 @@ function RootLayoutNav() {
 
     setAuthenticatedTokenGetter(getApiAuthToken);
     setAuthTokenGetter(getApiAuthToken);
-
-    // ✅ نزيل الـ cleanup من هنا تماماً لمنع تعطل الـ getter أثناء re-renders
   }, [clerkLoaded, getToken]);
 
   useEffect(() => {

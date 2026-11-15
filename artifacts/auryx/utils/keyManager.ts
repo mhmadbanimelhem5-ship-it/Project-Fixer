@@ -6,7 +6,7 @@
  *   Primary  : crypto.subtle  — Hermes RN 0.74+, modern browsers (fast, native)
  *   Fallback : node-forge     — pure JS, no native modules (slower but universal)
  *
- * Engine is selected at call time via isSubtleAvailable().  Both paths produce
+ * Engine is selected at call time via isSubtleAvailable(). Both paths produce
  * identical JWK-format keys that are interchangeable for encrypt/decrypt.
  *
  * Storage strategy — tries SecureStore first, falls back to module-level memory:
@@ -24,7 +24,7 @@
  *   generateAndStoreKeyPair() and retryGeneration() accept an optional
  *   onProgress(pct: number, phase: string) callback that is called periodically
  *   while key generation is in progress. pct is 0–100; phase is a short Arabic
- *   description of the current step.  100 is reported exactly once, when the
+ *   description of the current step. 100 is reported exactly once, when the
  *   key is fully generated and persisted.
  */
 
@@ -61,7 +61,7 @@ function u8ToB64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...Array.from(bytes)));
 }
 
-function b64ToU8(b64: string): Uint8Array<ArrayBuffer> {
+function b64ToU8(b64: string): Uint8Array {
   const bin = atob(b64);
   const ab = new ArrayBuffer(bin.length);
   const bytes = new Uint8Array(ab);
@@ -73,7 +73,7 @@ function b64ToU8(b64: string): Uint8Array<ArrayBuffer> {
  * Resolve the SubtleCrypto interface across all runtime environments.
  *
  * Search order (most → least likely to work on each platform):
- *   1. globalThis.crypto.subtle  — Hermes RN 0.74+, modern browsers
+ *   1. globalThis.crypto.subtle  — Hermes RN 0.74+, standard browsers
  *   2. global.crypto.subtle      — React Native bridged environments
  *   3. window.crypto.subtle      — Expo web / older browsers
  *
@@ -82,21 +82,18 @@ function b64ToU8(b64: string): Uint8Array<ArrayBuffer> {
  */
 function subtle(): SubtleCrypto {
   // 1. globalThis — Hermes RN ≥ 0.74, standard browsers
-  const gc = (globalThis as Record<string, unknown>)['crypto'] as
-    | { subtle?: SubtleCrypto } | undefined;
+  const gc = (globalThis as Record<string, unknown>)['crypto'] as { subtle?: SubtleCrypto } | undefined;
   if (gc?.subtle) return gc.subtle;
 
   // 2. React Native's `global` (may differ from globalThis in bridged mode)
   if (typeof global !== 'undefined') {
-    const rng = (global as Record<string, unknown>)['crypto'] as
-      | { subtle?: SubtleCrypto } | undefined;
+    const rng = (global as Record<string, unknown>)['crypto'] as { subtle?: SubtleCrypto } | undefined;
     if (rng?.subtle) return rng.subtle;
   }
 
   // 3. window.crypto.subtle — Expo web fallback
   if (typeof window !== 'undefined') {
-    const wc = (window as unknown as Record<string, unknown>)['crypto'] as
-      | { subtle?: SubtleCrypto } | undefined;
+    const wc = (window as unknown as Record<string, unknown>)['crypto'] as { subtle?: SubtleCrypto } | undefined;
     if (wc?.subtle) return wc.subtle;
   }
 
@@ -111,6 +108,10 @@ function subtle(): SubtleCrypto {
 
 // ── SecureStore helpers with memory fallback ───────────────────────────────────
 
+/**
+ * Store a key in SecureStore. Returns true on success, false on failure.
+ * FAIL-CLOSED: Callers must check the return value to ensure persistence.
+ */
 async function storeKey(key: string, value: string): Promise<boolean> {
   try {
     await SecureStore.setItemAsync(key, value, SECURE_OPTS);
@@ -149,7 +150,6 @@ export async function generateAndStoreKeyPair(
   onProgress?: (pct: number, phase: string) => void,
 ): Promise<JsonWebKey> {
   const perfStart = Date.now();
-
   let pair: { pubJwk: JsonWebKey; privJwk: JsonWebKey } | null = null;
 
   // ── Primary path: native crypto.subtle (retry up to 3×) ───────────────────
@@ -187,7 +187,6 @@ export async function generateAndStoreKeyPair(
   if (!pair) {
     console.info('[Auryx] Switching to node-forge RSA fallback…');
     onProgress?.(0, 'جارٍ التحضير…');
-
     pair = await generateKeyPairFallback(onProgress);
   }
 
@@ -195,10 +194,13 @@ export async function generateAndStoreKeyPair(
 
   // Persist (best-effort SecureStore, always update memory cache)
   onProgress?.(99, 'جارٍ الحفظ الآمن…');
+
   const pubStored  = await storeKey(PUB_KEY_STORE,  JSON.stringify(pubJwk));
   const privStored = await storeKey(PRIV_KEY_STORE, JSON.stringify(privJwk));
   memPubJwk  = pubJwk;
   memPrivJwk = privJwk;
+
+  // FAIL-CLOSED: Warn if SecureStore write failed, as keys will be lost on app restart.
   if (!pubStored || !privStored) {
     console.warn('[Auryx][keyManager] SecureStore write failed; keys kept in memory only');
   }
@@ -308,18 +310,25 @@ export async function decryptWithPrivateKey(ciphertextB64: string): Promise<Uint
     false, ['decrypt'],
   );
   const ctBytes = b64ToU8(ciphertextB64);
-  const pt = await subtle().decrypt({ name: 'RSA-OAEP' }, key, ctBytes);
+  const pt = await subtle().decrypt({ name: 'RSA-OAEP' }, key, ctBytes as BufferSource);
   return new Uint8Array(pt);
 }
 
 /**
- * True when a key pair is already stored (no generation needed).
+ * True when a COMPLETE key pair is already stored (no generation needed).
+ * FAIL-CLOSED: If only one key exists, the pair is considered corrupted/missing.
  */
 export async function hasKeyPair(): Promise<boolean> {
+  // Check memory first
   if (memPubJwk && memPrivJwk) return true;
+
+  // Check SecureStore
   const pub  = await loadKey(PUB_KEY_STORE);
   const priv = await loadKey(PRIV_KEY_STORE);
+
   if (pub && priv) return true;
+
+  // FAIL-CLOSED: If only one key exists, the pair is corrupted/incomplete.
   if (pub || priv) {
     console.warn('[Auryx][keyManager] incomplete RSA pair detected; treating as missing');
   }

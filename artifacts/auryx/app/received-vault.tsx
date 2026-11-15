@@ -18,7 +18,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -56,6 +55,7 @@ function ItemCard({ item }: { item: ReceivedVaultSnapshot['items'][number] }) {
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
   const meta = CATEGORY_META[item.category] ?? { icon: 'box', color: tc.textMuted, label: item.category };
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -95,25 +95,30 @@ export default function ReceivedVaultScreen() {
   const { owner: ownerParam } = useLocalSearchParams<{ owner?: string }>();
 
   const [stage,            setStage]            = useState<Stage>('form');
-  const [ownerEmail,       setOwnerEmail]       = useState(ownerParam ?? '');
+  const [ownerEmail,       setOwnerEmail]       = useState((ownerParam as string) ?? '');
   const [beneficiaryEmail, setBeneficiaryEmail] = useState('');
   const [otp,              setOtp]              = useState('');
   const [errorMsg,         setErrorMsg]         = useState('');
   const [snapshot,         setSnapshot]         = useState<ReceivedVaultSnapshot | null>(null);
   const requireNetwork = useNetworkRequired();
 
-  // On mount: if ownerEmail is pre-filled (from emergency tab param), check SecureStore cache.
-  // The cache was already written by unlockWithOtp in the emergency tab, so this will
-  // show the vault immediately without asking the user to enter the OTP again.
+  // On mount: if ownerEmail is pre-filled, check SecureStore cache.
+  // FAIL-SAFE: Uses a cancellation flag to prevent state updates if the component unmounts
+  // before the async cache check completes.
   useEffect(() => {
-    const email = (ownerParam ?? '').trim().toLowerCase();
+    const email = ((ownerParam as string) ?? '').trim().toLowerCase();
     if (!email) return;
+
     let cancelled = false;
     (async () => {
       const cached = await getReceivedVaultCache(email);
-      if (cancelled) return;
-      if (cached) { setSnapshot(cached); setStage('unlocked'); }
+      if (cancelled) return; // Prevent state update on unmounted component
+      if (cached) { 
+        setSnapshot(cached); 
+        setStage('unlocked'); 
+      }
     })();
+
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -122,6 +127,7 @@ export default function ReceivedVaultScreen() {
     const email  = ownerEmail.trim().toLowerCase();
     const bEmail = beneficiaryEmail.trim().toLowerCase();
     const code   = otp.trim();
+
     if (!email || !email.includes('@')) {
       setErrorMsg('يرجى إدخال بريد صاحب الخزنة');
       return;
@@ -134,12 +140,14 @@ export default function ReceivedVaultScreen() {
       setErrorMsg('الرمز يجب أن يكون 6 أرقام');
       return;
     }
+
     try {
       await requireNetwork();
     } catch {
       setErrorMsg('لا يوجد اتصال بالإنترنت — تحقق من الشبكة وأعد المحاولة');
       return;
     }
+
     setStage('loading');
     setErrorMsg('');
 
@@ -151,7 +159,7 @@ export default function ReceivedVaultScreen() {
       setErrorMsg(result.error ?? 'رمز خاطئ أو منتهي الصلاحية');
       setStage('error');
     }
-  }, [ownerEmail, beneficiaryEmail, otp]);
+  }, [ownerEmail, beneficiaryEmail, otp, requireNetwork]);
 
   const handleCheckCache = useCallback(async () => {
     const email = ownerEmail.trim().toLowerCase();
@@ -162,116 +170,123 @@ export default function ReceivedVaultScreen() {
 
   // ── Render helpers ──────────────────────────────────────────────────────────
 
-  const renderForm = () => (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+  const renderForm = () => {
+    const { colors: tc } = useTheme();
+    const styles = useMemo(() => makeStyles(tc), [tc]);
 
-        {/* Hero */}
-        <LinearGradient colors={['rgba(212,175,55,0.18)', 'rgba(139,92,246,0.12)']} style={styles.heroBanner}>
-          <View style={styles.heroIconWrap}>
-            <Feather name="inbox" size={32} color={tc.gold} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.heroTitle}>استلام خزنة منقولة</Text>
-            <Text style={styles.heroSub}>
-              أدخل بريد صاحب الخزنة والرمز السري المُرسَل إليك
-            </Text>
-          </View>
-        </LinearGradient>
-
-        {/* Info badges */}
-        <View style={styles.badgeRow}>
-          <View style={styles.badge}>
-            <Feather name="lock" size={11} color={tc.purple} />
-            <Text style={styles.badgeText}>RSA-OAEP-2048</Text>
-          </View>
-          <View style={styles.badge}>
-            <Feather name="clock" size={11} color={tc.gold} />
-            <Text style={styles.badgeText}>صالح 48 ساعة</Text>
-          </View>
-          <View style={styles.badge}>
-            <Feather name="shield" size={11} color={tc.blue} />
-            <Text style={styles.badgeText}>مشفّر من طرف إلى طرف</Text>
-          </View>
-        </View>
-
-        {/* Form */}
-        <GlassCard padding={20}>
-          <Text style={styles.fieldLabel}>بريد صاحب الخزنة</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="owner@example.com"
-            placeholderTextColor={tc.textMuted}
-            value={ownerEmail}
-            onChangeText={setOwnerEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onBlur={handleCheckCache}
-          />
-
-          <Text style={[styles.fieldLabel, { marginTop: 14 }]}>بريدك الإلكتروني</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="you@example.com"
-            placeholderTextColor={tc.textMuted}
-            value={beneficiaryEmail}
-            onChangeText={setBeneficiaryEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          <Text style={[styles.fieldLabel, { marginTop: 14 }]}>الرمز السري (6 أرقام)</Text>
-          <TextInput
-            style={[styles.input, styles.otpInput]}
-            placeholder="• • • • • •"
-            placeholderTextColor={tc.textMuted}
-            value={otp}
-            onChangeText={t => setOtp(t.replace(/\D/g, '').slice(0, 6))}
-            keyboardType="number-pad"
-            maxLength={6}
-            textAlign="center"
-            autoCorrect={false}
-            autoComplete="off"
-            spellCheck={false}
-          />
-
-          {errorMsg ? (
-            <View style={styles.errorBox}>
-              <Feather name="alert-circle" size={12} color={tc.red} />
-              <Text style={styles.errorText}>{errorMsg}</Text>
+    return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+          {/* Hero */}
+          <LinearGradient colors={['rgba(212,175,55,0.18)', 'rgba(139,92,246,0.12)']} style={styles.heroBanner}>
+            <View style={styles.heroIconWrap}>
+              <Feather name="inbox" size={32} color={tc.gold} />
             </View>
-          ) : null}
-
-          <TouchableOpacity
-            style={[styles.unlockBtn, stage === 'loading' && { opacity: 0.6 }]}
-            activeOpacity={0.85}
-            disabled={stage === 'loading'}
-            onPress={handleUnlock}
-          >
-            <LinearGradient colors={['#D4AF37', '#B8960C']} style={styles.unlockGrad}>
-              {stage === 'loading' ? (
-                <ActivityIndicator size="small" color="#0A0F1E" />
-              ) : (
-                <Feather name="unlock" size={18} color="#0A0F1E" />
-              )}
-              <Text style={styles.unlockText}>
-                {stage === 'loading' ? 'جارٍ التحقق…' : 'فتح الخزنة'}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroTitle}>استلام خزنة منقولة</Text>
+              <Text style={styles.heroSub}>
+                أدخل بريد صاحب الخزنة والرمز السري المُرسَل إليك
               </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </GlassCard>
+            </View>
+          </LinearGradient>
 
-        <Text style={styles.hint}>
-          سيصلك الرمز على بريدك الإلكتروني عند نقل الخزنة إليك.{'\n'}
-          إذا انتهت صلاحية الرمز، اطلب من صاحب الخزنة إعادة الإغلاق.
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
+          {/* Info badges */}
+          <View style={styles.badgeRow}>
+            <View style={styles.badge}>
+              <Feather name="lock" size={11} color={tc.purple} />
+              <Text style={styles.badgeText}>RSA-OAEP-2048</Text>
+            </View>
+            <View style={styles.badge}>
+              <Feather name="clock" size={11} color={tc.gold} />
+              <Text style={styles.badgeText}>صالح 48 ساعة</Text>
+            </View>
+            <View style={styles.badge}>
+              <Feather name="shield" size={11} color={tc.blue} />
+              <Text style={styles.badgeText}>مشفّر من طرف إلى طرف</Text>
+            </View>
+          </View>
+
+          {/* Form */}
+          <GlassCard padding={20}>
+            <Text style={styles.fieldLabel}>بريد صاحب الخزنة</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="owner@example.com"
+              placeholderTextColor={tc.textMuted}
+              value={ownerEmail}
+              onChangeText={setOwnerEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onBlur={handleCheckCache}
+            />
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>بريدك الإلكتروني</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="you@example.com"
+              placeholderTextColor={tc.textMuted}
+              value={beneficiaryEmail}
+              onChangeText={setBeneficiaryEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>الرمز السري (6 أرقام)</Text>
+            <TextInput
+              style={[styles.input, styles.otpInput]}
+              placeholder="• • • • • •"
+              placeholderTextColor={tc.textMuted}
+              value={otp}
+              onChangeText={t => setOtp(t.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              textAlign="center"
+              autoCorrect={false}
+              autoComplete="off"
+              spellCheck={false}
+            />
+
+            {errorMsg ? (
+              <View style={styles.errorBox}>
+                <Feather name="alert-circle" size={12} color={tc.red} />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.unlockBtn, stage === 'loading' && { opacity: 0.6 }]}
+              activeOpacity={0.85}
+              disabled={stage === 'loading'}
+              onPress={handleUnlock}
+            >
+              <LinearGradient colors={['#D4AF37', '#B8960C']} style={styles.unlockGrad}>
+                {stage === 'loading' ? (
+                  <ActivityIndicator size="small" color="#0A0F1E" />
+                ) : (
+                  <Feather name="unlock" size={18} color="#0A0F1E" />
+                )}
+                <Text style={styles.unlockText}>
+                  {stage === 'loading' ? 'جارٍ التحقق…' : 'فتح الخزنة'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </GlassCard>
+
+          <Text style={styles.hint}>
+            سيصلك الرمز على بريدك الإلكتروني عند نقل الخزنة إليك.{'\n'}
+            إذا انتهت صلاحية الرمز، اطلب من صاحب الخزنة إعادة الإغلاق.
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  };
 
   const renderVault = () => {
+    const { colors: tc } = useTheme();
+    const styles = useMemo(() => makeStyles(tc), [tc]);
+
     if (!snapshot) return null;
     const grouped: Record<string, typeof snapshot.items> = {};
     for (const item of snapshot.items) {
@@ -339,6 +354,7 @@ export default function ReceivedVaultScreen() {
 
   const { colors: tc } = useTheme();
   const styles = useMemo(() => makeStyles(tc), [tc]);
+
   return (
     <View style={[styles.container, { backgroundColor: tc.background }]}>
       <ScreenGlow color="#D4AF37" icon="inbox" />
