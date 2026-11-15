@@ -198,7 +198,7 @@ export default function ReceivedVaultScreen() {
             </View>
             <View style={styles.badge}>
               <Feather name="clock" size={11} color={tc.gold} />
-              <Text style={styles.badgeText}>صالح 48 ساعة</Text>
+              <Text style={styles.badgeText}>صالح 15 دقيقة</Text>
             </View>
             <View style={styles.badge}>
               <Feather name="shield" size={11} color={tc.blue} />

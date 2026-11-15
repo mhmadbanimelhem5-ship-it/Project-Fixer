@@ -260,7 +260,7 @@ export async function unlockWithOtp(
   const otpResult = await verifyVaultOtp(ownerEmail, bEmail, otp);
   if (!otpResult.valid) {
     const reasonMap: Record<string, string> = {
-      expired: 'انتهت صلاحية الرمز (48 ساعة)',
+      expired: 'انتهت صلاحية الرمز (15 دقيقة)',
       already_used: 'تم استخدام هذا الرمز مسبقاً',
       wrong_code: 'الرمز غير صحيح',
       wrong_beneficiary: 'البريد الإلكتروني غير مطابق',

@@ -9,9 +9,14 @@
  *   GET  /api/vault/shares/:ownerEmail      — beneficiary collects guardian shares
  *   GET  /api/vault/:ownerEmail             — retrieve full sealed vault
  *   POST /api/vault/share/:ownerEmail       — guardian submits decrypted Shamir share
+ *
+ * P1-2 hardening:
+ *   - Dedicated per-ownerEmail rate limiter on request-otp to prevent
+ *     authenticated email-bombing against a specific vault beneficiary.
  */
 
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   storeSealedVault,
   lookupSealedVault,
@@ -33,6 +38,31 @@ import {
 } from '../middleware/schemas';
 
 const router = Router();
+
+// P1-2: per-ownerEmail rate limit on OTP request.
+// Why not IP-only? An authenticated attacker can request OTPs from many IPs;
+// what matters is how often a SPECIFIC vault's beneficiary gets emailed.
+//   • 1 request / minute (cooldown) — prevents rapid-fire bombardment
+//   • 5 requests / hour (budget)   — caps daily abuse even with retries
+// The key function keys by ownerEmail so different vaults don't starve each other.
+const otpRequestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.params.ownerEmail || '').toLowerCase(),
+  message: { error: 'otp_cooldown', message: 'يرجى الانتظار 60 ثانية قبل طلب رمز جديد' },
+  skipSuccessfulRequests: false,
+});
+
+const otpRequestHourlyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.params.ownerEmail || '').toLowerCase(),
+  message: { error: 'otp_quota_exceeded', message: 'تم تجاوز الحد الأقصى من طلبات الرمز لهذه الساعة' },
+});
 
 // ── POST /api/vault/seal ──────────────────────────────────────────────────────
 router.post('/seal', requireAuth, validateBody(sealVaultBody), requireOwner(), async (req, res, next) => {
@@ -67,7 +97,7 @@ router.post('/seal', requireAuth, validateBody(sealVaultBody), requireOwner(), a
 });
 
 // ── POST /api/vault/request-otp/:ownerEmail ───────────────────────────────────
-router.post('/request-otp/:ownerEmail', requireAuth, authLimiter, validateParams(ownerEmailParams), validateBody(otpRequestBody), requireVaultParticipant(), async (req, res, next) => {
+router.post('/request-otp/:ownerEmail', requireAuth, authLimiter, otpRequestLimiter, otpRequestHourlyLimiter, validateParams(ownerEmailParams), validateBody(otpRequestBody), requireVaultParticipant(), async (req, res, next) => {
   try {
     const ownerEmail = String(req.params.ownerEmail);
     const { beneficiaryEmail, ownerName } = req.body as {
@@ -80,8 +110,6 @@ router.post('/request-otp/:ownerEmail', requireAuth, authLimiter, validateParams
       res.status(404).json({ message: 'No sealed vault found for this owner' });
       return;
     }
-    // Security: validate beneficiaryEmail matches the registered vault beneficiary,
-    // to prevent sending OTP emails to arbitrary addresses.
     if (vault.beneficiaryEmail !== beneficiaryEmail.trim().toLowerCase()) {
       res.status(403).json({ message: 'beneficiaryEmail does not match vault record' });
       return;
@@ -103,8 +131,6 @@ router.post('/request-otp/:ownerEmail', requireAuth, authLimiter, validateParams
     }
 
     if (!emailSent) {
-      // OTP was generated and is valid in DB, but the email failed.
-      // Return a specific error so the client can alert the user.
       res.status(502).json({
         success: false,
         error: 'otp_generated_email_failed',
@@ -155,7 +181,6 @@ router.post('/verify-otp/:ownerEmail', requireAuth, authLimiter, validateParams(
 });
 
 // ── GET /api/vault/shares/:ownerEmail ─────────────────────────────────────────
-// Must be declared BEFORE /:ownerEmail to avoid route collision.
 router.get('/shares/:ownerEmail', requireAuth, validateParams(ownerEmailParams), requireVaultParticipant(), async (req, res, next) => {
   try {
     const result = await getCollectedShares(String(req.params.ownerEmail));
