@@ -21,6 +21,7 @@ import { clearKeyCache, generateAndStoreKeyPair, getOrCreatePublicKey, hasKeyPai
 import { registerPublicKey } from '@/utils/vaultTransferApi';
 import { sealVault, approveGuardianAccess, type SealResult } from '@/utils/legacyTransfer';
 import { getApiBase } from '@/utils/apiBase';
+import { encryptGCM, decryptGCM } from '@/utils/cryptoUtils';
 
 export type VaultCategory = 'logins' | 'media' | 'banking' | 'notes' | 'documents' | 'crypto';
 
@@ -311,8 +312,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (vaultRead.status === 'present' && vaultRead.value) {
-      let decrypted = '';
-      try { decrypted = CryptoJS.AES.decrypt(vaultRead.value, key).toString(CryptoJS.enc.Utf8); } catch { decrypted = ''; }
+      const decrypted = (await decryptGCM(vaultRead.value, key)) ?? '';
 
       if (!decrypted) {
         perfEnd('loadVault:secureReads');
@@ -478,8 +478,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (decoyRead.status === 'storage_error') return;
 
     if (decoyRead.status === 'present' && decoyRead.value) {
-      let decrypted = '';
-      try { decrypted = CryptoJS.AES.decrypt(decoyRead.value, key).toString(CryptoJS.enc.Utf8); } catch { decrypted = ''; }
+      const decrypted = (await decryptGCM(decoyRead.value, key)) ?? '';
       if (!decrypted) return;
       try {
         const parsed = JSON.parse(decrypted);
@@ -518,7 +517,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       const auditSnap = auditLogRef.current;
       const writeAudit = auditTrustedRef.current;
 
-      const encrypted = CryptoJS.AES.encrypt(JSON.stringify(itemsSnap), vaultKey).toString();
+      const encrypted = await encryptGCM(JSON.stringify(itemsSnap), vaultKey);
 
       if (!decoyMode) {
         const writes: Promise<void>[] = [

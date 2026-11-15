@@ -3,7 +3,7 @@
  *
  * Orchestrates the three-layer cryptographic vault transfer:
  *
- *   Layer 1 — AES-256 (CryptoJS): encrypts the vault snapshot with a
+ *   Layer 1 — AES-256-GCM (cryptoUtils): encrypts the vault snapshot with a
  *             random 32-byte transfer key (TK).
  *   Layer 2 — RSA-OAEP-2048 (keyManager.ts): encrypts TK for each
  *             guardian's share and for the beneficiary directly.
@@ -20,7 +20,7 @@
 
 import CryptoJS from 'crypto-js';
 import * as SecureStore from 'expo-secure-store';
-import { secureRandomBytes } from './cryptoUtils';
+import { secureRandomBytes, encryptGCM, decryptGCM } from './cryptoUtils';
 import { split, combine, encodeShare, decodeShare } from './shamirUtils';
 import { encryptWithPublicKey, decryptWithPrivateKey } from './keyManager';
 import {
@@ -56,6 +56,7 @@ export interface ReceivedVaultSnapshot {
 /**
  * Derive a deterministic device-local encryption key for caching a received vault.
  * Bound to the device's RSA public key. Fails closed if the key is not yet generated.
+ * Returns a full 256-bit (64-char hex) key as required by AES-256-GCM.
  */
 async function deviceKey(): Promise<string> {
   const pubRaw = await SecureStore.getItemAsync('auryx_rsa_public_v1');
@@ -63,7 +64,7 @@ async function deviceKey(): Promise<string> {
     // FAIL-CLOSED: Never fall back to a hardcoded weak key.
     throw new Error('device_key_unavailable: RSA public key not yet generated');
   }
-  return CryptoJS.SHA256(pubRaw).toString().slice(0, 32);
+  return CryptoJS.SHA256(pubRaw).toString();
 }
 
 function receivedVaultStoreKey(ownerEmail: string): string {
@@ -79,7 +80,7 @@ export async function getReceivedVaultCache(
     const raw = await SecureStore.getItemAsync(storeKey);
     if (!raw) return null;
     const dk = await deviceKey();
-    const bytes = CryptoJS.AES.decrypt(raw, dk).toString(CryptoJS.enc.Utf8);
+    const bytes = (await decryptGCM(raw, dk)) ?? '';
     if (!bytes) return null;
     return JSON.parse(bytes) as ReceivedVaultSnapshot;
   } catch {
@@ -91,7 +92,7 @@ export async function getReceivedVaultCache(
 async function cacheReceivedVault(snapshot: ReceivedVaultSnapshot): Promise<void> {
   const storeKey = receivedVaultStoreKey(snapshot.ownerEmail);
   const dk = await deviceKey();
-  const encrypted = CryptoJS.AES.encrypt(JSON.stringify(snapshot), dk).toString();
+  const encrypted = await encryptGCM(JSON.stringify(snapshot), dk);
   await SecureStore.setItemAsync(storeKey, encrypted);
 }
 
@@ -125,7 +126,7 @@ interface VaultSnapshot {
   items: ItemSnapshot[];
 }
 
-// ── Seal ──────────────────────────────────────────────────────────────────────
+// ── Seal ─────────────────────────────────────────────────────────────────────
 
 export interface SealParams {
   items: VaultItem[];
@@ -187,7 +188,7 @@ export async function sealVault(params: SealParams): Promise<SealResult> {
   const tkHex = u8ToHex(tk);
 
   // 3. AES-encrypt snapshot with TK
-  const encryptedBlob = CryptoJS.AES.encrypt(JSON.stringify(snapshot), tkHex).toString();
+  const encryptedBlob = await encryptGCM(JSON.stringify(snapshot), tkHex);
 
   // 4. Shamir-split TK
   const n = Math.max(activeGuardians.length, 1);
@@ -293,7 +294,7 @@ export async function unlockWithOtp(
 
   // 3. AES-decrypt vault snapshot
   try {
-    const decrypted = CryptoJS.AES.decrypt(encryptedBlob, tkHex).toString(CryptoJS.enc.Utf8);
+    const decrypted = (await decryptGCM(encryptedBlob, tkHex)) ?? '';
     if (!decrypted) throw new Error('empty');
 
     const inner = JSON.parse(decrypted) as {
@@ -421,7 +422,7 @@ export async function unsealVault(ownerEmail: string): Promise<UnsealResult> {
 
   // AES-decrypt vault snapshot
   try {
-    const decrypted = CryptoJS.AES.decrypt(pkg.encryptedBlob, tkHex).toString(CryptoJS.enc.Utf8);
+    const decrypted = (await decryptGCM(pkg.encryptedBlob, tkHex)) ?? '';
     if (!decrypted) throw new Error('empty');
     const snapshot = JSON.parse(decrypted) as VaultSnapshot;
 
