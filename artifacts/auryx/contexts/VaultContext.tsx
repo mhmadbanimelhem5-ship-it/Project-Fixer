@@ -21,7 +21,7 @@ import { clearKeyCache, generateAndStoreKeyPair, getOrCreatePublicKey, hasKeyPai
 import { registerPublicKey } from '@/utils/vaultTransferApi';
 import { sealVault, approveGuardianAccess, type SealResult } from '@/utils/legacyTransfer';
 import { getApiBase } from '@/utils/apiBase';
-import { encryptGCM, decryptGCM, secureRandomHex } from '@/utils/cryptoUtils';
+import { encryptGCM, decryptGCM, secureRandomHex, deriveInnerKey } from '@/utils/cryptoUtils';
 
 export type VaultCategory = 'logins' | 'media' | 'banking' | 'notes' | 'documents' | 'crypto';
 
@@ -102,8 +102,8 @@ interface VaultContextType {
   exportMedia: (item: VaultItem) => Promise<void>;
   shareMedia: (item: VaultItem) => Promise<void>;
   clearMediaSession: () => Promise<void>;
-  encryptData: (data: string) => string;
-  decryptData: (encrypted: string) => string;
+  encryptData: (data: string) => Promise<string>;
+  decryptData: (encrypted: string) => Promise<string>;
   addGuardian: (g: Omit<Guardian, 'id' | 'addedAt' | 'avatarColor'>) => Guardian;
   updateGuardian: (id: string, updates: Partial<Guardian>) => void;
   removeGuardian: (id: string) => void;
@@ -292,17 +292,16 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setMediaSessionVersion(v => v + 1);
   }, []);
 
-  const encryptData = useCallback((data: string): string => {
+  // P3-1/P3-2: inner item layer = AES-256-GCM under an HKDF-derived inner key
+  // (separate from the outer envelope key). Async by design.
+  const encryptData = useCallback(async (data: string): Promise<string> => {
     if (!vaultKey) return data;
-    return CryptoJS.AES.encrypt(data, vaultKey).toString();
+    return encryptGCM(data, deriveInnerKey(vaultKey));
   }, [vaultKey]);
 
-  const decryptData = useCallback((encrypted: string): string => {
+  const decryptData = useCallback(async (encrypted: string): Promise<string> => {
     if (!vaultKey || !encrypted) return '';
-    try {
-      const bytes = CryptoJS.AES.decrypt(encrypted, vaultKey);
-      return bytes.toString(CryptoJS.enc.Utf8);
-    } catch { return ''; }
+    return (await decryptGCM(encrypted, deriveInnerKey(vaultKey))) ?? '';
   }, [vaultKey]);
 
   const addAuditEntry = useCallback((action: string, source?: 'app' | 'link') => {

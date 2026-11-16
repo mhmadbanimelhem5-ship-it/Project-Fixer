@@ -498,18 +498,40 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
   items: any[];
   guardians: any[];
   legacy: any;
-  encryptData: (data: string) => string;
+  // P3-1: accepts sync (current) or async (GCM inner layer) encryptData.
+  encryptData: (data: string) => string | Promise<string>;
 }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
+  const [encryptedBackup, setEncryptedBackup] = useState('');
+  const [backupLoading, setBackupLoading] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
 
-  const encryptedBackup = encryptData(JSON.stringify({ items, guardians, legacy }));
-  const shortKey = encryptedBackup.slice(0, 80) + '…';
+  // P3-1: compute the encrypted backup OFF render (encryptData may be async).
+  // Cancel-safe: a closed/reopened modal never commits a stale ciphertext.
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    setBackupLoading(true);
+    (async () => {
+      try {
+        const out = await encryptData(JSON.stringify({ items, guardians, legacy }));
+        if (!cancelled) setEncryptedBackup(typeof out === 'string' ? out : '');
+      } catch {
+        if (!cancelled) setEncryptedBackup('');
+      } finally {
+        if (!cancelled) setBackupLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [visible, items, guardians, legacy, encryptData]);
+
+  const shortKey = encryptedBackup ? encryptedBackup.slice(0, 80) + '…' : '';
 
   const handleCopy = async () => {
+    if (!encryptedBackup) return;
     try {
       if (Platform.OS === 'web') {
         await (navigator as any).clipboard.writeText(encryptedBackup);
@@ -526,6 +548,7 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
   };
 
   const handleDownload = () => {
+    if (!encryptedBackup) return;
     if (Platform.OS === 'web') {
       try {
         const blob = new Blob([encryptedBackup], { type: 'text/plain' });
@@ -580,18 +603,20 @@ function BackupModal({ visible, onClose, items, guardians, legacy, encryptData }
 
           <View style={styles.backupPreview}>
             <Text style={styles.backupPreviewLabel}>{t('settings.backupPreviewLabel')}</Text>
-            <Text style={styles.backupPreviewText} numberOfLines={3}>{shortKey}</Text>
+            <Text style={styles.backupPreviewText} numberOfLines={3}>
+              {backupLoading ? t('common.loading') : shortKey}
+            </Text>
           </View>
 
           <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.modalCancel} onPress={handleCopy}>
+            <TouchableOpacity style={styles.modalCancel} onPress={handleCopy} disabled={backupLoading || !encryptedBackup}>
               <Feather name={copied ? 'check' : 'copy'} size={14} color={copied ? tc.green : tc.textSecondary} style={{ marginRight: 6 }} />
               <Text style={[styles.modalCancelText, copied && { color: tc.green }]}>
                 {copied ? t('common.copied') : t('common.copy')}
               </Text>
             </TouchableOpacity>
             {Platform.OS === 'web' && (
-              <TouchableOpacity style={styles.modalConfirm} onPress={handleDownload}>
+              <TouchableOpacity style={styles.modalConfirm} onPress={handleDownload} disabled={backupLoading || !encryptedBackup}>
                 <LinearGradient colors={['#14B8A6', '#0D9488']} style={styles.modalConfirmGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                   <Feather name="download" size={14} color="#fff" style={{ marginRight: 6 }} />
                   <Text style={styles.modalConfirmText}>{t('settings.backupDownload')}</Text>

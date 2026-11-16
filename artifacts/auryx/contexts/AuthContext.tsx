@@ -21,7 +21,7 @@ const BIOMETRICS_WRAP_SECRET_KEY = 'auryx_biometrics_wrap_secret';
 const BIOMETRICS_WRAP_BLOB_KEY   = 'auryx_biometrics_wrap_blob';
 
  // v9: AES-256-GCM clean slate — ALL pre-GCM local vault state is WIPED on first launch.
-const DATA_VERSION = '9';
+const DATA_VERSION = '10';
 // OWASP-aligned PBKDF2-SHA256 iteration count
 const PIN_KDF_ITER = 310_000;
 

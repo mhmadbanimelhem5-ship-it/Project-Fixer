@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { encryptGCM, decryptGCM } from './cryptoUtils';
 
 export type MediaKind = 'image' | 'video' | 'file';
 
@@ -19,8 +20,8 @@ export interface PickedMedia {
 export type PickReason = 'cancelled' | 'too_large' | 'permission' | 'error';
 export type PickResult = { ok: true; data: PickedMedia } | { ok: false; reason: PickReason };
 
-// Cap the media size. CryptoJS AES runs entirely in JS and loads the whole file
-// into memory, so very large files risk OOM crashes on device.
+// Cap the media size. Base64 payloads live fully in memory, so very large
+// files risk OOM crashes on device regardless of the cipher used.
 export const MAX_MEDIA_BYTES = 30 * 1024 * 1024; // 30 MB
 
 export type MediaScope = 'real' | 'decoy';
@@ -84,7 +85,7 @@ async function uriToBase64(uri: string): Promise<string> {
 // ---------- Image Compression ----------
 // Compresses an image before encryption to reduce:
 //   • base64 string length → less memory pressure
-//   • CryptoJS work per byte  → faster encrypt/decrypt
+//   • cipher work per byte  → faster encrypt/decrypt
 //   • stored blob size        → less disk usage
 // Quality targets are tuned to be invisible at normal viewing sizes.
 // Falls back silently to the original URI on any error — the save always
@@ -113,21 +114,32 @@ async function compressImageUri(uri: string, originalBytes: number): Promise<str
   }
 }
 
-// ---------- Encryption (AES-256 encrypt-then-HMAC for integrity) ----------
-
-function encryptPayload(base64: string, key: string): string {
-  const ct = CryptoJS.AES.encrypt(base64, key).toString();
-  const mac = CryptoJS.HmacSHA256(ct, key).toString();
-  return JSON.stringify({ v: 1, ct, mac });
+// ---------- Encryption ----------
+// P3-6: v2 = AES-256-GCM (native crypto.subtle when available, audited JS
+// fallback otherwise). Replaces the old JS AES-CBC+HMAC construct: faster,
+// lower memory, single authenticated primitive (no separate MAC key reuse).
+// v1 (CBC+HMAC) remains READ-ONLY so pre-GCM dev blobs still open.
+async function encryptPayload(base64: string, key: string): Promise<string> {
+  const blob = await encryptGCM(base64, key);
+  return JSON.stringify({ v: 2, gcm: blob });
 }
 
-function decryptPayload(stored: string, key: string): string {
-  let obj: { v?: number; ct?: string; mac?: string };
+async function decryptPayload(stored: string, key: string): Promise<string> {
+  let obj: { v?: number; ct?: string; mac?: string; gcm?: string };
   try {
     obj = JSON.parse(stored);
   } catch {
     throw new Error('corrupt');
   }
+
+  // v2: authenticated GCM blob.
+  if (obj.v === 2 && obj.gcm) {
+    const b64 = await decryptGCM(obj.gcm, key);
+    if (!b64) throw new Error('integrity'); // wrong key or tampered
+    return b64;
+  }
+
+  // Legacy v1: AES-CBC + HMAC (encrypt-then-MAC). Read-only compatibility.
   if (!obj.ct || !obj.mac) throw new Error('corrupt');
   const expected = CryptoJS.HmacSHA256(obj.ct, key).toString();
   if (expected !== obj.mac) throw new Error('integrity'); // wrong key or tampered
@@ -265,15 +277,15 @@ export async function saveEncryptedMedia(
   key: string,
   scope: MediaScope = 'real',
 ): Promise<string> {
-  // Yield to the event loop BEFORE CryptoJS runs so React can commit the
+  // Yield to the event loop BEFORE heavy crypto runs so React can commit the
   // "busy / loading" state update and show the spinner to the user.
-  // Without this yield, CryptoJS blocks the JS thread immediately and the
-  // spinner never appears — the UI looks frozen the whole time.
   await new Promise<void>(r => setTimeout(r, 0));
 
-  const payload = encryptPayload(base64, key);
+  const payload = await encryptPayload(base64, key);
 
   if (Platform.OS === 'web') {
+    // P1-1 extension: production web must never persist media blobs either.
+    if (!__DEV__) throw new Error('web_persistence_disabled_in_production');
     const refKey = webPrefixFor(scope) + id;
     localStorage.setItem(refKey, payload);
     return refKey;
@@ -288,6 +300,7 @@ export async function saveEncryptedMedia(
 export async function readMediaBase64(ref: string, key: string): Promise<string> {
   let stored = '';
   if (Platform.OS === 'web') {
+    if (!__DEV__) throw new Error('web_persistence_disabled_in_production');
     stored = localStorage.getItem(ref) ?? '';
   } else {
     stored = await FileSystem.readAsStringAsync(ref, { encoding: FileSystem.EncodingType.UTF8 });

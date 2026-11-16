@@ -18,6 +18,7 @@
 
 import * as ExpoCrypto from 'expo-crypto';
 import { gcm } from '@noble/ciphers/aes.js';
+import CryptoJS from 'crypto-js';
 
 // ─── primitive helpers ───────────────────────────────────────────────────────
 
@@ -222,4 +223,27 @@ export async function decryptGCM(blob: string, keyHex: string): Promise<string |
   } catch {
     return null; // Any parsing/decoding error → fail closed
   }
+}
+
+// ─── P3-2: HKDF key separation ───────────────────────────────────────────────
+
+/**
+ * Derive a dedicated inner-item key from the vault key so the inner (item)
+ * layer and the outer (envelope) layer never share the same raw key.
+ *
+ * HKDF-SHA256 (RFC 5869), single-block expand (32-byte output):
+ *   extract: PRK = HMAC-SHA256(salt, IKM)
+ *   expand : T(1) = HMAC-SHA256(PRK, info || 0x01)
+ *
+ * @param vaultKeyHex - 64-char hex vault key (IKM)
+ * @returns 64-char hex (256-bit) inner key, valid for AES-256-GCM.
+ */
+export function deriveInnerKey(vaultKeyHex: string): string {
+  const ikm = CryptoJS.enc.Hex.parse(vaultKeyHex);
+  const salt = CryptoJS.enc.Utf8.parse('auryx-hkdf-salt-v1');
+  const prk = CryptoJS.HmacSHA256(ikm, salt);
+  const info = CryptoJS.enc.Utf8.parse('auryx-inner-item-v1');
+  const counter = CryptoJS.lib.WordArray.create([0x01000000], 1); // single byte 0x01
+  const okm = CryptoJS.HmacSHA256(info.concat(counter), prk);
+  return okm.toString(CryptoJS.enc.Hex);
 }

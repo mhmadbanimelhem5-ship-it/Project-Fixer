@@ -20,7 +20,7 @@
 
 import CryptoJS from 'crypto-js';
 import * as SecureStore from 'expo-secure-store';
-import { secureRandomBytes, encryptGCM, decryptGCM } from './cryptoUtils';
+import { secureRandomBytes, encryptGCM, decryptGCM, deriveInnerKey } from './cryptoUtils';
 import { split, combine, encodeShare, decodeShare } from './shamirUtils';
 import { encryptWithPublicKey, decryptWithPrivateKey } from './keyManager';
 import {
@@ -96,7 +96,7 @@ async function cacheReceivedVault(snapshot: ReceivedVaultSnapshot): Promise<void
   await SecureStore.setItemAsync(storeKey, encrypted);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function hexToU8(hex: string): Uint8Array {
   const arr = new Uint8Array(hex.length / 2);
@@ -126,7 +126,7 @@ interface VaultSnapshot {
   items: ItemSnapshot[];
 }
 
-// ── Seal ─────────────────────────────────────────────────────────────────────
+// ── Seal ──────────────────────────────────────────────────────────────────────
 
 export interface SealParams {
   items: VaultItem[];
@@ -149,13 +149,13 @@ export async function sealVault(params: SealParams): Promise<SealResult> {
   const { items, vaultKey, guardians, beneficiary, ownerName, ownerEmail, mOfN } = params;
   const activeGuardians = guardians.filter(g => g.status === 'active');
 
-  // 1. Build plain snapshot (decrypt each item with the current vault key)
-  const snapItems: ItemSnapshot[] = items.map(item => {
+  // 1. Build plain snapshot (decrypt each item with the HKDF inner key, GCM)
+  const innerKey = deriveInnerKey(vaultKey);
+  const snapItems: ItemSnapshot[] = await Promise.all(items.map(async item => {
     let plainData = '';
     try {
       if (item.encryptedData) {
-        const bytes = CryptoJS.AES.decrypt(item.encryptedData, vaultKey);
-        plainData = bytes.toString(CryptoJS.enc.Utf8) || '';
+        plainData = (await decryptGCM(item.encryptedData, innerKey)) ?? '';
         if (!plainData) {
           throw new Error(`sealVault: item ${item.id} decrypts to empty`);
         }
@@ -174,7 +174,7 @@ export async function sealVault(params: SealParams): Promise<SealResult> {
       plainData,
       tags: item.tags,
     };
-  });
+  }));
 
   const snapshot: VaultSnapshot = {
     version: '1',
@@ -426,6 +426,8 @@ export async function unsealVault(ownerEmail: string): Promise<UnsealResult> {
     if (!decrypted) throw new Error('empty');
     const snapshot = JSON.parse(decrypted) as VaultSnapshot;
 
+    // Display-only obfuscation for inherited items (plaintext already in memory
+    // on the beneficiary device). NOT a confidentiality boundary — documented.
     const displayKey = `inherited_${ownerEmail}`;
     const items: VaultItem[] = snapshot.items.map(snap => ({
       id: snap.id,
