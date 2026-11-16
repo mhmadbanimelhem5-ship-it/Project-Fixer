@@ -130,6 +130,12 @@ async function syncTokenToServer(token: string): Promise<boolean> {
     return existing;
   }
 
+  // TS2454 fix: the flight's `finally` must not reference the `const promise`
+  // being initialised by its own IIFE (self-reference during initialisation is
+  // not provably assigned). A mutable holder, assigned immediately after the
+  // IIFE is created, gives the cleanup guard a provably-safe reference with
+  // identical semantics: only delete the map entry if it is still THIS flight.
+  let promiseRef: Promise<boolean> | null = null;
   const promise = (async () => {
     try {
       if (generationAtStart !== syncGeneration) {
@@ -235,11 +241,12 @@ async function syncTokenToServer(token: string): Promise<boolean> {
       console.warn('[auryx][FCM] Sync error:', e);
       return false;
     } finally {
-      if (syncInFlightByKey.get(flightKey) === promise) {
+      if (promiseRef !== null && syncInFlightByKey.get(flightKey) === promiseRef) {
         syncInFlightByKey.delete(flightKey);
       }
     }
   })();
+  promiseRef = promise;
 
   syncInFlightByKey.set(flightKey, promise);
   return promise;

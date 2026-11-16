@@ -153,7 +153,12 @@ async function secureGet(key: string): Promise<string | null> {
 // P1-4: write errors PROPAGATE by design. Callers (saveVault / addAuditEntry)
 // are responsible for handling failure; silent swallowing caused data loss.
 async function secureSet(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
+  if (Platform.OS === 'web') {
+    // P1-1: web persistence is DEV-ONLY. Production web must never store vault
+    // material in localStorage (readable by any same-origin script / XSS).
+    if (!__DEV__) throw new Error('web_persistence_disabled_in_production');
+    localStorage.setItem(key, value); return;
+  }
   await SecureStore.setItemAsync(key, value, { keychainAccessible: SecureStore.WHEN_UNLOCKED });
 }
 
@@ -166,7 +171,10 @@ async function asyncGet(key: string): Promise<string | null> {
 
 // P1-4: write errors PROPAGATE by design (see secureSet).
 async function asyncSet(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') { localStorage.setItem(key, value); return; }
+  if (Platform.OS === 'web') {
+    if (!__DEV__) throw new Error('web_persistence_disabled_in_production');
+    localStorage.setItem(key, value); return;
+  }
   await AsyncStorage.setItem(key, value);
 }
 
@@ -178,6 +186,7 @@ type StrictRead =
 async function secureGetStrict(key: string): Promise<StrictRead> {
   try {
     if (Platform.OS === 'web') {
+      if (!__DEV__) return { status: 'storage_error', error: new Error('web_persistence_disabled_in_production') };
       const v = localStorage.getItem(key);
       return v === null ? { status: 'missing' } : { status: 'present', value: v };
     }
@@ -191,6 +200,7 @@ async function secureGetStrict(key: string): Promise<StrictRead> {
 async function asyncGetStrict(key: string): Promise<StrictRead> {
   try {
     if (Platform.OS === 'web') {
+      if (!__DEV__) return { status: 'storage_error', error: new Error('web_persistence_disabled_in_production') };
       const v = localStorage.getItem(key);
       return v === null ? { status: 'missing' } : { status: 'present', value: v };
     }
