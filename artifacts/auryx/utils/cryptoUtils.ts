@@ -14,6 +14,9 @@
  *   Fallback : @noble/ciphers (pure JS, audited by Cure53, works everywhere)
  *   Format   : Base64( IV[12] + Ciphertext + AuthTag[16] )
  *   Security : Authenticated encryption — any tampering causes decrypt to fail.
+ *   AAD      : optional additional authenticated data (e.g. a monotonic version
+ *              counter) bound into the tag to detect rollback/replay of older
+ *              but otherwise-valid blobs.
  */
 
 import * as ExpoCrypto from 'expo-crypto';
@@ -135,10 +138,12 @@ function getSubtle(): SubtleCrypto | null {
  *
  * @param plaintext - The string to encrypt (e.g. JSON.stringify(vaultItems))
  * @param keyHex    - 64-char hex string (256-bit key), e.g. the vaultKey
+ * @param aad       - Optional additional authenticated data (e.g. version counter).
+ *                    Bound into the tag; decrypt must supply the SAME aad.
  * @returns Base64 blob: IV[12] + Ciphertext + AuthTag[16]
  * @throws If the key is invalid or encryption fails (fail-closed: never store plaintext).
  */
-export async function encryptGCM(plaintext: string, keyHex: string): Promise<string> {
+export async function encryptGCM(plaintext: string, keyHex: string, aad?: string): Promise<string> {
   const keyBytes = hexToBytes(keyHex);
   if (keyBytes.length !== GCM_KEY_BYTES) {
     throw new Error(`encryptGCM: key must be ${GCM_KEY_BYTES} bytes (got ${keyBytes.length})`);
@@ -146,6 +151,7 @@ export async function encryptGCM(plaintext: string, keyHex: string): Promise<str
 
   const iv = await secureRandomBytes(GCM_IV_BYTES);
   const dataBytes = new TextEncoder().encode(plaintext);
+  const aadBytes = aad !== undefined ? new TextEncoder().encode(aad) : null;
   let cipherWithTag: Uint8Array;
 
   const subtle = getSubtle();
@@ -154,17 +160,20 @@ export async function encryptGCM(plaintext: string, keyHex: string): Promise<str
       const cryptoKey = await subtle.importKey(
         'raw', toAB(keyBytes), { name: 'AES-GCM' }, false, ['encrypt'],
       );
-      const ct = await subtle.encrypt(
-        { name: 'AES-GCM', iv: toAB(iv), tagLength: GCM_TAG_BYTES * 8 },
-        cryptoKey, toAB(dataBytes),
-      );
+      const params: AesGcmParams = { name: 'AES-GCM', iv: toAB(iv), tagLength: GCM_TAG_BYTES * 8 };
+      if (aadBytes) params.additionalData = toAB(aadBytes);
+      const ct = await subtle.encrypt(params, cryptoKey, toAB(dataBytes));
       cipherWithTag = new Uint8Array(ct);
     } catch {
       // Native path failed — fall back to audited pure-JS implementation
-      cipherWithTag = gcm(keyBytes, iv).encrypt(dataBytes);
+      cipherWithTag = aadBytes
+        ? gcm(keyBytes, iv, aadBytes).encrypt(dataBytes)
+        : gcm(keyBytes, iv).encrypt(dataBytes);
     }
   } else {
-    cipherWithTag = gcm(keyBytes, iv).encrypt(dataBytes);
+    cipherWithTag = aadBytes
+      ? gcm(keyBytes, iv, aadBytes).encrypt(dataBytes)
+      : gcm(keyBytes, iv).encrypt(dataBytes);
   }
 
   // Pack: IV + (Ciphertext || Tag)
@@ -178,13 +187,15 @@ export async function encryptGCM(plaintext: string, keyHex: string): Promise<str
  * Decrypt an AES-256-GCM blob produced by encryptGCM.
  *
  * FAIL-CLOSED: Returns null on ANY failure (wrong key, tampered data, corrupt
- * blob, tag mismatch). Never returns partial or unauthenticated plaintext.
+ * blob, tag mismatch, AAD mismatch / rollback). Never returns partial or
+ * unauthenticated plaintext.
  *
  * @param blob   - Base64 blob from encryptGCM
  * @param keyHex - 64-char hex string (256-bit key)
+ * @param aad    - Must equal the aad used at encrypt time (if any).
  * @returns The original UTF-8 string, or null if decryption/authentication fails.
  */
-export async function decryptGCM(blob: string, keyHex: string): Promise<string | null> {
+export async function decryptGCM(blob: string, keyHex: string, aad?: string): Promise<string | null> {
   try {
     const keyBytes = hexToBytes(keyHex);
     if (keyBytes.length !== GCM_KEY_BYTES) return null;
@@ -195,6 +206,7 @@ export async function decryptGCM(blob: string, keyHex: string): Promise<string |
 
     const iv = packed.slice(0, GCM_IV_BYTES);
     const cipherWithTag = packed.slice(GCM_IV_BYTES);
+    const aadBytes = aad !== undefined ? new TextEncoder().encode(aad) : null;
 
     const subtle = getSubtle();
     if (subtle) {
@@ -202,23 +214,26 @@ export async function decryptGCM(blob: string, keyHex: string): Promise<string |
         const cryptoKey = await subtle.importKey(
           'raw', toAB(keyBytes), { name: 'AES-GCM' }, false, ['decrypt'],
         );
-        const pt = await subtle.decrypt(
-          { name: 'AES-GCM', iv: toAB(iv), tagLength: GCM_TAG_BYTES * 8 },
-          cryptoKey, toAB(cipherWithTag),
-        );
+        const params: AesGcmParams = { name: 'AES-GCM', iv: toAB(iv), tagLength: GCM_TAG_BYTES * 8 };
+        if (aadBytes) params.additionalData = toAB(aadBytes);
+        const pt = await subtle.decrypt(params, cryptoKey, toAB(cipherWithTag));
         return new TextDecoder().decode(pt);
       } catch {
         // Native path failed — try pure-JS fallback (also validates the tag)
         try {
-          const pt = gcm(keyBytes, iv).decrypt(cipherWithTag);
+          const pt = aadBytes
+            ? gcm(keyBytes, iv, aadBytes).decrypt(cipherWithTag)
+            : gcm(keyBytes, iv).decrypt(cipherWithTag);
           return new TextDecoder().decode(pt);
         } catch {
-          return null; // Both paths failed → tampered or wrong key
+          return null; // Both paths failed → tampered / wrong key / AAD mismatch
         }
       }
     }
 
-    const pt = gcm(keyBytes, iv).decrypt(cipherWithTag);
+    const pt = aadBytes
+      ? gcm(keyBytes, iv, aadBytes).decrypt(cipherWithTag)
+      : gcm(keyBytes, iv).decrypt(cipherWithTag);
     return new TextDecoder().decode(pt);
   } catch {
     return null; // Any parsing/decoding error → fail closed

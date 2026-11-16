@@ -134,6 +134,9 @@ const DECOY_VAULT_STORAGE_KEY = 'auryx_decoy_vault_data';
 const GUARDIANS_KEY = 'auryx_guardians';
 const LEGACY_KEY = 'auryx_legacy';
 const AUDIT_LOG_KEY = 'auryx:audit:log';
+// P2-5: monotonic envelope version counters (rollback high-water marks).
+const VAULT_VER_KEY_REAL = 'auryx_vault_ver_real';
+const VAULT_VER_KEY_DECOY = 'auryx_vault_ver_decoy';
 
 const AUDIT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // P1-4: bounded automatic retry budget for failed persistence (backoff 1,2,4,8,15s).
@@ -142,6 +145,15 @@ const DEFAULT_LEGACY: LegacySettings = { absenceDays: 30, mOfN: { m: 2, n: 3 }, 
 
 const VaultContext = createContext<VaultContextType>({} as VaultContextType);
 const GUARDIAN_COLORS = ['#8B5CF6', '#3B82F6', '#D4AF37', '#EF4444', '#14B8A6', '#F97316'];
+
+// P2-5: AAD binds mode + monotonic counter into the GCM tag. An older (rolled
+// back) blob carries a different counter → tag mismatch → decrypt fails closed.
+function vaultVerKey(mode: 'real' | 'decoy'): string {
+  return mode === 'decoy' ? VAULT_VER_KEY_DECOY : VAULT_VER_KEY_REAL;
+}
+function vaultAad(mode: 'real' | 'decoy', counter: number): string {
+  return `auryx-vault-v1|${mode}|${counter}`;
+}
 
 async function secureGet(key: string): Promise<string | null> {
   try {
@@ -345,7 +357,22 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (vaultRead.status === 'present' && vaultRead.value) {
-      const decrypted = (await decryptGCM(vaultRead.value, key)) ?? '';
+      // P2-5: read the rollback high-water mark and bind it via AAD.
+      const verRead = await secureGetStrict(vaultVerKey('real'));
+      if (verRead.status === 'storage_error') {
+        perfEnd('loadVault:secureReads');
+        perfEnd('loadVault:total');
+        setVaultLoadPhase('Storage read failed - vault stays locked');
+        return;
+      }
+      const counter = verRead.status === 'present' ? parseInt(verRead.value, 10) : 0;
+      if (!Number.isFinite(counter) || counter < 0) {
+        perfEnd('loadVault:secureReads');
+        perfEnd('loadVault:total');
+        setVaultLoadPhase('Vault version corrupt - vault stays locked');
+        return;
+      }
+      const decrypted = (await decryptGCM(vaultRead.value, key, vaultAad('real', counter))) ?? '';
 
       if (!decrypted) {
         perfEnd('loadVault:secureReads');
@@ -511,7 +538,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (decoyRead.status === 'storage_error') return;
 
     if (decoyRead.status === 'present' && decoyRead.value) {
-      const decrypted = (await decryptGCM(decoyRead.value, key)) ?? '';
+      // P2-5: decoy envelope has its own rollback counter + AAD.
+      const verRead = await secureGetStrict(vaultVerKey('decoy'));
+      if (verRead.status === 'storage_error') return;
+      const counter = verRead.status === 'present' ? parseInt(verRead.value, 10) : 0;
+      if (!Number.isFinite(counter) || counter < 0) return;
+      const decrypted = (await decryptGCM(decoyRead.value, key, vaultAad('decoy', counter))) ?? '';
       if (!decrypted) return;
       try {
         const parsed = JSON.parse(decrypted);
@@ -551,12 +583,30 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       const auditSnap = auditLogRef.current;
       const writeAudit = auditTrustedRef.current;
 
-      const encrypted = await encryptGCM(JSON.stringify(itemsSnap), vaultKey);
+      // P2-5: increment the monotonic counter and bind it into the GCM AAD.
+      // Fail closed if the counter cannot be read or is corrupt — never reset
+      // the high-water mark downward (that would re-enable rollback).
+      const verKey = vaultVerKey(targetMode);
+      const verRead = await secureGetStrict(verKey);
+      if (verRead.status === 'storage_error') {
+        setSaveFailure({ msg: 'فشل حفظ الخزنة: تعذر قراءة عدّاد الإصدار', nonce: Date.now() });
+        return;
+      }
+      const cur = verRead.status === 'present' ? parseInt(verRead.value, 10) : 0;
+      if (!Number.isFinite(cur) || cur < 0) {
+        setSaveFailure({ msg: 'فشل حفظ الخزنة: عدّاد إصدار تالف', nonce: Date.now() });
+        return;
+      }
+      const next = cur + 1;
+      const encrypted = await encryptGCM(JSON.stringify(itemsSnap), vaultKey, vaultAad(targetMode, next));
       if (gen !== loadGenerationRef.current) return; // session changed mid-encrypt
 
       // Write all keys in parallel; allSettled lets us report partial failures
       // precisely instead of losing them to a single rejected Promise.all.
-      const writes: Promise<void>[] = [secureSet(storageKey, encrypted)];
+      const writes: Promise<void>[] = [
+        secureSet(storageKey, encrypted),
+        secureSet(verKey, String(next)),
+      ];
       if (!decoyMode) {
         writes.push(
           secureSet(GUARDIANS_KEY, JSON.stringify(guardiansSnap)),
