@@ -21,7 +21,7 @@ import { clearKeyCache, generateAndStoreKeyPair, getOrCreatePublicKey, hasKeyPai
 import { registerPublicKey } from '@/utils/vaultTransferApi';
 import { sealVault, approveGuardianAccess, type SealResult } from '@/utils/legacyTransfer';
 import { getApiBase } from '@/utils/apiBase';
-import { encryptGCM, decryptGCM } from '@/utils/cryptoUtils';
+import { encryptGCM, decryptGCM, secureRandomHex } from '@/utils/cryptoUtils';
 
 export type VaultCategory = 'logins' | 'media' | 'banking' | 'notes' | 'documents' | 'crypto';
 
@@ -215,8 +215,22 @@ function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
 
-function computeBlockHash(data: string, prevHash: string): string {
-  return CryptoJS.SHA256(prevHash + data + Date.now()).toString();
+// P2-7: deterministic hash over the STORED fields only (no hidden Date.now()),
+// so any verifier can recompute the chain from the persisted log.
+function computeBlockHash(entry: Omit<AuditEntry, 'blockHash'>): string {
+  const canonical = JSON.stringify([entry.id, entry.action, entry.timestamp, entry.prevHash, entry.source ?? 'app']);
+  return CryptoJS.SHA256(entry.prevHash + canonical).toString();
+}
+
+/** P2-7: recompute the chain from persisted entries; false on any tampering. */
+export function verifyAuditChain(log: AuditEntry[]): boolean {
+  let prev = '0';
+  for (const e of log) {
+    if (e.prevHash !== prev) return false;
+    if (computeBlockHash(e) !== e.blockHash) return false;
+    prev = e.blockHash;
+  }
+  return true;
 }
 
 export function VaultProvider({ children }: { children: React.ReactNode }) {
@@ -294,8 +308,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const addAuditEntry = useCallback((action: string, source?: 'app' | 'link') => {
     const prev = auditLogRef.current;
     const prevHash = prev.length > 0 ? prev[prev.length - 1].blockHash : '0';
-    const blockHash = computeBlockHash(action, prevHash);
-    const next: AuditEntry[] = [...prev, { id: generateId(), action, timestamp: Date.now(), blockHash, prevHash, source: source ?? 'app' }];
+    const src: 'app' | 'link' = source ?? 'app';
+    const base = { id: generateId(), action, timestamp: Date.now(), prevHash, source: src };
+    const blockHash = computeBlockHash(base);
+    const next: AuditEntry[] = [...prev, { ...base, blockHash }];
 
     auditLogRef.current = next;
     setAuditLog(next);
@@ -668,7 +684,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const scope: MediaScope = decoyMode ? 'decoy' : 'real';
     if (!vaultKey || !isVaultReady || loadedMode !== scope) throw new Error('locked');
     const gen = loadGenerationRef.current;
-    const id = generateId();
+    // P3-3: mediaRef is a capability reference — derive it from a CSPRNG, not
+    // Math.random, so blob paths cannot be enumerated/guessed.
+    const id = await secureRandomHex(16);
     const ref = await saveEncryptedMedia(id, media.base64, vaultKey, scope);
 
     if (gen !== loadGenerationRef.current) {
