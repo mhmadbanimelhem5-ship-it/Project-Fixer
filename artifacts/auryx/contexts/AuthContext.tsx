@@ -2,10 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
-import CryptoJS from 'crypto-js';
 import { secureRandomHex } from '@/utils/cryptoUtils';
 import { encryptAuth, decryptAuth } from '@/utils/vaultCrypto';
 import { wipeLegacyVaultState } from '@/utils/secureWipe';
+import { pbkdf2,} from 'react-native-quick-crypto';
 
 const PIN_HASH_KEY        = 'auryx_pin_hash';
 const PIN_SALT_KEY        = 'auryx_pin_salt';
@@ -20,9 +20,7 @@ const RECOVERY_TOKEN_KEY  = 'auryx_recovery_token';
 const BIOMETRICS_WRAP_SECRET_KEY = 'auryx_biometrics_wrap_secret';
 const BIOMETRICS_WRAP_BLOB_KEY   = 'auryx_biometrics_wrap_blob';
 
- // v9: AES-256-GCM clean slate — ALL pre-GCM local vault state is WIPED on first launch.
 const DATA_VERSION = '11';
-// OWASP-aligned PBKDF2-SHA256 iteration count
 const PIN_KDF_ITER = 310_000;
 
 export type LockType = 'pin' | 'password' | 'pattern';
@@ -125,51 +123,33 @@ const ALL_AUTH_KEYS = [
 ];
 
 /**
- * Single PBKDF2-SHA256 derivation of 512 bits, split:
- *   verify (first 256 bits)  — stored; used only for PIN gate comparison
- *   kek    (second 256 bits) — NEVER stored; wraps/unwraps the vault key
+ * PBKDF2-SHA256 derivation using react-native-quick-crypto (Native, Fast, Async).
+ * 512 bits (64 bytes) output, split:
+ *   verify (first 32 bytes / 64 hex chars) — stored
+ *   kek    (last 32 bytes / 64 hex chars)  — in-memory only
  */
 async function derivePinMaterial(pin: string, salt: string): Promise<{ verify: string; kek: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const subtle = (global as any).crypto?.subtle as {
-    importKey(f: string, k: Uint8Array, a: string, e: boolean, u: string[]): Promise<unknown>;
-    deriveBits(a: { name: string; salt: Uint8Array; iterations: number; hash: string }, k: unknown, b: number): Promise<ArrayBuffer>;
-  } | undefined;
-
-  if (subtle) {
-    try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('crypto.subtle timeout')), 10_000),
-      );
-      const enc = new TextEncoder();
-      const key = await Promise.race([
-        subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveBits']),
-        timeout,
-      ]);
-      const buf = await Promise.race([
-        subtle.deriveBits(
-          { name: 'PBKDF2', salt: enc.encode(salt), iterations: PIN_KDF_ITER, hash: 'SHA-256' },
-          key,
-          512,
-        ),
-        timeout,
-      ]);
-      const hex = Array.from(new Uint8Array(buf as ArrayBuffer))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-      return { verify: hex.slice(0, 64), kek: hex.slice(64) };
-    } catch {
-      // Web Crypto failed or timed out — fall through to CryptoJS
-    }
-  }
-
-  await new Promise<void>(r => setTimeout(r, 50));
-  const hex = CryptoJS.PBKDF2(pin, salt, {
-    keySize: 16, // 16 words * 4 bytes = 64 bytes = 512 bits
-    iterations: PIN_KDF_ITER,
-    hasher: CryptoJS.algo.SHA256,
-  }).toString();
-  return { verify: hex.slice(0, 64), kek: hex.slice(64) };
+  return new Promise((resolve, reject) => {
+    pbkdf2(
+      pin,
+      salt,
+      PIN_KDF_ITER,
+      64,
+      'sha256',
+      (err, derivedKey) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        if (!derivedKey) { reject(new Error('No derived key')); return; }
+        const hex = derivedKey.toString('hex');
+        resolve({
+          verify: hex.slice(0, 64),
+          kek: hex.slice(64),
+        });
+      }
+    );
+  });
 }
 
 async function hashPin(pin: string, salt: string): Promise<string> {
@@ -201,7 +181,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const storedVersion = await secureGet(DATA_VERSION_KEY);
       if (storedVersion !== DATA_VERSION) {
-        // v8 clean-slate: destroy every pre-v2 artifact BEFORE any read
         await wipeLegacyVaultState();
         await secureSet(DATA_VERSION_KEY, DATA_VERSION);
       }
@@ -230,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  /* ── internal helpers ── */
+  /* ── internal helpers ─── */
   async function doSuccessfulUnlock(vaultKeyVal: string | null, decoy = false) {
     setVaultKey(vaultKeyVal);
     setIsLocked(false);
@@ -255,7 +234,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (triggerIntruder) setIntruder(true);
   }
 
-  /** Unwrap the stored v2 vault-key blob with a KEK. Null on any failure. */
   async function unwrapVaultKey(kek: string): Promise<string | null> {
     const read = await secureGetStrict(VAULT_KEY_KEY);
     if (read.status !== 'present') return null;
@@ -268,7 +246,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  /** Biometric escrow: unwrap VEK with the device-stored wrap secret. */
   async function unwrapWithBiometricsWrap(): Promise<string | null> {
     const sec = await secureGetStrict(BIOMETRICS_WRAP_SECRET_KEY);
     const blob = await secureGetStrict(BIOMETRICS_WRAP_BLOB_KEY);
@@ -280,7 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  /* ── public API ── */
+  /* ── public API ─── */
   const setupPin = async (pin: string) => {
     const salt = await secureRandomHex(16);
     const existing = await secureGetStrict(VAULT_KEY_KEY);
@@ -369,15 +346,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const decoyHash = await secureGet(DECOY_PIN_HASH_KEY);
     if (decoyHash) await secureDelete(DECOY_PIN_HASH_KEY);
-    await secureDelete(DECOY_VAULT_KEY_KEY); // Will be recreated on next decoy unlock
+    await secureDelete(DECOY_VAULT_KEY_KEY);
 
     return true;
   };
 
   const forceResetPin = async (newPin: string): Promise<boolean> => {
     try {
-      // Recovery without the old PIN: preserve the vault ONLY via the biometric escrow.
-      // Otherwise, the wrapped VEK is mathematically unrecoverable, so we wipe vault state.
       const escrowVk = await unwrapWithBiometricsWrap();
       if (!escrowVk) {
         await wipeLegacyVaultState();
@@ -423,8 +398,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (input === stored) {
       const vk = await unwrapVaultKey(mat.kek);
       if (!vk) {
-        // PIN correct but key material unreadable/corrupt: fail closed
-        // WITHOUT penalising the attempt counter (not a wrong-PIN case).
         return false;
       }
       await doSuccessfulUnlock(vk, false);
@@ -497,7 +470,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (result.success) {
-      if (!vaultKey) return false; // no active session key -> no escrow possible
+      if (!vaultKey) return false;
 
       const secret = await secureRandomHex(32);
       const blob = encryptAuth(vaultKey, secret);
