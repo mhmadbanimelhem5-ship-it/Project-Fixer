@@ -320,19 +320,25 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         title: { ar: 'الاستعادة عبر إيميل الاسترجاع', en: 'Recovery via recovery email' },
         body: {
           ar:
+            '⚠️ شرط أساسي: يجب تفعيل البصمة (Face ID / Fingerprint) من إعدادات الأمان قبل تعيين إيميل الاسترجاع.\n' +
+            'البصمة هي الطبقة التي تحمي مفتاح الخزنة وتسمح باستعادة الرمز بأمان.\n' +
+            'بدون تفعيل البصمة مسبقاً، لن تتمكن من استعادة حسابك حتى مع وجود الإيميل.\n\n' +
             'فعّل الإيميل مسبقاً من: الإعدادات ← الأمان ← إيميل الاسترجاع.\n' +
             'عند الحاجة: شاشة القفل ← "نسيت الرقم؟" ← "عبر إيميل الاسترجاع".\n' +
             'أدخل بريدك المسجّل، يصلك رمز من 6 أرقام، أدخله ثم عيّن رمزاً جديداً.\n' +
             'الرمز الصالح هو دائماً رمز آخر بريد وصلك — كل طلب جديد يلغي السابق.\n' +
             'بريدك يُخزَّن مجزّأً (Hash) ولا يمكن لأحد قراءته من قاعدة البيانات.',
           en:
+            '⚠️ Mandatory Requirement: You must enable Biometrics (Face ID / Fingerprint) in Security Settings before setting up a recovery email.\n' +
+            'Biometrics is the layer that protects your vault key and allows secure PIN recovery.\n' +
+            'Without biometrics enabled, account recovery will not be possible, even with the email.\n\n' +
             'Enable it beforehand: Settings ← Security ← Recovery email.\n' +
             'When needed: lock screen ← "Forgot PIN?" ← "Via recovery email".\n' +
             'Enter your registered email, receive a 6-digit code, enter it, then set a new PIN.\n' +
             'The valid code is always from the latest email — each new request invalidates the previous one.\n' +
             'Your email is stored as a hash; nobody can read it from the database.',
         },
-        keywords: { ar: 'OTP، بريد، تحقق، رمز', en: 'OTP, email, verify, code' },
+        keywords: { ar: 'OTP، بريد، تحقق، رمز، بصمة', en: 'OTP, email, verify, code, biometrics' },
       },
     ],
   },
@@ -472,7 +478,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         body: {
           ar:
             'رمز دخولك لا يُخزَّن أبداً، ولا حتى بشكل مشفر.\n' +
-            'يُشتق منه مفتاح الخزنة عبر PBKDF2 مع Salt عشوائي و10,000 تكرار.\n' +
+            'يُشتق منه مفتاح الخزنة عبر PBKDF2 مع Salt عشوائي 310.000 تكرار.\n' +
             'محاولات التخمين تُبطأ عمداً، وبعد 3/6/9 محاولات تُفعَّل أقفال زمنية ثم كشف الدخيل.\n' +
             'البصمة والوجه وسيلتا فتح مريحتان — المرجع النهائي يبقى الـ PIN.',
           en:

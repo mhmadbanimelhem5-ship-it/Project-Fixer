@@ -110,7 +110,6 @@ interface VaultContextType {
   updateLegacy: (settings: Partial<LegacySettings>) => void;
   addAuditEntry: (action: string, source?: 'app' | 'link') => void;
   isVaultReady: boolean;
-  /** P1-4: non-null when the last persistence attempt failed; UI should surface a warning. */
   saveError: string | null;
   loadVault: (key: string) => Promise<void>;
   loadDecoyVault: (key: string) => Promise<void>;
@@ -134,20 +133,16 @@ const DECOY_VAULT_STORAGE_KEY = 'auryx_decoy_vault_data';
 const GUARDIANS_KEY = 'auryx_guardians';
 const LEGACY_KEY = 'auryx_legacy';
 const AUDIT_LOG_KEY = 'auryx:audit:log';
-// P2-5: monotonic envelope version counters (rollback high-water marks).
 const VAULT_VER_KEY_REAL = 'auryx_vault_ver_real';
 const VAULT_VER_KEY_DECOY = 'auryx_vault_ver_decoy';
 
 const AUDIT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-// P1-4: bounded automatic retry budget for failed persistence (backoff 1,2,4,8,15s).
 const MAX_SAVE_RETRIES = 5;
 const DEFAULT_LEGACY: LegacySettings = { absenceDays: 30, mOfN: { m: 2, n: 3 }, enabled: false, userRole: 'owner' };
 
 const VaultContext = createContext<VaultContextType>({} as VaultContextType);
 const GUARDIAN_COLORS = ['#8B5CF6', '#3B82F6', '#D4AF37', '#EF4444', '#14B8A6', '#F97316'];
 
-// P2-5: AAD binds mode + monotonic counter into the GCM tag. An older (rolled
-// back) blob carries a different counter → tag mismatch → decrypt fails closed.
 function vaultVerKey(mode: 'real' | 'decoy'): string {
   return mode === 'decoy' ? VAULT_VER_KEY_DECOY : VAULT_VER_KEY_REAL;
 }
@@ -162,12 +157,8 @@ async function secureGet(key: string): Promise<string | null> {
   } catch { return null; }
 }
 
-// P1-4: write errors PROPAGATE by design. Callers (saveVault / addAuditEntry)
-// are responsible for handling failure; silent swallowing caused data loss.
 async function secureSet(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') {
-    // P1-1: web persistence is DEV-ONLY. Production web must never store vault
-    // material in localStorage (readable by any same-origin script / XSS).
     if (!__DEV__) throw new Error('web_persistence_disabled_in_production');
     localStorage.setItem(key, value); return;
   }
@@ -181,7 +172,6 @@ async function asyncGet(key: string): Promise<string | null> {
   } catch { return null; }
 }
 
-// P1-4: write errors PROPAGATE by design (see secureSet).
 async function asyncSet(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') {
     if (!__DEV__) throw new Error('web_persistence_disabled_in_production');
@@ -227,14 +217,11 @@ function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
 
-// P2-7: deterministic hash over the STORED fields only (no hidden Date.now()),
-// so any verifier can recompute the chain from the persisted log.
 function computeBlockHash(entry: Omit<AuditEntry, 'blockHash'>): string {
   const canonical = JSON.stringify([entry.id, entry.action, entry.timestamp, entry.prevHash, entry.source ?? 'app']);
   return CryptoJS.SHA256(entry.prevHash + canonical).toString();
 }
 
-/** P2-7: recompute the chain from persisted entries; false on any tampering. */
 export function verifyAuditChain(log: AuditEntry[]): boolean {
   let prev = '0';
   for (const e of log) {
@@ -262,7 +249,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [isKeyGenerating, setIsKeyGenerating] = useState(false);
   const [keyGenProgress, setKeyGenProgress] = useState(0);
   const [keyGenPhase, setKeyGenPhase] = useState('');
-  // P1-4: outstanding persistence failure (nonce forces retry-effect re-trigger).
   const [saveFailure, setSaveFailure] = useState<{ msg: string; nonce: number } | null>(null);
   const saveError = saveFailure ? saveFailure.msg : null;
 
@@ -304,8 +290,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setMediaSessionVersion(v => v + 1);
   }, []);
 
-  // P3-1/P3-2: inner item layer = AES-256-GCM under an HKDF-derived inner key
-  // (separate from the outer envelope key). Async by design.
   const encryptData = useCallback(async (data: string): Promise<string> => {
     if (!vaultKey) return data;
     return encryptGCM(data, deriveInnerKey(vaultKey));
@@ -316,6 +300,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return (await decryptGCM(encrypted, deriveInnerKey(vaultKey))) ?? '';
   }, [vaultKey]);
 
+  // ─── التعديل الأول: إضافة تتبع للأخطاء لمنع الفشل الصامت ───
   const addAuditEntry = useCallback((action: string, source?: 'app' | 'link') => {
     const prev = auditLogRef.current;
     const prevHash = prev.length > 0 ? prev[prev.length - 1].blockHash : '0';
@@ -327,11 +312,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     auditLogRef.current = next;
     setAuditLog(next);
 
-    if (!auditTrustedRef.current) return;
+    if (!auditTrustedRef.current) {
+      console.warn('[Auryx] Audit log untrusted, skipping storage write.');
+      return;
+    }
 
     const snapshot = next.slice();
-    asyncSet(AUDIT_LOG_KEY, JSON.stringify(snapshot)).catch(() => {
-      // Entry stays in memory; the debounced saveVault retries persistence.
+    asyncSet(AUDIT_LOG_KEY, JSON.stringify(snapshot)).catch((e) => {
+      console.error('[Auryx] Failed to write audit log to AsyncStorage:', e);
     });
   }, []);
 
@@ -357,7 +345,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (vaultRead.status === 'present' && vaultRead.value) {
-      // P2-5: read the rollback high-water mark and bind it via AAD.
       const verRead = await secureGetStrict(vaultVerKey('real'));
       if (verRead.status === 'storage_error') {
         perfEnd('loadVault:secureReads');
@@ -417,6 +404,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const auditRead = await asyncGetStrict(AUDIT_LOG_KEY);
 
     if (auditRead.status === 'storage_error') {
+      console.warn('[Auryx] Audit log storage error. New entries will not be saved.');
       auditTrustedRef.current = false;
     } else if (auditRead.status === 'missing') {
       const legacyProbe = await secureGetStrict(AUDIT_LOG_KEY);
@@ -427,10 +415,16 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
           const migrated: AuditEntry[] = JSON.parse(legacyProbe.value);
           nextAuditLog = migrated.filter(e => e.timestamp > Date.now() - AUDIT_TTL_MS);
           auditTrustedRef.current = true;
-        } catch { auditTrustedRef.current = false; }
+        } catch (e) {
+          // ─── التعديل الثاني: كسر حلقة الموت عند فساد البيانات القديمة ───
+          console.warn('[Auryx] Legacy audit log corrupted, starting fresh chain.', e);
+          nextAuditLog = [];
+          auditTrustedRef.current = true; // السماح بحفظ العمليات الجديدة
+        }
       } else if (legacyProbe.status === 'missing') {
         auditTrustedRef.current = true;
       } else {
+        console.warn('[Auryx] Legacy audit log storage error.');
         auditTrustedRef.current = false;
       }
     } else {
@@ -438,7 +432,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         const parsedAudit: AuditEntry[] = JSON.parse(auditRead.value);
         nextAuditLog = parsedAudit.filter(e => e.timestamp > Date.now() - AUDIT_TTL_MS);
         auditTrustedRef.current = true;
-      } catch { auditTrustedRef.current = false; }
+      } catch (e) {
+        // ─── التعديل الثاني: كسر حلقة الموت عند فساد البيانات القديمة ───
+        console.warn('[Auryx] Audit log corrupted, starting fresh chain.', e);
+        nextAuditLog = [];
+        auditTrustedRef.current = true; // السماح بحفظ العمليات الجديدة
+      }
     }
     perfEnd('loadVault:auditLog');
 
@@ -538,7 +537,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (decoyRead.status === 'storage_error') return;
 
     if (decoyRead.status === 'present' && decoyRead.value) {
-      // P2-5: decoy envelope has its own rollback counter + AAD.
       const verRead = await secureGetStrict(vaultVerKey('decoy'));
       if (verRead.status === 'storage_error') return;
       const counter = verRead.status === 'present' ? parseInt(verRead.value, 10) : 0;
@@ -583,9 +581,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       const auditSnap = auditLogRef.current;
       const writeAudit = auditTrustedRef.current;
 
-      // P2-5: increment the monotonic counter and bind it into the GCM AAD.
-      // Fail closed if the counter cannot be read or is corrupt — never reset
-      // the high-water mark downward (that would re-enable rollback).
       const verKey = vaultVerKey(targetMode);
       const verRead = await secureGetStrict(verKey);
       if (verRead.status === 'storage_error') {
@@ -599,10 +594,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       }
       const next = cur + 1;
       const encrypted = await encryptGCM(JSON.stringify(itemsSnap), vaultKey, vaultAad(targetMode, next));
-      if (gen !== loadGenerationRef.current) return; // session changed mid-encrypt
+      if (gen !== loadGenerationRef.current) return;
 
-      // Write all keys in parallel; allSettled lets us report partial failures
-      // precisely instead of losing them to a single rejected Promise.all.
       const writes: Promise<void>[] = [
         secureSet(storageKey, encrypted),
         secureSet(verKey, String(next)),
@@ -615,7 +608,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         if (writeAudit) writes.push(asyncSet(AUDIT_LOG_KEY, JSON.stringify(auditSnap)));
       }
       const results = await Promise.allSettled(writes);
-      if (gen !== loadGenerationRef.current) return; // session changed mid-write
+      if (gen !== loadGenerationRef.current) return;
 
       const failed = results.filter(r => r.status === 'rejected');
       if (failed.length > 0) {
@@ -629,7 +622,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       if (gen !== loadGenerationRef.current) return;
       setSaveFailure({ msg: `فشل حفظ الخزنة: ${e instanceof Error ? e.message : String(e)}`, nonce: Date.now() });
     }
-  }, [vaultKey, isVaultReady, loadedMode, decoyMode]); // ✅ FIXED: Removed state vars, relying purely on refs
+  }, [vaultKey, isVaultReady, loadedMode, decoyMode]);
 
   useEffect(() => {
     const targetMode = decoyMode ? 'decoy' : 'real';
@@ -651,9 +644,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.remove();
   }, []);
 
-  // P1-4: bounded automatic retry with exponential backoff while a save failure
-  // is outstanding. Stops after MAX_SAVE_RETRIES; the banner then persists until
-  // a manual saveVault() or the next state change / AppState event succeeds.
   useEffect(() => {
     if (!saveFailure) { saveRetryCountRef.current = 0; return; }
     if (saveRetryCountRef.current >= MAX_SAVE_RETRIES) return;
@@ -733,8 +723,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const scope: MediaScope = decoyMode ? 'decoy' : 'real';
     if (!vaultKey || !isVaultReady || loadedMode !== scope) throw new Error('locked');
     const gen = loadGenerationRef.current;
-    // P3-3: mediaRef is a capability reference — derive it from a CSPRNG, not
-    // Math.random, so blob paths cannot be enumerated/guessed.
     const id = await secureRandomHex(16);
     const ref = await saveEncryptedMedia(id, media.base64, vaultKey, scope);
 
