@@ -54,6 +54,7 @@
       "expo-secure-store",
       "expo-image-picker",
       "expo-local-authentication",
+      "react-native-quick-crypto",
       "expo-video",
       [
         "expo-notifications",
